@@ -11,11 +11,13 @@
 #include "logging.hpp"
 
 #include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 
 namespace ocvsmd
 {
@@ -29,19 +31,26 @@ namespace pipe
 class SocketBase
 {
 public:
-    struct State final
+    struct IoState final
     {
-        enum class ReadPhase : std::uint8_t
+        struct MsgHeader final
         {
-            Header,
-            Payload
+            std::uint32_t signature{0};
+            std::uint32_t payload_size{0};
         };
+        struct MsgPayload final
+        {
+            std::uint32_t                   size{0};
+            std::unique_ptr<std::uint8_t[]> buffer{nullptr};  // NOLINT(*-avoid-c-arrays)
+        };
+        using MsgPart = cetl::variant<MsgHeader, MsgPayload>;
 
-        io::OwnFd   fd{};
-        std::size_t read_msg_size{0};
-        ReadPhase   read_phase{ReadPhase::Header};
+        io::OwnFd                   fd;
+        std::size_t                 rx_partial_size{0};
+        MsgPart                     rx_msg_part{MsgHeader{}};
+        std::function<int(Payload)> on_rx_msg_payload;
 
-    };  // State
+    };  // IoState
 
     SocketBase(const SocketBase&)                = delete;
     SocketBase(SocketBase&&) noexcept            = delete;
@@ -57,9 +66,8 @@ protected:
         return *logger_;
     }
 
-    CETL_NODISCARD static int send(const State& state, const Payloads payloads);
-
-    CETL_NODISCARD int receiveMessage(State& state, std::function<int(Payload)>&& action) const;
+    CETL_NODISCARD int send(const IoState& io_state, const Payloads payloads) const;
+    CETL_NODISCARD int receiveData(IoState& io_state) const;
 
 private:
     LoggerPtr logger_{getLogger("ipc")};

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.25)
 
 set(dsdl_ocvsmd_dir ${CMAKE_CURRENT_SOURCE_DIR}/dsdl/ocvsmd)
 file(GLOB_RECURSE dsdl_ocvsmd_files CONFIGURE_DEPENDS ${dsdl_ocvsmd_dir}/*.dsdl)

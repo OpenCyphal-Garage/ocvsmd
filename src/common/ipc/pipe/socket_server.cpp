@@ -150,6 +150,11 @@ void SocketServer::handleAccept()
                 handleClientRequest(new_client_id);
             },
             platform::IPosixExecutorExtension::Trigger::Readable{raw_fd}));
+        //
+        client_context->state().on_rx_msg_payload = [this, new_client_id](const Payload payload) {
+            //
+            return event_handler_(Event::Message{new_client_id, payload});
+        };
 
         client_id_to_context_.emplace(new_client_id, std::move(client_context));
 
@@ -163,10 +168,7 @@ void SocketServer::handleClientRequest(const ClientId client_id)
     CETL_DEBUG_ASSERT(client_context, "");
     auto& state = client_context->state();
 
-    if (const auto err = receiveMessage(state, [this, client_id](const auto payload) {
-            //
-            return event_handler_(Event::Message{client_id, payload});
-        }))
+    if (const auto err = receiveData(state))
     {
         if (err == -1)
         {

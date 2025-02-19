@@ -121,15 +121,15 @@ private:
         GatewayImpl& operator=(const GatewayImpl&)     = delete;
         GatewayImpl& operator=(GatewayImpl&&) noexcept = delete;
 
-        ~GatewayImpl()
+        virtual ~GatewayImpl()
         {
-            router_.logger_->trace("~Gateway(cl={}, tag={}, err={}).",
-                                   endpoint_.client_id,
-                                   endpoint_.tag,
-                                   completion_error_code_);
-
             performWithoutThrowing([this] {
                 //
+                router_.logger_->trace("~Gateway(cl={}, tag={}, err={}).",
+                                       endpoint_.client_id,
+                                       endpoint_.tag,
+                                       completion_error_code_);
+
                 router_.onGatewayDisposal(endpoint_, completion_error_code_);
             });
         }

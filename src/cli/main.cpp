@@ -83,7 +83,7 @@ int main(const int argc, const char** const argv)
             return EXIT_FAILURE;
         }
 
-#if 0  // NOLINT
+#if 1  // NOLINT
 
         // Demo of daemon's node command client - sending a command to node 42, 43 & 44.
         {
@@ -111,7 +111,7 @@ int main(const int argc, const char** const argv)
             }
         }
 #endif
-#if 1  // NOLINT
+#if 0  // NOLINT
 
         // Demo of daemon's file server - push root.
         {

@@ -40,12 +40,12 @@ public:
         CETL_DEBUG_ASSERT(fd.get() != -1, "");
 
         logger_.trace("ClientContext(fd={}, id={}).", fd.get(), id_);
-        state_.fd = std::move(fd);
+        io_state_.fd = std::move(fd);
     }
 
     ~ClientContext()
     {
-        logger_.trace("~ClientContext(fd={}, id={}).", state_.fd.get(), id_);
+        logger_.trace("~ClientContext(fd={}, id={}).", io_state_.fd.get(), id_);
     }
 
     ClientContext(const ClientContext&)                = delete;
@@ -53,9 +53,9 @@ public:
     ClientContext& operator=(const ClientContext&)     = delete;
     ClientContext& operator=(ClientContext&&) noexcept = delete;
 
-    SocketBase::State& state() noexcept
+    SocketBase::IoState& state() noexcept
     {
-        return state_;
+        return io_state_;
     }
 
     void setCallback(libcyphal::IExecutor::Callback::Any&& fd_callback)
@@ -66,7 +66,7 @@ public:
 private:
     const ServerPipe::ClientId          id_;
     Logger&                             logger_;
-    SocketBase::State                   state_;
+    SocketBase::IoState                 io_state_;
     libcyphal::IExecutor::Callback::Any fd_callback_;
 
 };  // ClientContext
