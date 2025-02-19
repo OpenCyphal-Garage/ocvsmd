@@ -1,0 +1,8 @@
+
+@extent 512 * 8
+
+---
+
+uavcan.file.Path.2.0 item
+
+@extent 512 * 8

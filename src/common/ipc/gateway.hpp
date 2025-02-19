@@ -73,7 +73,7 @@ public:
     Gateway& operator=(Gateway&&) noexcept = delete;
 
     CETL_NODISCARD virtual int send(const ServiceDesc::Id service_id, const Payload payload) = 0;
-    virtual void               complete(int error_code)                                      = 0;
+    virtual void               complete(const int error_code)                                = 0;
     CETL_NODISCARD virtual int event(const Event::Var& event)                                = 0;
     virtual void               subscribe(EventHandler event_handler)                         = 0;
 

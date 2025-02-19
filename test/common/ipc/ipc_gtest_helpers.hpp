@@ -94,22 +94,81 @@ inline bool operator==(const RouteChannelEnd_0_1& lhs, const RouteChannelEnd_0_1
 
 // MARK: - GTest Matchers:
 
-template <typename T>
+template <typename Msg>
 class PayloadMatcher
 {
 public:
-    explicit PayloadMatcher(testing::Matcher<const typename T::VariantType&> matcher,
-                            cetl::pmr::memory_resource&                      memory)
-        : matcher_(std::move(matcher))
-        , memory_{memory}
-
+    PayloadMatcher(cetl::pmr::memory_resource& memory, testing::Matcher<const Msg&> matcher)
+        : memory_{memory}
+        , matcher_(std::move(matcher))
     {
     }
 
     bool MatchAndExplain(const Payload& payload, testing::MatchResultListener* listener) const
     {
-        T          msg{&memory_};
-        const auto result = tryDeserializePayload<T>(payload, msg);
+        Msg        msg{&memory_};
+        const auto result = tryDeserializePayload<Msg>(payload, msg);
+        if (!result)
+        {
+            if (listener->IsInterested())
+            {
+                *listener << "Failed to deserialize the payload.";
+            }
+            return false;
+        }
+
+        const bool match = matcher_.MatchAndExplain(msg, listener);
+        if (!match && listener->IsInterested())
+        {
+            *listener << ".\n          Payload: ";
+            *listener << testing::PrintToString(msg);
+        }
+        return match;
+    }
+
+    bool MatchAndExplain(const Payloads& payloads, testing::MatchResultListener* listener) const
+    {
+        std::vector<std::uint8_t> flatten;
+        for (const auto& payload : payloads)
+        {
+            flatten.insert(flatten.end(), payload.begin(), payload.end());
+        }
+        return MatchAndExplain({flatten.data(), flatten.size()}, listener);
+    }
+
+    void DescribeTo(std::ostream* os) const
+    {
+        *os << "is a value of type '" << "GetTypeName()" << "' and the value ";
+        matcher_.DescribeTo(os);
+    }
+
+    void DescribeNegationTo(std::ostream* os) const
+    {
+        *os << "is a value of type other than '" << "GetTypeName()" << "' or the value ";
+        matcher_.DescribeNegationTo(os);
+    }
+
+private:
+    cetl::pmr::memory_resource&        memory_;
+    const testing::Matcher<const Msg&> matcher_;
+
+};  // PayloadMatcher
+
+template <typename Msg>
+class PayloadVariantMatcher
+{
+public:
+    PayloadVariantMatcher(cetl::pmr::memory_resource&                        memory,
+                          testing::Matcher<const typename Msg::VariantType&> matcher)
+        : memory_{memory}
+        , matcher_(std::move(matcher))
+    {
+    }
+
+    bool MatchAndExplain(const Payload& payload, testing::MatchResultListener* listener) const
+    {
+        Msg        msg{&memory_};
+        const auto result = tryDeserializePayload<Msg>(payload, msg);
         if (!result)
         {
             if (listener->IsInterested())
@@ -151,18 +210,24 @@ public:
     }
 
 private:
-    const testing::Matcher<const typename T::VariantType&> matcher_;
-    cetl::pmr::memory_resource&                            memory_;
+    cetl::pmr::memory_resource&                              memory_;
+    const testing::Matcher<const typename Msg::VariantType&> matcher_;
 
-};  // PayloadMatcher
+};  // PayloadVariantMatcher
 
-template <typename T>
-testing::PolymorphicMatcher<PayloadMatcher<T>> PayloadWith(
-
-    const testing::Matcher<const typename T::VariantType&>& matcher,
-    cetl::pmr::memory_resource&                             memory)
+template <typename Msg>
+testing::PolymorphicMatcher<PayloadMatcher<Msg>> PayloadWith(cetl::pmr::memory_resource&         mr,
+                                                             const testing::Matcher<const Msg&>& matcher)
 {
-    return testing::MakePolymorphicMatcher(PayloadMatcher<T>(matcher, memory));
+    return testing::MakePolymorphicMatcher(PayloadMatcher<Msg>(mr, matcher));
+}
+
+template <typename Msg>
+testing::PolymorphicMatcher<PayloadVariantMatcher<Msg>> PayloadVariantWith(
+    cetl::pmr::memory_resource&                               mr,
+    const testing::Matcher<const typename Msg::VariantType&>& matcher)
+{
+    return testing::MakePolymorphicMatcher(PayloadVariantMatcher<Msg>(mr, matcher));
 }
 
 inline auto PayloadOfRouteConnect(cetl::pmr::memory_resource& mr,
@@ -171,7 +236,7 @@ inline auto PayloadOfRouteConnect(cetl::pmr::memory_resource& mr,
                                   ErrorCode                   error_code = ErrorCode::Success)
 {
     const RouteConnect_0_1 route_conn{{ver_major, ver_minor, &mr}, static_cast<std::int32_t>(error_code), &mr};
-    return PayloadWith<Route_0_1>(testing::VariantWith<RouteConnect_0_1>(route_conn), mr);
+    return PayloadVariantWith<Route_0_1>(mr, testing::VariantWith<RouteConnect_0_1>(route_conn));
 }
 
 template <typename Msg>
@@ -190,7 +255,7 @@ auto PayloadOfRouteChannelMsg(const Msg&                  msg,
                         return 0;
                     }),
                 0);
-    return PayloadWith<Route_0_1>(testing::VariantWith<RouteChannelMsg_0_1>(route_ch_msg), mr);
+    return PayloadVariantWith<Route_0_1>(mr, testing::VariantWith<RouteChannelMsg_0_1>(route_ch_msg));
 }
 
 inline auto PayloadOfRouteChannelEnd(cetl::pmr::memory_resource& mr,  //
@@ -198,7 +263,7 @@ inline auto PayloadOfRouteChannelEnd(cetl::pmr::memory_resource& mr,  //
                                      const ErrorCode             error_code)
 {
     const RouteChannelEnd_0_1 ch_end{{tag, static_cast<std::int32_t>(error_code), &mr}, &mr};
-    return PayloadWith<Route_0_1>(testing::VariantWith<RouteChannelEnd_0_1>(ch_end), mr);
+    return PayloadVariantWith<Route_0_1>(mr, testing::VariantWith<RouteChannelEnd_0_1>(ch_end));
 }
 
 }  // namespace ipc

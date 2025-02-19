@@ -111,6 +111,73 @@ int main(const int argc, const char** const argv)
             }
         }
 #endif
+#if 0  // NOLINT
+
+        // Demo of daemon's file server - push root.
+        {
+            using PushRoot = ocvsmd::sdk::FileServer::PushRoot;
+
+            auto file_server = daemon->getFileServer();
+
+            const std::string path{"key"};
+            auto              sender     = file_server->pushRoot(path, true);
+            auto              cmd_result = ocvsmd::sdk::sync_wait<PushRoot::Result>(executor, std::move(sender));
+            if (const auto* const err = cetl::get_if<PushRoot::Failure>(&cmd_result))
+            {
+                spdlog::error("Failed to push FS root (path='{}'): {}.", path, std::strerror(*err));
+            }
+            else
+            {
+                spdlog::info("File Server responded ok on 'PushRoot'.");
+            }
+        }
+#endif
+#if 0  // NOLINT
+
+        // Demo of daemon's file server - pop root.
+        {
+            using PopRoot = ocvsmd::sdk::FileServer::PopRoot;
+
+            auto file_server = daemon->getFileServer();
+
+            const std::string path{"key"};
+            auto              sender     = file_server->popRoot(path, true);
+            auto              cmd_result = ocvsmd::sdk::sync_wait<PopRoot::Result>(executor, std::move(sender));
+            if (const auto* const err = cetl::get_if<PopRoot::Failure>(&cmd_result))
+            {
+                spdlog::error("Failed to pop FS root (path='{}'): {}.", path, std::strerror(*err));
+            }
+            else
+            {
+                spdlog::info("File Server responded ok on 'PopRoot'.");
+            }
+        }
+#endif
+#if 1  // NOLINT
+
+        // Demo of daemon's file server - getting the list of roots.
+        {
+            using ListRoots = ocvsmd::sdk::FileServer::ListRoots;
+
+            auto file_server = daemon->getFileServer();
+
+            auto sender     = file_server->listRoots();
+            auto cmd_result = ocvsmd::sdk::sync_wait<ListRoots::Result>(executor, std::move(sender));
+            if (const auto* const err = cetl::get_if<ListRoots::Failure>(&cmd_result))
+            {
+                spdlog::error("Failed to list FS roots: {}", std::strerror(*err));
+            }
+            else
+            {
+                const auto roots = cetl::get<ListRoots::Success>(std::move(cmd_result));
+                spdlog::info("File Server responded with list of roots (cnt={}):", roots.size());
+                for (std::size_t i = 0; i < roots.size(); ++i)
+                {
+                    spdlog::info("{:4} → '{}'", i, roots[i]);
+                }
+            }
+        }
+#endif
 
         if (g_running == 0)
         {

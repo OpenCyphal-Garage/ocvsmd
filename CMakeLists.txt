@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.25)
 
 project(ocvsmd
         LANGUAGES C CXX
@@ -25,6 +25,13 @@ set(src_dir "${CMAKE_SOURCE_DIR}/src")
 set(test_dir "${CMAKE_SOURCE_DIR}/test")
 set(include_dir "${CMAKE_SOURCE_DIR}/include")
 set(submodules_dir "${CMAKE_SOURCE_DIR}/submodules")
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # Disable PSABI warnings in GCC (on RPi).
+    list(APPEND CXX_FLAG_SET "-Wno-psabi")
+endif()
+
+add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:${CXX_FLAG_SET}>")
 
 # clang-format
 find_program(clang_format NAMES clang-format)

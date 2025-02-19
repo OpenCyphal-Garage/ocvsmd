@@ -73,19 +73,33 @@ private:
     // Called after a failed assertion or a SUCCESS().
     void OnTestPartResult(const testing::TestPartResult& test_part_result) override
     {
-        if (test_part_result.failed())
+        if (const auto* const file_name = test_part_result.file_name())
         {
-            spdlog::error("TEST Failure in {}:{} ❌\n{}",
-                          test_part_result.file_name(),
-                          test_part_result.line_number(),
-                          test_part_result.summary());
+            if (test_part_result.failed())
+            {
+                spdlog::error("TEST Failure in {}:{} ❌\n{}",
+                              file_name,
+                              test_part_result.line_number(),
+                              test_part_result.summary());
+            }
+            else
+            {
+                spdlog::debug("TEST Success in {}:{}\n{}",
+                              file_name,
+                              test_part_result.line_number(),
+                              test_part_result.summary());
+            }
         }
         else
         {
-            spdlog::debug("TEST Success in {}:{}\n{}",
-                          test_part_result.file_name(),
-                          test_part_result.line_number(),
-                          test_part_result.summary());
+            if (test_part_result.failed())
+            {
+                spdlog::error("TEST Failure ❌\n{}", test_part_result.summary());
+            }
+            else
+            {
+                spdlog::debug("TEST Success \n{}", test_part_result.summary());
+            }
         }
     }
 

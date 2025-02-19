@@ -9,7 +9,7 @@
 #include "ipc/pipe/server_pipe.hpp"
 
 #include "ipc/ipc_types.hpp"
-#include "unique_ptr_refwrapper.hpp"
+#include "ref_wrapper.hpp"
 
 #include <gmock/gmock.h>
 
@@ -25,9 +25,9 @@ namespace pipe
 class ServerPipeMock : public ServerPipe
 {
 public:
-    struct RefWrapper final : UniquePtrRefWrapper<ServerPipe, ServerPipeMock>
+    struct Wrapper final : RefWrapper<ServerPipe, ServerPipeMock>
     {
-        using UniquePtrRefWrapper::UniquePtrRefWrapper;
+        using RefWrapper::RefWrapper;
 
         // MARK: ServerPipe
 
@@ -42,7 +42,7 @@ public:
             return reference().send(client_id, payloads);
         }
 
-    };  // RefWrapper
+    };  // Wrapper
 
     MOCK_METHOD(void, deinit, (), (const));
     MOCK_METHOD(int, start, (EventHandler event_handler), (override));

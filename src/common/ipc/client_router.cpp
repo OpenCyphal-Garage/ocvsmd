@@ -125,12 +125,12 @@ private:
         GatewayImpl& operator=(const GatewayImpl&)     = delete;
         GatewayImpl& operator=(GatewayImpl&&) noexcept = delete;
 
-        ~GatewayImpl()
+        virtual ~GatewayImpl()
         {
-            router_.logger_->trace("~Gateway(tag={}, err={}).", endpoint_.tag, completion_error_code_);
-
             performWithoutThrowing([this] {
                 //
+                router_.logger_->trace("~Gateway(tag={}, err={}).", endpoint_.tag, completion_error_code_);
+
                 // `next_sequence_ == 0` means that this gateway was never used for sending messages,
                 // and so remote router never knew about it (its tag) - no need to post "ChEnd" event.
                 router_.onGatewayDisposal(endpoint_, next_sequence_ > 0, completion_error_code_);

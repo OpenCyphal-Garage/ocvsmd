@@ -7,13 +7,14 @@
 
 #include "config.hpp"
 #include "cyphal/can_transport_bag.hpp"
-// ➕ #include "cyphal/file_provider.hpp"
+#include "cyphal/file_provider.hpp"
 #include "cyphal/udp_transport_bag.hpp"
 #include "engine_helpers.hpp"
 #include "io/socket_address.hpp"
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc/pipe/socket_server.hpp"
 #include "ipc/server_router.hpp"
+#include "svc/file_server/services.hpp"
 #include "svc/node/services.hpp"
 #include "svc/svc_helpers.hpp"
 
@@ -102,13 +103,13 @@ cetl::optional<std::string> Engine::init()
 
     // 5. Bring up various providers.
     //
-    // ➕ file_provider_ = cyphal::FileProvider::make(memory_, *presentation_, config_);
-    // ➕ if (file_provider_ == nullptr)
-    // ➕ {
-    // ➕     std::string msg = "Failed to create cyphal file provider.";
-    // ➕     logger_->error(msg);
-    // ➕     return msg;
-    // ➕ }
+    file_provider_ = cyphal::FileProvider::make(memory_, *presentation_, config_);
+    if (file_provider_ == nullptr)
+    {
+        std::string msg = "Failed to create cyphal file provider.";
+        logger_->error(msg);
+        return msg;
+    }
 
     // 6. Bring up the IPC router and its services.
     //
@@ -141,7 +142,7 @@ cetl::optional<std::string> Engine::init()
     //
     const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
     svc::node::registerAllServices(svc_context);
-    // ➕ svc::file_server::registerAllServices(svc_context, *file_provider_);
+    svc::file_server::registerAllServices(svc_context, *file_provider_);
     //
     if (0 != ipc_router_->start())
     {

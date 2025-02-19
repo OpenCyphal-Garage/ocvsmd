@@ -8,7 +8,7 @@
 
 #include "config.hpp"
 #include "cyphal/any_transport_bag.hpp"
-// ➕ #include "cyphal/file_provider.hpp"
+#include "cyphal/file_provider.hpp"
 #include "logging.hpp"
 #include "ocvsmd/platform/defines.hpp"
 
@@ -75,8 +75,8 @@ private:
     TransferIdMap                                         transfer_id_map_;
     cetl::optional<libcyphal::presentation::Presentation> presentation_;
     cetl::optional<libcyphal::application::Node>          node_;
-    // ➕ cyphal::FileProvider::Ptr                             file_provider_;
-    common::ipc::ServerRouter::Ptr ipc_router_;
+    cyphal::FileProvider::Ptr                             file_provider_;
+    common::ipc::ServerRouter::Ptr                        ipc_router_;
 
 };  // Engine
 

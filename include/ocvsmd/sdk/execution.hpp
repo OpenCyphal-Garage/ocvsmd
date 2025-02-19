@@ -128,6 +128,40 @@ protected:
 
 };  // SenderOf
 
+/// A sender factory that returns a sender which completes immediately
+/// by calling the receiver `operator()` with a `Result` type instance built using the given pack of arguments.
+///
+/// @param args The arguments to construct the result of the sender.
+///             The result is constructed immediately (during this `just` call),
+///             and later (on `SenderOf::submit`) is `move`-d to the receiver.
+///
+template <typename Result, typename... Args>
+typename SenderOf<Result>::Ptr just(Args&&... args)
+{
+    // Private implementation of the sender.
+    class JustSender final : public SenderOf<Result>
+    {
+    public:
+        explicit JustSender(Args&&... args)
+            : result_{std::forward<Args>(args)...}
+        {
+        }
+
+    private:
+        // SenderOf
+
+        void submitImpl(std::function<void(Result&&)>&& receiver) override
+        {
+            std::move(receiver)(std::move(result_));
+        }
+
+        Result result_;
+
+    };  // JustSender
+
+    return std::make_unique<JustSender>(std::forward<Args>(args)...);
+}
+
 /// Initiates an operation execution by submitting a given receiver to the sender.
 ///
 /// Submit "consumes" the receiver (no longer usable after this call).

@@ -129,7 +129,7 @@ TEST_F(TestClientRouter, make)
 
     const auto client_router = ClientRouter::make(  //
         mr_,
-        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
+        std::make_unique<pipe::ClientPipeMock::Wrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
     EXPECT_THAT(client_pipe_mock.event_handler_, IsFalse());
 
@@ -142,7 +142,7 @@ TEST_F(TestClientRouter, start)
 
     const auto client_router = ClientRouter::make(  //
         mr_,
-        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
+        std::make_unique<pipe::ClientPipeMock::Wrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
     EXPECT_THAT(client_pipe_mock.event_handler_, IsFalse());
 
@@ -163,7 +163,7 @@ TEST_F(TestClientRouter, makeChannel)
 
     const auto client_router = ClientRouter::make(  //
         mr_,
-        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
+        std::make_unique<pipe::ClientPipeMock::Wrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
@@ -183,7 +183,7 @@ TEST_F(TestClientRouter, makeChannel_send)
 
     const auto client_router = ClientRouter::make(  //
         mr_,
-        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
+        std::make_unique<pipe::ClientPipeMock::Wrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
@@ -220,7 +220,7 @@ TEST_F(TestClientRouter, makeChannel_receive_events)
 
     const auto client_router = ClientRouter::make(  //
         mr_,
-        std::make_unique<pipe::ClientPipeMock::RefWrapper>(client_pipe_mock));
+        std::make_unique<pipe::ClientPipeMock::Wrapper>(client_pipe_mock));
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);

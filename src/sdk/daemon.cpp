@@ -59,6 +59,7 @@ public:
 
         ipc_router_ = common::ipc::ClientRouter::make(memory_, std::move(client_pipe));
 
+        file_server_         = Factory::makeFileServer(memory_, ipc_router_);
         node_command_client_ = Factory::makeNodeCommandClient(memory_, ipc_router_);
 
         if (const int err = ipc_router_->start())
@@ -73,6 +74,11 @@ public:
 
     // Daemon
 
+    FileServer::Ptr getFileServer() const override
+    {
+        return file_server_;
+    }
+
     NodeCommandClient::Ptr getNodeCommandClient() const override
     {
         return node_command_client_;
@@ -83,6 +89,7 @@ private:
     libcyphal::IExecutor&          executor_;
     common::LoggerPtr              logger_;
     common::ipc::ClientRouter::Ptr ipc_router_;
+    FileServer::Ptr                file_server_;
     NodeCommandClient::Ptr         node_command_client_;
 
 };  // DaemonImpl

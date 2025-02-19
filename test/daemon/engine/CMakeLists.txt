@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: MIT
 #
 
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.25)
 
 add_executable(engine_tests
         main.cpp
+        svc/node/test_exec_cmd_service.cpp
 )
 target_link_libraries(engine_tests
         ocvsmd_engine

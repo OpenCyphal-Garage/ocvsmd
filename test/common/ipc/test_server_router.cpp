@@ -128,7 +128,7 @@ TEST_F(TestServerRouter, make)
 
     const auto server_router = ServerRouter::make(  //
         mr_,
-        std::make_unique<pipe::ServerPipeMock::RefWrapper>(server_pipe_mock));
+        std::make_unique<pipe::ServerPipeMock::Wrapper>(server_pipe_mock));
     ASSERT_THAT(server_router, NotNull());
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 }
@@ -140,7 +140,7 @@ TEST_F(TestServerRouter, start)
 
     const auto server_router = ServerRouter::make(  //
         mr_,
-        std::make_unique<pipe::ServerPipeMock::RefWrapper>(server_pipe_mock));
+        std::make_unique<pipe::ServerPipeMock::Wrapper>(server_pipe_mock));
     ASSERT_THAT(server_router, NotNull());
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
@@ -159,7 +159,7 @@ TEST_F(TestServerRouter, registerChannel)
 
     const auto server_router = ServerRouter::make(  //
         mr_,
-        std::make_unique<pipe::ServerPipeMock::RefWrapper>(server_pipe_mock));
+        std::make_unique<pipe::ServerPipeMock::Wrapper>(server_pipe_mock));
     ASSERT_THAT(server_router, NotNull());
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
@@ -180,7 +180,7 @@ TEST_F(TestServerRouter, channel_send)
 
     const auto server_router = ServerRouter::make(  //
         mr_,
-        std::make_unique<pipe::ServerPipeMock::RefWrapper>(server_pipe_mock));
+        std::make_unique<pipe::ServerPipeMock::Wrapper>(server_pipe_mock));
     ASSERT_THAT(server_router, NotNull());
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 

@@ -3,15 +3,20 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_UNIQUE_PTR_REF_WRAPPER_HPP_INCLUDED
-#define OCVSMD_UNIQUE_PTR_REF_WRAPPER_HPP_INCLUDED
+#ifndef LIBCYPHAL_UNIQUE_PTR_REF_WRAPPER_HPP_INCLUDED
+#define LIBCYPHAL_UNIQUE_PTR_REF_WRAPPER_HPP_INCLUDED
 
-namespace ocvsmd
+#include <libcyphal/types.hpp>
+
+namespace libcyphal
 {
 
-template <typename Interface, typename Reference>
+template <typename Interface, typename Reference, typename DerivedWrapper>
 struct UniquePtrRefWrapper : Interface
 {
+    struct Spec : detail::UniquePtrSpec<Interface, DerivedWrapper>
+    {};
+
     explicit UniquePtrRefWrapper(Reference& reference)
         : reference_{reference}
     {
@@ -27,7 +32,7 @@ struct UniquePtrRefWrapper : Interface
         reference_.deinit();
     }
 
-    Reference& reference()
+    Reference& reference() const
     {
         return reference_;
     }
@@ -37,6 +42,6 @@ private:
 
 };  // UniquePtrRefWrapper
 
-}  // namespace ocvsmd
+}  // namespace libcyphal
 
-#endif  // OCVSMD_UNIQUE_PTR_REF_WRAPPER_HPP_INCLUDED
+#endif  // LIBCYPHAL_UNIQUE_PTR_REF_WRAPPER_HPP_INCLUDED

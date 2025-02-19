@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.25)
 
 # Define type generation and header library all in one go.
 #
@@ -45,10 +45,14 @@ target_include_directories(canard
 
 add_library(ocvsmd_engine
         config.cpp
-#➕        cyphal/file_provider.cpp
+        cyphal/file_provider.cpp
         engine.cpp
         platform/can/socketcan.c
         platform/udp/udp.c
+        svc/file_server/list_roots_service.cpp
+        svc/file_server/pop_root_service.cpp
+        svc/file_server/push_root_service.cpp
+        svc/file_server/services.cpp
         svc/node/exec_cmd_service.cpp
         svc/node/services.cpp
 )

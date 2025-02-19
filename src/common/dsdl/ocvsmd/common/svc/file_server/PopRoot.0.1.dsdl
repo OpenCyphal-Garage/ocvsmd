@@ -1,0 +1,9 @@
+
+uavcan.file.Path.2.0 item   # The path to the root directory to be pop from the list of roots.
+bool is_back                # Determines whether the path is searched from the front or the back of the list.
+
+@extent 512 * 8
+
+---
+
+@extent 512 * 8

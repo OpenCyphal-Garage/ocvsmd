@@ -52,7 +52,7 @@ private:
 
     io::SocketAddress                        socket_address_;
     platform::IPosixExecutorExtension* const posix_executor_ext_;
-    State                                    state_;
+    IoState                                  io_state_;
     libcyphal::IExecutor::Callback::Any      socket_callback_;
     EventHandler                             event_handler_;
 
