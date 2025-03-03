@@ -12,7 +12,7 @@
 [submodule "submodules/nunavut"]
 	path = submodules/nunavut
 	url = https://github.com/OpenCyphal/nunavut.git
-    branch = sshirokov/rpi32
+	branch = 3.0.preview
 [submodule "submodules/cetl"]
 	path = submodules/cetl
 	url = https://github.com/OpenCyphal/CETL.git
