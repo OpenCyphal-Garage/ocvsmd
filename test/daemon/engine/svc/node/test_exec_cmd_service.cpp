@@ -282,14 +282,17 @@ namespace svc
 {
 namespace node
 {
-static void PrintTo(const ExecCmdSvcResponse_0_1& res, std::ostream* os)  // NOLINT
+namespace ExecCmd
 {
-    *os << "ExecCmdSvcResponse_0_1{node_id=" << res.node_id << "}";
+static void PrintTo(const Response_0_1& res, std::ostream* os)  // NOLINT
+{
+    *os << "ExecCmd::Response_0_1{node_id=" << res.node_id << "}";
 }
-static bool operator==(const ExecCmdSvcResponse_0_1& lhs, const ExecCmdSvcResponse_0_1& rhs)  // NOLINT
+static bool operator==(const Response_0_1& lhs, const Response_0_1& rhs)  // NOLINT
 {
     return lhs.node_id == rhs.node_id;
 }
+}  // namespace ExecCmd
 }  // namespace node
 }  // namespace svc
 }  // namespace common
