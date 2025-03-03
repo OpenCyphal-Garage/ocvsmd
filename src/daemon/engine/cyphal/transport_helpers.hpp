@@ -16,7 +16,7 @@
 #include <spdlog/fmt/fmt.h>
 
 #ifdef __linux__
-#include <libcyphal/transport/can/can_transport.hpp>
+#    include <libcyphal/transport/can/can_transport.hpp>
 #endif
 
 namespace ocvsmd

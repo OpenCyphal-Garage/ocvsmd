@@ -34,7 +34,7 @@
 #include <utility>
 
 #ifdef __linux__
-#include "cyphal/can_transport_bag.hpp"
+#    include "cyphal/can_transport_bag.hpp"
 #endif
 
 namespace ocvsmd

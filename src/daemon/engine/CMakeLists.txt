@@ -64,7 +64,7 @@ target_link_libraries(ocvsmd_engine
 )
 if (${PLATFORM_OS_TYPE} STREQUAL "linux")
     target_sources(ocvsmd_engine
-            platform/can/socketcan.c
+            PRIVATE platform/can/socketcan.c
     )
     target_link_libraries(ocvsmd_engine
             PUBLIC canard
