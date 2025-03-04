@@ -9,6 +9,7 @@ add_cyphal_library(
         NAME sdk
         DSDL_FILES
             "uavcan/node/435.ExecuteCommand.1.3.dsdl"
+            "uavcan/register/Name.1.0.dsdl"
         ALLOW_EXPERIMENTAL_LANGUAGES
         LANGUAGE cpp
         LANGUAGE_STANDARD ${CYPHAL_LANGUAGE_STANDARD}

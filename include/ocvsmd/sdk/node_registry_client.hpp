@@ -6,7 +6,16 @@
 #ifndef OCVSMD_SDK_NODE_REGISTRY_CLIENT_HPP_INCLUDED
 #define OCVSMD_SDK_NODE_REGISTRY_CLIENT_HPP_INCLUDED
 
+#include "execution.hpp"
+
+#include <uavcan/_register/Name_1_0.hpp>
+
+#include <cetl/pf20/cetlpf.hpp>
+
+#include <chrono>
+#include <cstdint>
 #include <memory>
+#include <unordered_map>
 
 namespace ocvsmd
 {
@@ -28,6 +37,49 @@ public:
     NodeRegistryClient& operator=(const NodeRegistryClient&) = delete;
 
     virtual ~NodeRegistryClient() = default;
+
+    using RegName = uavcan::_register::Name_1_0;
+
+    /// Defines the result type of the list command execution.
+    ///
+    /// On success, the result is a map of node ID to its register names (or error code from the node).
+    /// Missing Cyphal nodes (or failed to respond in a given timeout) are included in the map with ETIMEDOUT code.
+    /// On failure, the result is an error code of some failure to communicate with the OCVSMD engine.
+    ///
+    struct List final
+    {
+        /// Defines the result type of the list of a node registers.
+        ///
+        /// On success, the result is a vector of register names.
+        /// On failure, the result is an error code.
+        ///
+        struct NodeRegisters final
+        {
+            using Success = std::vector<RegName>;
+            using Failure = int;  // `errno`-like error code.
+            using Result  = cetl::variant<Success, Failure>;
+
+            NodeRegisters() = delete;
+        };
+
+        using Success = std::unordered_map<std::uint16_t, NodeRegisters::Result>;
+        using Failure = int;  // `errno`-like error code.
+        using Result  = cetl::variant<Success, Failure>;
+
+        List() = delete;
+    };
+    /// Collects list of register names from the specified Cyphal network nodes.
+    ///
+    /// On the OCVSMD engine side, Cyphal `385.List.1.0` requests are sent concurrently to all specified Cyphal nodes.
+    /// Responses are sent back to the client side as they arrive, and collected in the result map.
+    /// The overall result will be available when the last response has arrived, or the timeout has expired.
+    ///
+    /// @param node_ids The set of Cyphal node IDs to be `list`-ed. Duplicates are ignored.
+    /// @param timeout The maximum time to wait for all Cyphal node responses to arrive.
+    /// @return An execution sender which emits the async overall result of the operation.
+    ///
+    virtual SenderOf<List::Result>::Ptr list(const cetl::span<const std::uint16_t> node_ids,
+                                             const std::chrono::microseconds       timeout) = 0;
 
 protected:
     NodeRegistryClient() = default;

@@ -15,6 +15,7 @@ set(dsdl_ocvsmd_files
         ${dsdl_ocvsmd_dir}/common/svc/file_server/PopRoot.0.1.dsdl
         ${dsdl_ocvsmd_dir}/common/svc/file_server/PushRoot.0.1.dsdl
         ${dsdl_ocvsmd_dir}/common/svc/node/ExecCmd.0.1.dsdl
+        ${dsdl_ocvsmd_dir}/common/svc/node/ListRegisters.0.1.dsdl
         ${dsdl_ocvsmd_dir}/common/svc/node/UavcanNodeExecCmdReq.0.1.dsdl
         ${dsdl_ocvsmd_dir}/common/svc/node/UavcanNodeExecCmdRes.0.1.dsdl
 )

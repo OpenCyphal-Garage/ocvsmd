@@ -30,6 +30,12 @@ public:
 
     // NodeRegistryClient
 
+    SenderOf<List::Result>::Ptr list(const cetl::span<const std::uint16_t> node_ids,
+                                     const std::chrono::microseconds       timeout) override
+    {
+        return nullptr;
+    }
+
 private:
     cetl::pmr::memory_resource&    memory_;
     common::LoggerPtr              logger_;

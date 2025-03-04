@@ -1,0 +1,11 @@
+uint64 timeout_us
+uint16[<=128] node_ids
+
+@extent 600 * 8
+
+---
+
+uint16 node_id
+uavcan.register.Name.1.0 name
+
+@extent 600 * 8
