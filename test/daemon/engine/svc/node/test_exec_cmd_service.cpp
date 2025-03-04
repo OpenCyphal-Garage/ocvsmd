@@ -139,7 +139,7 @@ TEST_F(TestExecCmdService, registerWithContext)
     EXPECT_THAT(ipc_router_mock_.getChannelFactory(svc_desc_), IsNull());
 
     EXPECT_CALL(ipc_router_mock_, registerChannelFactoryByName(svc_name_)).WillOnce(Return());
-    node::registerAllServices(svc_context);
+    node::ExecCmdService::registerWithContext(svc_context);
 
     EXPECT_THAT(ipc_router_mock_.getChannelFactory(svc_desc_), NotNull());
 }
