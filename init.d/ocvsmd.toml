@@ -14,7 +14,7 @@ unique_id = []
 # UDP has priorioty over CAN if both types are present.
 # Supported formats:
 # - 'udp://<ip4>'
-# - 'socketcan:<can_device>' (linux only)
+# - 'socketcan:<can_device>'
 interfaces = [
     'udp://127.0.0.1',
 ]
