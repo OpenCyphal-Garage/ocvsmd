@@ -20,6 +20,7 @@ add_library(ocvsmd_sdk
         daemon.cpp
         file_server.cpp
         node_command_client.cpp
+        node_registry_client.cpp
         svc/node/exec_cmd_client.cpp
         svc/file_server/list_roots_client.cpp
         svc/file_server/pop_root_client.cpp
