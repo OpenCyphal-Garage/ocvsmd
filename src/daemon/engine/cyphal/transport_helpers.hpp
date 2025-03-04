@@ -10,14 +10,11 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/errors.hpp>
+#include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 
 #include <spdlog/fmt/fmt.h>
-
-#ifdef __linux__
-#    include <libcyphal/transport/can/can_transport.hpp>
-#endif
 
 namespace ocvsmd
 {
