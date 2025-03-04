@@ -186,7 +186,7 @@ int main(const int argc, const char** const argv)
 
             auto registry = daemon->getNodeRegistryClient();
 
-            const std::vector<std::uint16_t> node_ids = {42, 43, 44};
+            const std::vector<std::uint16_t> node_ids = {123, 42, 43, 44};
             auto sender      = registry->list({node_ids.data(), node_ids.size()}, std::chrono::seconds{1});
             auto list_result = ocvsmd::sdk::sync_wait<List::Result>(executor, std::move(sender));
             if (const auto* const err = cetl::get_if<List::Failure>(&list_result))
