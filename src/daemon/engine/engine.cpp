@@ -6,6 +6,7 @@
 #include "engine.hpp"
 
 #include "config.hpp"
+#include "cyphal/can_transport_bag.hpp"
 #include "cyphal/file_provider.hpp"
 #include "cyphal/udp_transport_bag.hpp"
 #include "engine_helpers.hpp"
@@ -32,10 +33,6 @@
 #include <random>
 #include <string>
 #include <utility>
-
-#ifdef __linux__
-#    include "cyphal/can_transport_bag.hpp"
-#endif
 
 namespace ocvsmd
 {
