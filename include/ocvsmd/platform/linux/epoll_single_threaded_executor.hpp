@@ -99,6 +99,12 @@ public:
         if (epoll_result < 0)
         {
             const auto err = errno;
+            if (err == EINTR)
+            {
+                // Normally, we would just retry a system call (`::epoll_wait`),
+                // but we need updated timeout (from the main loop).
+                return cetl::nullopt;
+            }
             return libcyphal::transport::PlatformError{PosixPlatformError{err}};
         }
         if (epoll_result == 0)

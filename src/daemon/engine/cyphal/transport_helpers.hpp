@@ -61,6 +61,8 @@ struct TransportHelpers
 
     };  // Printers
 
+#ifdef __linux__
+
     struct CanTransientErrorReporter
     {
         using Report = libcyphal::transport::can::ICanTransport::TransientErrorReport;
@@ -110,6 +112,8 @@ struct TransportHelpers
         common::LoggerPtr logger_{common::getLogger("io")};
 
     };  // CanTransientErrorReporter
+
+#endif  // __linux__
 
     struct UdpTransientErrorReporter
     {

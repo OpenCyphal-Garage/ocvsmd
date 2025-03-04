@@ -47,7 +47,6 @@ add_library(ocvsmd_engine
         config.cpp
         cyphal/file_provider.cpp
         engine.cpp
-        platform/can/socketcan.c
         platform/udp/udp.c
         svc/file_server/list_roots_service.cpp
         svc/file_server/pop_root_service.cpp
@@ -62,6 +61,11 @@ target_link_libraries(ocvsmd_engine
         PUBLIC ${engine_transpiled}
         PUBLIC ocvsmd_common
 )
+if (${PLATFORM_OS_TYPE} STREQUAL "linux")
+    target_sources(ocvsmd_engine
+            PRIVATE platform/can/socketcan.c
+    )
+endif ()
 target_include_directories(ocvsmd_engine
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 )

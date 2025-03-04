@@ -108,6 +108,12 @@ public:
         if (kqueue_result < 0)
         {
             const auto err = errno;
+            if (err == EINTR)
+            {
+                // Normally, we would just retry a system call (`::kevent`),
+                // but we need updated timeout (from the main loop).
+                return cetl::nullopt;
+            }
             return libcyphal::transport::PlatformError{PosixPlatformError{err}};
         }
         if (kqueue_result == 0)
@@ -185,7 +191,7 @@ private:
         AwaitableNode(Self& executor, Callback::Function&& function)
             : CallbackNode{executor, std::move(function)}
             , fd_{-1}
-            , events_{0}
+            , filter_{0}
         {
         }
 
@@ -194,7 +200,7 @@ private:
             if (fd_ >= 0)
             {
                 KEvent ev{};
-                EV_SET(&ev, fd_, events_, EV_DELETE, NOTE_DELETE, 0, 0);
+                EV_SET(&ev, fd_, filter_, EV_DELETE, 0, 0, 0);
                 ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
                 getExecutor().total_awaitables_--;
             }
@@ -203,14 +209,14 @@ private:
         AwaitableNode(AwaitableNode&& other) noexcept
             : CallbackNode(std::move(static_cast<CallbackNode&&>(other)))
             , fd_{std::exchange(other.fd_, -1)}
-            , events_{std::exchange(other.events_, 0)}
+            , filter_{std::exchange(other.filter_, 0)}
         {
             if (fd_ >= 0)
             {
                 KEvent ev{};
-                EV_SET(&ev, fd_, events_, EV_DELETE, NOTE_DELETE, 0, 0);
+                EV_SET(&ev, fd_, filter_, EV_DELETE, 0, 0, 0);
                 ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
-                EV_SET(&ev, fd_, events_, EV_ADD | EV_CLEAR, NOTE_WRITE, 0, this);
+                EV_SET(&ev, fd_, filter_, EV_ADD, 0, 0, this);
                 ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
             }
         }
@@ -224,22 +230,22 @@ private:
             return fd_;
         }
 
-        std::uint32_t events() const noexcept
+        std::int16_t filter() const noexcept
         {
-            return events_;
+            return filter_;
         }
 
-        void setup(const int fd, const std::uint32_t events) noexcept
+        void setup(const int fd, const std::int16_t filter) noexcept
         {
             CETL_DEBUG_ASSERT(fd >= 0, "");
-            CETL_DEBUG_ASSERT(events != 0, "");
+            CETL_DEBUG_ASSERT(filter != 0, "");
 
             fd_     = fd;
-            events_ = events | EVFILT_VNODE;
+            filter_ = filter;
 
             getExecutor().total_awaitables_++;
             KEvent ev{};
-            EV_SET(&ev, fd, events_, EV_ADD | EV_CLEAR, NOTE_WRITE, 0, this);
+            EV_SET(&ev, fd, filter_, EV_ADD, 0, 0, this);
             ::kevent(getExecutor().kqueuefd_, &ev, 1, nullptr, 0, nullptr);
         }
 
@@ -253,8 +259,8 @@ private:
 
         // MARK: Data members:
 
-        int           fd_;
-        std::uint32_t events_;
+        int          fd_;
+        std::int16_t filter_;
 
     };  // AwaitableNode
 

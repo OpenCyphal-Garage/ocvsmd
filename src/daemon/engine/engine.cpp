@@ -59,11 +59,13 @@ cetl::optional<std::string> Engine::init()
     }
     else
     {
+#ifdef __linux__
         if (auto maybe_can_transport_bag = cyphal::CanTransportBag::make(memory_, executor_, config_))
         {
             any_transport_bag_ = std::move(maybe_can_transport_bag);
         }
         else
+#endif  // __linux__
         {
             std::string msg = "Failed to create Cyphal transport.";
             logger_->error(msg);
