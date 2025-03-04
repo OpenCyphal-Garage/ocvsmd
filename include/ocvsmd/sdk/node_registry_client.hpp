@@ -8,14 +8,14 @@
 
 #include "execution.hpp"
 
-#include <uavcan/_register/Name_1_0.hpp>
-
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace ocvsmd
 {
@@ -38,8 +38,6 @@ public:
 
     virtual ~NodeRegistryClient() = default;
 
-    using RegName = uavcan::_register::Name_1_0;
-
     /// Defines the result type of the list command execution.
     ///
     /// On success, the result is a map of node ID to its register names (or error code from the node).
@@ -55,7 +53,7 @@ public:
         ///
         struct NodeRegisters final
         {
-            using Success = std::vector<RegName>;
+            using Success = std::vector<std::string>;
             using Failure = int;  // `errno`-like error code.
             using Result  = cetl::variant<Success, Failure>;
 

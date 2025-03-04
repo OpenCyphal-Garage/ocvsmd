@@ -17,7 +17,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <chrono>
-#include <cstdint>
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -83,7 +82,7 @@ private:
         node_id_to_response_.emplace(input.node_id, std::move(node_response));
     }
 
-    void handleEvent(const Channel::Completed& completed) const
+    void handleEvent(const Channel::Completed& completed)
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
@@ -94,15 +93,15 @@ private:
             receiver_(static_cast<Failure>(completed.error_code));
             return;
         }
-        receiver_(Success{node_id_to_response_});
+        receiver_(std::move(node_id_to_response_));
     }
 
-    cetl::pmr::memory_resource&                     memory_;
-    common::LoggerPtr                               logger_;
-    Spec::Request                                   request_;
-    Channel                                         channel_;
-    std::function<void(Result&&)>                   receiver_;
-    std::unordered_map<std::uint16_t, NodeResponse> node_id_to_response_;
+    cetl::pmr::memory_resource&   memory_;
+    common::LoggerPtr             logger_;
+    Spec::Request                 request_;
+    Channel                       channel_;
+    std::function<void(Result&&)> receiver_;
+    Success                       node_id_to_response_;
 
 };  // ExecCmdClientImpl
 
