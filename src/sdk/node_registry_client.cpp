@@ -8,6 +8,8 @@
 #include "ipc/client_router.hpp"
 #include "logging.hpp"
 #include "sdk_factory.hpp"
+#include "svc/as_sender.hpp"
+#include "svc/node/list_registers_client.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -33,7 +35,20 @@ public:
     SenderOf<List::Result>::Ptr list(const cetl::span<const std::uint16_t> node_ids,
                                      const std::chrono::microseconds       timeout) override
     {
-        return nullptr;
+        using ListRegistersClient = svc::node::ListRegistersClient;
+        using Request             = common::svc::node::ListRegistersSpec::Request;
+
+        logger_->trace("NodeRegistryClient: Making sender of `list()`.");
+
+        Request request{std::max<std::uint64_t>(0, timeout.count()),
+                        {node_ids.begin(), node_ids.end(), &memory_},
+                        &memory_};
+        auto    svc_client = ListRegistersClient::make(memory_, ipc_router_, std::move(request));
+
+        return std::make_unique<svc::AsSender<ListRegistersClient, ListRegistersClient::Result>>(  //
+            "NodeRegistryClient::list",
+            std::move(svc_client),
+            logger_);
     }
 
 private:

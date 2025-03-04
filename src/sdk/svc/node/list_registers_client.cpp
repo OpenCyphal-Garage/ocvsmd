@@ -14,7 +14,6 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
-#include <chrono>
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -36,15 +35,12 @@ class ListRegistersClientImpl final : public ListRegistersClient
 public:
     ListRegistersClientImpl(cetl::pmr::memory_resource&           memory,
                             const common::ipc::ClientRouter::Ptr& ipc_router,
-                            Spec::Request&&                       request,
-                            const std::chrono::microseconds       timeout)
+                            Spec::Request&&                       request)
         : memory_{memory}
         , logger_{common::getLogger("svc")}
         , request_{std::move(request)}
         , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
     {
-        // TODO: handle timeout
-        (void) timeout;
     }
 
     void submitImpl(std::function<void(Result&&)>&& receiver) override
@@ -126,10 +122,9 @@ private:
 
 CETL_NODISCARD ListRegistersClient::Ptr ListRegistersClient::make(cetl::pmr::memory_resource&           memory,
                                                                   const common::ipc::ClientRouter::Ptr& ipc_router,
-                                                                  Spec::Request&&                       request,
-                                                                  const std::chrono::microseconds       timeout)
+                                                                  Spec::Request&&                       request)
 {
-    return std::make_shared<ListRegistersClientImpl>(memory, ipc_router, std::move(request), timeout);
+    return std::make_shared<ListRegistersClientImpl>(memory, ipc_router, std::move(request));
 }
 
 }  // namespace node
