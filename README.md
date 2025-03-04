@@ -100,5 +100,5 @@ Using vscode, relaunch this workspace using the appropriate devcontainer provice
 
 - **Daemon** – Creates symbolic links to the build artifacts under the appropriate places in /etc, then starts the daemon, then tails the daemon logs.
 - **Yakut** – Starts a Yakut UDP monitoring session.
-- **Client** – Tails "ocvsmd.log" in the workspace root (touches first if this doesn't exist). This allows you to use the **shell** to run the cli in the workspace root and see the logs in this terminal.
+- **Client** – Tails "ocvsmd-cli.log" in the workspace root (touches first if this doesn't exist). This allows you to use the **shell** to run the cli in the workspace root and see the logs in this terminal.
 - **Bash shell** – login shell starting in the workspace root.
