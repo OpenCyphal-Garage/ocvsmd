@@ -93,3 +93,12 @@ To enable flushing, set `SPDLOG_FLUSH_LEVEL` to a required default (or per compo
       ```bash
       sudo /etc/init.d/ocvsmd restart SPDLOG_LEVEL=debug,ipc=off SPDLOG_FLUSH_LEVEL=warn,engine=debug
       ```
+
+### vscode
+
+Using vscode, relaunch this workspace using the appropriate devcontainer provided. Once running in the toolshed container build, using cmake, and then do "Tasks: Run Task -> Create OCVSMD Terminals". This will launch four terminals all running in the container:
+
+- **Daemon** – Creates symbolic links to the build artifacts under the appropriate places in /etc, then starts the daemon, then tails the daemon logs.
+- **Yakut** – Starts a Yakut UDP monitoring session.
+- **Client** – Tails "ocvsmd-cli.log" in the workspace root (touches first if this doesn't exist). This allows you to use the **shell** to run the cli in the workspace root and see the logs in this terminal.
+- **Bash shell** – login shell starting in the workspace root.
