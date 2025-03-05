@@ -265,7 +265,7 @@ private:
             }
 
             // We've got an empty response from the node (or there was an error).
-            // So we can release associated resources (client & promise).
+            // So we can release associated resources (client and promise).
             // If no nodes left, then it means we did it for all nodes, so the whole FSM is completed.
             //
             node_id_to_op_.erase(it);
@@ -275,17 +275,22 @@ private:
             }
         }
 
+        // TODO: Fix nolint by moving from `int` to `ErrorCode`.
+        // NOLINTNEXTLINE bugprone-easily-swappable-parameters
         void sendErrorResponse(const std::uint16_t node_id, const int err_code)
         {
             Spec::Response ipc_response{&memory()};
             ipc_response.error_code = err_code;
             ipc_response.node_id    = node_id;
+
             if (const auto err = channel_.send(ipc_response))
             {
-                logger().warn("ListRegsSvc: failed to send ipc failure response for node {} (err={}, fsm_id={}).",
-                              node_id,
-                              err,
-                              id_);
+                logger().warn(  //
+                    "ListRegsSvc: failed to send ipc failure (err_code={}) response for node {} (err={}, fsm_id={}).",
+                    err_code,
+                    node_id,
+                    err,
+                    id_);
             }
         }
 
