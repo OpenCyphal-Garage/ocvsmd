@@ -239,12 +239,15 @@ private:
             return 0;
         }
 
-        void complete(const int err)
+        void complete(const int err_code)
         {
             // Cancel anything that might be still pending.
             node_id_to_op_.clear();
 
-            channel_.complete(err);
+            if (const auto err = channel_.complete(err_code))
+            {
+                logger().warn("ExecCmdSvc: failed to complete channel (err={}, fsm_id={}).", err, id_);
+            }
 
             service_.releaseFsmBy(id_);
         }
