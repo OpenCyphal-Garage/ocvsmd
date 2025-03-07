@@ -115,7 +115,7 @@ private:
 
 }  // namespace
 
-CETL_NODISCARD ListRegistersClient::Ptr ListRegistersClient::make(  //
+ListRegistersClient::Ptr ListRegistersClient::make(  //
     const common::ipc::ClientRouter::Ptr& ipc_router,
     Spec::Request&&                       request)
 {

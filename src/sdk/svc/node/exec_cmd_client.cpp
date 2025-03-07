@@ -102,7 +102,7 @@ private:
 
 }  // namespace
 
-CETL_NODISCARD ExecCmdClient::Ptr ExecCmdClient::make(  //
+ExecCmdClient::Ptr ExecCmdClient::make(  //
     cetl::pmr::memory_resource&           memory,
     const common::ipc::ClientRouter::Ptr& ipc_router,
     Spec::Request&&                       request)

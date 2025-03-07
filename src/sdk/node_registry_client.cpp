@@ -14,6 +14,8 @@
 #include "svc/node/list_registers_client.hpp"
 #include "svc/node/list_registers_spec.hpp"
 
+#include <uavcan/_register/Name_1_0.hpp>
+
 #include <cetl/pf17/cetlpf.hpp>
 
 namespace ocvsmd
@@ -58,12 +60,26 @@ public:
                                        const cetl::span<const cetl::string_view> registers,
                                        const std::chrono::microseconds           timeout) override
     {
+        using RegKey                = uavcan::_register::Name_1_0;
         using AccessRegistersClient = svc::node::AccessRegistersClient;
-        using Request               = common::svc::node::AccessRegistersSpec::Request;
 
         logger_->trace("NodeRegistryClient: Making sender of `read()`.");
 
-        return nullptr;
+        for (const auto& reg_key : registers)
+        {
+            if (reg_key.size() > RegKey::_traits_::ArrayCapacity::name)
+            {
+                logger_->error("Too long register key '{}'.", reg_key);
+                return just<Access::Result>(EINVAL);
+            }
+        }
+
+        auto svc_client = AccessRegistersClient::make(memory_, ipc_router_, node_ids, registers, timeout);
+
+        return std::make_unique<svc::AsSender<AccessRegistersClient, AccessRegistersClient::Result>>(  //
+            "NodeRegistryClient::read",
+            std::move(svc_client),
+            logger_);
     }
 
 private:

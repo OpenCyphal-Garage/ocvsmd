@@ -11,6 +11,7 @@
 #include "svc/node/access_registers_spec.hpp"
 
 #include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <memory>
 #include <utility>
@@ -36,7 +37,11 @@ public:
     using Success = NodeRegistryClient::Access::Success;
     using Failure = NodeRegistryClient::Access::Failure;
 
-    CETL_NODISCARD static Ptr make(const common::ipc::ClientRouter::Ptr& ipc_router, Spec::Request&& request);
+    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&               memory,
+                                   const common::ipc::ClientRouter::Ptr&     ipc_router,
+                                   const cetl::span<const std::uint16_t>     node_ids,
+                                   const cetl::span<const cetl::string_view> registers,
+                                   const std::chrono::microseconds           timeout);
 
     AccessRegistersClient(AccessRegistersClient&&)                 = delete;
     AccessRegistersClient(const AccessRegistersClient&)            = delete;

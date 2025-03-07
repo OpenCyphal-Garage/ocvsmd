@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+#include "fmt_helpers.hpp"
 #include "setup_logging.hpp"
 
 #include <ocvsmd/platform/defines.hpp>
@@ -11,10 +12,7 @@
 #include <ocvsmd/sdk/node_command_client.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/visit_helpers.hpp>
 
-#include <spdlog/fmt/bin_to_hex.h>
-#include <spdlog/fmt/ranges.h>
 #include <spdlog/spdlog.h>
 
 #include <cerrno>
@@ -277,31 +275,3 @@ int main(const int argc, const char** const argv)
 
     return result;
 }
-
-template <>
-struct fmt::formatter<uavcan::_register::Value_1_0> : formatter<std::string>
-{
-    static auto format(const uavcan::_register::Value_1_0& value, format_context& ctx)
-    {
-        using TypeOf = uavcan::_register::Value_1_0::_traits_::TypeOf;
-
-        return cetl::visit(cetl::make_overloaded(              //
-                               [&ctx](const TypeOf::empty&) {  //
-                                   return format_to(ctx.out(), "empty");
-                               },
-                               [&ctx](const TypeOf::string& str) {
-                                   return format_to(  //
-                                       ctx.out(),
-                                       "'{}'",
-                                       // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                                       std::string{reinterpret_cast<const char*>(str.value.data()), str.value.size()});
-                               },
-                               [&ctx](const TypeOf::unstructured& data) {  //
-                                   return format_to(ctx.out(), "{:X}", spdlog::to_hex(data.value));
-                               },
-                               [&ctx](const auto& arr) {  //
-                                   return format_to(ctx.out(), "{}", arr.value);
-                               }),
-                           value.union_value);
-    }
-};
