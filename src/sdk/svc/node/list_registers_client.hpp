@@ -13,7 +13,6 @@
 #include <cetl/cetl.hpp>
 
 #include <memory>
-#include <unordered_map>
 #include <utility>
 
 namespace ocvsmd

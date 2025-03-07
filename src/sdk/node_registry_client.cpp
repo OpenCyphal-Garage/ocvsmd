@@ -9,7 +9,10 @@
 #include "logging.hpp"
 #include "sdk_factory.hpp"
 #include "svc/as_sender.hpp"
+#include "svc/node/access_registers_client.hpp"
+#include "svc/node/access_registers_spec.hpp"
 #include "svc/node/list_registers_client.hpp"
+#include "svc/node/list_registers_spec.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -49,6 +52,18 @@ public:
             "NodeRegistryClient::list",
             std::move(svc_client),
             logger_);
+    }
+
+    SenderOf<Access::Result>::Ptr read(const cetl::span<const std::uint16_t>     node_ids,
+                                       const cetl::span<const cetl::string_view> registers,
+                                       const std::chrono::microseconds           timeout) override
+    {
+        using AccessRegistersClient = svc::node::AccessRegistersClient;
+        using Request               = common::svc::node::AccessRegistersSpec::Request;
+
+        logger_->trace("NodeRegistryClient: Making sender of `read()`.");
+
+        return nullptr;
     }
 
 private:
