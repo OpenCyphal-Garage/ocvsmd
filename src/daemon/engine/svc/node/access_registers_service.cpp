@@ -234,6 +234,7 @@ private:
             {
                 return;
             }
+            auto& node_cnxt = it->second;
 
             auto cy_make_result = service_.context_.presentation.makeClient<CyRegAccessSvc>(node_id);
             if (const auto* cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
@@ -248,8 +249,9 @@ private:
                 releaseNodeContext(node_id);
                 return;
             }
+            node_cnxt.client.emplace(cetl::get<CySvcClient>(std::move(cy_make_result)));
 
-            startCyRegAccessRpcCallFor(node_id, it->second);
+            startCyRegAccessRpcCallFor(node_id, node_cnxt);
         }
 
         void startCyRegAccessRpcCallFor(const std::uint16_t node_id, NodeContext& node_cnxt)
