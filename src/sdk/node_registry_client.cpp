@@ -43,7 +43,7 @@ public:
         Request request{std::max<std::uint64_t>(0, timeout.count()),
                         {node_ids.begin(), node_ids.end(), &memory_},
                         &memory_};
-        auto    svc_client = ListRegistersClient::make(memory_, ipc_router_, std::move(request));
+        auto    svc_client = ListRegistersClient::make(ipc_router_, std::move(request));
 
         return std::make_unique<svc::AsSender<ListRegistersClient, ListRegistersClient::Result>>(  //
             "NodeRegistryClient::list",

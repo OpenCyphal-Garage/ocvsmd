@@ -33,11 +33,8 @@ namespace
 class ListRegistersClientImpl final : public ListRegistersClient
 {
 public:
-    ListRegistersClientImpl(cetl::pmr::memory_resource&           memory,
-                            const common::ipc::ClientRouter::Ptr& ipc_router,
-                            Spec::Request&&                       request)
-        : memory_{memory}
-        , logger_{common::getLogger("svc")}
+    ListRegistersClientImpl(const common::ipc::ClientRouter::Ptr& ipc_router, Spec::Request&& request)
+        : logger_{common::getLogger("svc")}
         , request_{std::move(request)}
         , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
     {
@@ -109,7 +106,6 @@ private:
         receiver_(std::move(node_id_to_registers_));
     }
 
-    cetl::pmr::memory_resource&   memory_;
     common::LoggerPtr             logger_;
     Spec::Request                 request_;
     Channel                       channel_;
@@ -120,11 +116,10 @@ private:
 
 }  // namespace
 
-CETL_NODISCARD ListRegistersClient::Ptr ListRegistersClient::make(cetl::pmr::memory_resource&           memory,
-                                                                  const common::ipc::ClientRouter::Ptr& ipc_router,
+CETL_NODISCARD ListRegistersClient::Ptr ListRegistersClient::make(const common::ipc::ClientRouter::Ptr& ipc_router,
                                                                   Spec::Request&&                       request)
 {
-    return std::make_shared<ListRegistersClientImpl>(memory, ipc_router, std::move(request));
+    return std::make_shared<ListRegistersClientImpl>(ipc_router, std::move(request));
 }
 
 }  // namespace node

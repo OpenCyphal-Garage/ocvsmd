@@ -41,7 +41,7 @@ using testing::StrictMock;
 using testing::VariantWith;
 using testing::MockFunction;
 
-// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)
 
 class TestServerRouter : public testing::Test
 {
@@ -250,11 +250,11 @@ TEST_F(TestServerRouter, channel_send)
     const Channel::Output msg{&mr_};
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
-    EXPECT_THAT(maybe_channel->send(msg), 0);  // NOLINT
+    EXPECT_THAT(maybe_channel->send(msg), 0);
 
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
-    EXPECT_THAT(maybe_channel->send(msg), 0);  // NOLINT
+    EXPECT_THAT(maybe_channel->send(msg), 0);
 }
 
 TEST_F(TestServerRouter, channel_send_after_end)
@@ -309,15 +309,15 @@ TEST_F(TestServerRouter, channel_send_after_end)
     const Channel::Output msg{&mr_};
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
-    EXPECT_THAT(maybe_channel->send(msg), 0);  // NOLINT
+    EXPECT_THAT(maybe_channel->send(msg), 0);
 
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(0));
-    EXPECT_THAT(maybe_channel->send(msg), 0);  // NOLINT
+    EXPECT_THAT(maybe_channel->send(msg), 0);
 
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelEnd(mr_, tag, ErrorCode::Success, true)))  //
         .WillOnce(Return(0));
-    EXPECT_THAT(maybe_channel->complete(0, true), 0);  // NOLINT
+    EXPECT_THAT(maybe_channel->complete(0, true), 0);
 
     // Emulate that client posted terminal `RouteChannelEnd` on the same 43/8 client/tag pair.
     //
@@ -449,6 +449,6 @@ TEST_F(TestServerRouter, channel_unsolicited)
     ASSERT_THAT(maybe_channel.has_value(), IsFalse());
 }
 
-// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)
 
 }  // namespace
