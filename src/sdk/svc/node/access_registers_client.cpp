@@ -58,7 +58,8 @@ public:
     }
 
 private:
-    using Channel = common::ipc::Channel<Spec::Response, Spec::Request>;
+    using Channel       = common::ipc::Channel<Spec::Response, Spec::Request>;
+    using NodeRegisters = NodeRegistryClient::Access::NodeRegisters;
 
     void buildScopeRequests(const cetl::span<const std::uint16_t> node_ids, const std::chrono::microseconds timeout)
     {
@@ -68,7 +69,7 @@ private:
 
         // Split the whole span of node ids into chunks of `ArrayCapacity::node_ids` size.
         //
-        constexpr std::size_t chunk_size = 3;  // ScopeReq::_traits_::ArrayCapacity::node_ids;
+        constexpr std::size_t chunk_size = ScopeReq::_traits_::ArrayCapacity::node_ids;
         for (std::size_t offset = 0; offset < node_ids.size(); offset += chunk_size)
         {
             Spec::Request request{&memory_};
@@ -124,7 +125,40 @@ private:
         }
     }
 
-    void handleEvent(const Channel::Input&) {}
+    void handleEvent(const Channel::Input& input)
+    {
+        logger_->trace("AccessRegistersClient::handleEvent(Input).");
+
+        if ((input.error_code != 0) && input._register.key.name.empty())
+        {
+            logger_->warn("AccessRegistersClient::handleEvent(Input) - Node {} has failed (err={}).",
+                          input.node_id,
+                          input.error_code);
+
+            node_id_to_reg_vals_.emplace(input.node_id, input.error_code);
+            return;
+        }
+
+        auto it = node_id_to_reg_vals_.find(input.node_id);
+        if (it == node_id_to_reg_vals_.end())
+        {
+            it = node_id_to_reg_vals_.insert(std::make_pair(input.node_id, NodeRegisters::Success{})).first;
+        }
+
+        std::string reg_key{input._register.key.name.begin(), input._register.key.name.end()};
+
+        if (auto* const regs = cetl::get_if<NodeRegisters::Success>(&it->second))
+        {
+            if (input.error_code == 0)
+            {
+                regs->emplace_back(std::move(reg_key), input._register.value);
+            }
+            else
+            {
+                regs->emplace_back(std::move(reg_key), input.error_code);
+            }
+        }
+    }
 
     void handleEvent(const Channel::Completed& completed)
     {
