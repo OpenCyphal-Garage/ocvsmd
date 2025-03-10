@@ -81,6 +81,26 @@ public:
     virtual SenderOf<List::Result>::Ptr list(const cetl::span<const std::uint16_t> node_ids,
                                              const std::chrono::microseconds       timeout) = 0;
 
+    /// Collects list of register names from the specified Cyphal network node.
+    ///
+    SenderOf<List::NodeRegisters::Result>::Ptr list(const std::uint16_t             node_id,
+                                                    const std::chrono::microseconds timeout)
+    {
+        std::array<std::uint16_t, 1> node_ids = {node_id};
+        SenderOf<List::Result>::Ptr  sender   = list(node_ids, timeout);
+        return then<List::NodeRegisters::Result, List::Result>(std::move(sender), [node_id](List::Result&& result) {
+            //
+            if (auto* const err = cetl::get_if<List::Failure>(&result))
+            {
+                return List::NodeRegisters::Result{*err};
+            }
+            auto list = cetl::get<List::Success>(std::move(result));
+
+            const auto node_it = list.find(node_id);
+            return (node_it != list.end()) ? std::move(node_it->second) : ENOENT;
+        });
+    }
+
     struct Access final
     {
         using RegValue = uavcan::_register::Value_1_0;

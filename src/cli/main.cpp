@@ -26,6 +26,8 @@
 #include <utility>
 #include <vector>
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+
 namespace
 {
 
@@ -60,6 +62,52 @@ void setRegisterValue(ocvsmd::sdk::NodeRegistryClient::Access::RegValue& reg_val
     std::copy(text.begin(), text.end(), std::back_inserter(reg_str.value));
 }
 
+void logRegistryListNodeResult(  //
+    std::set<std::string>                                               reg_names_set,
+    const std::uint16_t                                                 node_id,
+    const ocvsmd::sdk::NodeRegistryClient::List::NodeRegisters::Result& result)
+{
+    using NodeRegisters = ocvsmd::sdk::NodeRegistryClient::List::NodeRegisters;
+
+    if (const auto* const node_err = cetl::get_if<NodeRegisters::Failure>(&result))
+    {
+        spdlog::warn("{:4} → err={}", node_id, *node_err);
+        return;
+    }
+
+    const auto& node_regs = cetl::get<NodeRegisters::Success>(result);
+    for (const auto& reg_name : node_regs)
+    {
+        reg_names_set.insert(reg_name);
+        spdlog::info("{:4} → '{}'", node_id, reg_name);
+    }
+}
+
+void logRegistryAccessNodeResult(const std::uint16_t                                                   node_id,
+                                 const ocvsmd::sdk::NodeRegistryClient::Access::NodeRegisters::Result& result)
+{
+    using NodeRegs = ocvsmd::sdk::NodeRegistryClient::Access::NodeRegisters;
+
+    if (const auto* const node_err = cetl::get_if<NodeRegs::Failure>(&result))
+    {
+        spdlog::warn("{:4} → err={}", node_id, *node_err);
+        return;
+    }
+    const auto& node_reg_vals = cetl::get<NodeRegs::Success>(result);
+
+    for (const auto& reg_key_val : node_reg_vals)
+    {
+        if (const auto* const reg_err = cetl::get_if<1>(&reg_key_val.value_or_err))
+        {
+            spdlog::warn("{:4} → '{}' err={}", node_id, reg_key_val.key, *reg_err);
+            continue;
+        }
+        const auto& reg_val = cetl::get<0>(reg_key_val.value_or_err);
+
+        spdlog::info("{:4} → '{}'={}", node_id, reg_key_val.key, reg_val);
+    }
+}
+
 void logRegistryAccessResult(ocvsmd::sdk::NodeRegistryClient::Access::Result&& result)
 {
     using Access = ocvsmd::sdk::NodeRegistryClient::Access;
@@ -68,29 +116,8 @@ void logRegistryAccessResult(ocvsmd::sdk::NodeRegistryClient::Access::Result&& r
     spdlog::info("Engine responded with list of nodes (cnt={}):", node_id_to_reg_vals.size());
     for (const auto& id_and_reg_vals : node_id_to_reg_vals)
     {
-        using NodeRegs = Access::NodeRegisters;
-
-        if (const auto* const node_err = cetl::get_if<NodeRegs::Failure>(&id_and_reg_vals.second))
-        {
-            spdlog::warn("{:4} → err={}", id_and_reg_vals.first, *node_err);
-            continue;
-        }
-        const auto& node_reg_vals = cetl::get<NodeRegs::Success>(id_and_reg_vals.second);
-
-        for (const auto& reg_key_val : node_reg_vals)
-        {
-            if (const auto* const reg_err = cetl::get_if<1>(&reg_key_val.value_or_err))
-            {
-                spdlog::warn("{:4} → '{}' err={}", id_and_reg_vals.first, reg_key_val.key, *reg_err);
-                continue;
-            }
-            const auto& reg_val = cetl::get<0>(reg_key_val.value_or_err);
-
-            spdlog::info("{:4} → '{}'={}", id_and_reg_vals.first, reg_key_val.key, reg_val);
-
-        }  // for node_reg_vals
-
-    }  // for nodes
+        logRegistryAccessNodeResult(id_and_reg_vals.first, id_and_reg_vals.second);
+    }
 }
 
 }  // namespace
@@ -245,19 +272,7 @@ int main(const int argc, const char** const argv)
                 spdlog::info("Engine responded with list of nodes (cnt={}):", node_id_to_regs.size());
                 for (const auto& id_and_regs : node_id_to_regs)
                 {
-                    using NodeRegs = List::NodeRegisters;
-
-                    if (const auto* const node_err = cetl::get_if<NodeRegs::Failure>(&id_and_regs.second))
-                    {
-                        spdlog::warn("{:4} → err={}", id_and_regs.first, *node_err);
-                        continue;
-                    }
-                    const auto& node_regs = cetl::get<NodeRegs::Success>(id_and_regs.second);
-                    for (const auto& reg_name : node_regs)
-                    {
-                        reg_names_set.insert(reg_name);
-                        spdlog::info("{:4} → '{}'", id_and_regs.first, reg_name);
-                    }
+                    logRegistryListNodeResult(reg_names_set, id_and_regs.first, id_and_regs.second);
                 }
                 const std::vector<cetl::string_view>      reg_names_vec{reg_names_set.begin(), reg_names_set.end()};
                 const cetl::span<const cetl::string_view> reg_names{reg_names_vec.data(), reg_names_vec.size()};
@@ -280,7 +295,7 @@ int main(const int argc, const char** const argv)
                 const cetl::string_view            reg_key_desc{"uavcan.node.description"};
                 std::array<Access::RegKeyValue, 1> reg_keys_and_values = {
                     Access::RegKeyValue{reg_key_desc, Access::RegValue{&memory}}};
-                setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node");
+                setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node3");
                 //
                 auto write_sender = registry->write(node_ids, reg_keys_and_values, std::chrono::seconds{1});
                 auto write_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(write_sender));
@@ -292,6 +307,15 @@ int main(const int argc, const char** const argv)
                 {
                     logRegistryAccessResult(std::move(write_result));
                 }
+            }
+
+            // Try single node id api.
+            {
+                auto list_node_sender = registry->list(42, std::chrono::seconds{1});
+                auto list_node_result = ocvsmd::sdk::sync_wait<List::NodeRegisters::Result>(  //
+                    executor,
+                    std::move(list_node_sender));
+                logRegistryListNodeResult({}, 42, list_node_result);
             }
         }
 #endif
@@ -310,3 +334,5 @@ int main(const int argc, const char** const argv)
 
     return result;
 }
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
