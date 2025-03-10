@@ -59,6 +59,7 @@ public:
 
 private:
     using Channel       = common::ipc::Channel<Spec::Response, Spec::Request>;
+    using RegNameValue  = NodeRegistryClient::Access::RegNameValue;
     using NodeRegisters = NodeRegistryClient::Access::NodeRegisters;
 
     void buildScopeRequests(const cetl::span<const std::uint16_t> node_ids, const std::chrono::microseconds timeout)
@@ -146,16 +147,15 @@ private:
         }
 
         std::string reg_key{input._register.key.name.begin(), input._register.key.name.end()};
-
         if (auto* const regs = cetl::get_if<NodeRegisters::Success>(&it->second))
         {
             if (input.error_code == 0)
             {
-                regs->emplace_back(std::move(reg_key), input._register.value);
+                regs->emplace_back(RegNameValue{std::move(reg_key), input._register.value});
             }
             else
             {
-                regs->emplace_back(std::move(reg_key), input.error_code);
+                regs->emplace_back(RegNameValue{std::move(reg_key), input.error_code});
             }
         }
     }
