@@ -82,6 +82,32 @@ public:
             logger_);
     }
 
+    SenderOf<Access::Result>::Ptr write(const cetl::span<const std::uint16_t>       node_ids,
+                                        const cetl::span<const Access::RegKeyValue> registers,
+                                        const std::chrono::microseconds             timeout) override
+    {
+        using RegKey                = uavcan::_register::Name_1_0;
+        using AccessRegistersClient = svc::node::AccessRegistersClient;
+
+        logger_->trace("NodeRegistryClient: Making sender of `read()`.");
+
+        for (const auto& reg : registers)
+        {
+            if (reg.key.size() > RegKey::_traits_::ArrayCapacity::name)
+            {
+                logger_->error("Too long register key '{}'.", reg.key);
+                return just<Access::Result>(EINVAL);
+            }
+        }
+
+        auto svc_client = AccessRegistersClient::make(memory_, ipc_router_, node_ids, registers, timeout);
+
+        return std::make_unique<svc::AsSender<AccessRegistersClient, AccessRegistersClient::Result>>(  //
+            "NodeRegistryClient::write",
+            std::move(svc_client),
+            logger_);
+    }
+
 private:
     cetl::pmr::memory_resource&    memory_;
     common::LoggerPtr              logger_;

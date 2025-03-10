@@ -44,7 +44,20 @@ public:
         , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
     {
         buildScopeRequests(node_ids, timeout);
-        buildRegisterRequests(registers);
+        buildReadRegisterRequests(registers);
+    }
+
+    AccessRegistersClientImpl(cetl::pmr::memory_resource&           memory,
+                              const common::ipc::ClientRouter::Ptr& ipc_router,
+                              const cetl::span<const std::uint16_t> node_ids,
+                              const cetl::span<const RegKeyValue>   registers,
+                              const std::chrono::microseconds       timeout)
+        : memory_{memory}
+        , logger_{common::getLogger("svc")}
+        , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
+    {
+        buildScopeRequests(node_ids, timeout);
+        buildWriteRegisterRequests(registers);
     }
 
     void submitImpl(std::function<void(Result&&)>&& receiver) override
@@ -58,9 +71,9 @@ public:
     }
 
 private:
-    using Channel           = common::ipc::Channel<Spec::Response, Spec::Request>;
-    using NodeRegisters     = NodeRegistryClient::Access::NodeRegisters;
-    using RegNameValueOrErr = NodeRegistryClient::Access::RegNameValueOrErr;
+    using Channel          = common::ipc::Channel<Spec::Response, Spec::Request>;
+    using NodeRegisters    = NodeRegistryClient::Access::NodeRegisters;
+    using RegKeyValueOrErr = NodeRegistryClient::Access::RegKeyValueOrErr;
 
     void buildScopeRequests(const cetl::span<const std::uint16_t> node_ids, const std::chrono::microseconds timeout)
     {
@@ -84,7 +97,7 @@ private:
         }
     }
 
-    void buildRegisterRequests(const cetl::span<const cetl::string_view> registers)
+    void buildReadRegisterRequests(const cetl::span<const cetl::string_view> registers)
     {
         using RegisterReq = Spec::Request::_traits_::TypeOf::_register;
 
@@ -96,6 +109,24 @@ private:
             RegisterReq&  register_req = request.set__register();
 
             std::copy(reg_key.cbegin(), reg_key.cend(), std::back_inserter(register_req.key.name));
+
+            requests_.emplace_back(std::move(request));
+        }
+    }
+
+    void buildWriteRegisterRequests(const cetl::span<const RegKeyValue> registers)
+    {
+        using RegisterReq = Spec::Request::_traits_::TypeOf::_register;
+
+        // For each register append separate request with its key and value.
+        //
+        for (const auto& reg : registers)
+        {
+            Spec::Request request{&memory_};
+            RegisterReq&  register_req = request.set__register();
+
+            std::copy(reg.key.cbegin(), reg.key.cend(), std::back_inserter(register_req.key.name));
+            register_req.value = reg.value;
 
             requests_.emplace_back(std::move(request));
         }
@@ -151,11 +182,11 @@ private:
         {
             if (input.error_code == 0)
             {
-                regs->emplace_back(RegNameValueOrErr{std::move(reg_key), input._register.value});
+                regs->emplace_back(RegKeyValueOrErr{std::move(reg_key), input._register.value});
             }
             else
             {
-                regs->emplace_back(RegNameValueOrErr{std::move(reg_key), input.error_code});
+                regs->emplace_back(RegKeyValueOrErr{std::move(reg_key), input.error_code});
             }
         }
     }
@@ -191,6 +222,15 @@ AccessRegistersClient::Ptr AccessRegistersClient::make(  //
     const cetl::span<const std::uint16_t>     node_ids,
     const cetl::span<const cetl::string_view> registers,
     const std::chrono::microseconds           timeout)
+{
+    return std::make_shared<AccessRegistersClientImpl>(memory, ipc_router, node_ids, registers, timeout);
+}
+
+AccessRegistersClient::Ptr AccessRegistersClient::make(cetl::pmr::memory_resource&           memory,
+                                                       const common::ipc::ClientRouter::Ptr& ipc_router,
+                                                       const cetl::span<const std::uint16_t> node_ids,
+                                                       const cetl::span<const RegKeyValue>   registers,
+                                                       const std::chrono::microseconds       timeout)
 {
     return std::make_shared<AccessRegistersClientImpl>(memory, ipc_router, node_ids, registers, timeout);
 }

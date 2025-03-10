@@ -54,6 +54,45 @@ void setupSignalHandlers()
     ::sigaction(SIGTERM, &sigbreak, nullptr);
 }
 
+void setRegisterValue(ocvsmd::sdk::NodeRegistryClient::Access::RegValue& reg_val, const std::string& text)
+{
+    auto& reg_str = reg_val.set_string();
+    std::copy(text.begin(), text.end(), std::back_inserter(reg_str.value));
+}
+
+void logRegistryAccessResult(ocvsmd::sdk::NodeRegistryClient::Access::Result&& result)
+{
+    using Access = ocvsmd::sdk::NodeRegistryClient::Access;
+
+    const auto node_id_to_reg_vals = cetl::get<Access::Success>(std::move(result));
+    spdlog::info("Engine responded with list of nodes (cnt={}):", node_id_to_reg_vals.size());
+    for (const auto& id_and_reg_vals : node_id_to_reg_vals)
+    {
+        using NodeRegs = Access::NodeRegisters;
+
+        if (const auto* const node_err = cetl::get_if<NodeRegs::Failure>(&id_and_reg_vals.second))
+        {
+            spdlog::warn("{:4} → err={}", id_and_reg_vals.first, *node_err);
+            continue;
+        }
+        const auto& node_reg_vals = cetl::get<NodeRegs::Success>(id_and_reg_vals.second);
+
+        for (const auto& reg_key_val : node_reg_vals)
+        {
+            if (const auto* const reg_err = cetl::get_if<1>(&reg_key_val.value_or_err))
+            {
+                spdlog::warn("{:4} → '{}' err={}", id_and_reg_vals.first, reg_key_val.key, *reg_err);
+                continue;
+            }
+            const auto& reg_val = cetl::get<0>(reg_key_val.value_or_err);
+
+            spdlog::info("{:4} → '{}'={}", id_and_reg_vals.first, reg_key_val.key, reg_val);
+
+        }  // for node_reg_vals
+
+    }  // for nodes
+}
+
 }  // namespace
 
 int main(const int argc, const char** const argv)
@@ -189,8 +228,11 @@ int main(const int argc, const char** const argv)
 
             auto registry = daemon->getNodeRegistryClient();
 
-            const std::vector<std::uint16_t> node_ids = {123, 42, 43, 44};
-            auto sender      = registry->list({node_ids.data(), node_ids.size()}, std::chrono::seconds{1});
+            // List ALL registers.
+            //
+            std::array<std::uint16_t, 3> node_ids = {42, 43, 44};
+            //
+            auto sender      = registry->list(node_ids, std::chrono::seconds{1});
             auto list_result = ocvsmd::sdk::sync_wait<List::Result>(executor, std::move(sender));
             if (const auto* const list_err = cetl::get_if<List::Failure>(&list_result))
             {
@@ -217,11 +259,12 @@ int main(const int argc, const char** const argv)
                         spdlog::info("{:4} → '{}'", id_and_regs.first, reg_name);
                     }
                 }
-                const std::vector<cetl::string_view> reg_names{reg_names_set.begin(), reg_names_set.end()};
+                const std::vector<cetl::string_view>      reg_names_vec{reg_names_set.begin(), reg_names_set.end()};
+                const cetl::span<const cetl::string_view> reg_names{reg_names_vec.data(), reg_names_vec.size()};
 
-                auto read_sender = registry->read({node_ids.data(), node_ids.size()},
-                                                  {reg_names.data(), reg_names.size()},
-                                                  std::chrono::seconds{1});
+                // Read ALL registers.
+                //
+                auto read_sender = registry->read(node_ids, reg_names, std::chrono::seconds{1});
                 auto read_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(read_sender));
                 if (const auto* const read_err = cetl::get_if<Access::Failure>(&read_result))
                 {
@@ -229,33 +272,25 @@ int main(const int argc, const char** const argv)
                 }
                 else
                 {
-                    const auto node_id_to_reg_vals = cetl::get<Access::Success>(std::move(read_result));
-                    spdlog::info("Engine responded with list of nodes read (cnt={}):", node_id_to_reg_vals.size());
-                    for (const auto& id_and_reg_vals : node_id_to_reg_vals)
-                    {
-                        using NodeRegs = Access::NodeRegisters;
+                    logRegistryAccessResult(std::move(read_result));
+                }
 
-                        if (const auto* const node_err = cetl::get_if<NodeRegs::Failure>(&id_and_reg_vals.second))
-                        {
-                            spdlog::warn("{:4} → err={}", id_and_reg_vals.first, *node_err);
-                            continue;
-                        }
-                        const auto& node_reg_vals = cetl::get<NodeRegs::Success>(id_and_reg_vals.second);
-
-                        for (const auto& reg_name_val : node_reg_vals)
-                        {
-                            if (const auto* const reg_err = cetl::get_if<1>(&reg_name_val.value_or_err))
-                            {
-                                spdlog::warn("{:4} → '{}' err={}", id_and_reg_vals.first, reg_name_val.name, *reg_err);
-                                continue;
-                            }
-                            const auto& reg_val = cetl::get<0>(reg_name_val.value_or_err);
-
-                            spdlog::info("{:4} → '{}'={}", id_and_reg_vals.first, reg_name_val.name, reg_val);
-
-                        }  // for node_reg_vals
-
-                    }  // for nodes
+                // Write 'uavcan.node.description' registers.
+                //
+                const cetl::string_view            reg_key_desc{"uavcan.node.description"};
+                std::array<Access::RegKeyValue, 1> reg_keys_and_values = {
+                    Access::RegKeyValue{reg_key_desc, Access::RegValue{&memory}}};
+                setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node");
+                //
+                auto write_sender = registry->write(node_ids, reg_keys_and_values, std::chrono::seconds{1});
+                auto write_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(write_sender));
+                if (const auto* const write_err = cetl::get_if<Access::Failure>(&write_result))
+                {
+                    spdlog::error("Failed to write registers: {}", std::strerror(*write_err));
+                }
+                else
+                {
+                    logRegistryAccessResult(std::move(write_result));
                 }
             }
         }

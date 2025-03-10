@@ -33,15 +33,22 @@ public:
     using Ptr  = std::shared_ptr<AccessRegistersClient>;
     using Spec = common::svc::node::AccessRegistersSpec;
 
-    using Result  = NodeRegistryClient::Access::Result;
-    using Success = NodeRegistryClient::Access::Success;
-    using Failure = NodeRegistryClient::Access::Failure;
+    using Result      = NodeRegistryClient::Access::Result;
+    using Success     = NodeRegistryClient::Access::Success;
+    using Failure     = NodeRegistryClient::Access::Failure;
+    using RegKeyValue = NodeRegistryClient::Access::RegKeyValue;
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&               memory,
                                    const common::ipc::ClientRouter::Ptr&     ipc_router,
                                    const cetl::span<const std::uint16_t>     node_ids,
                                    const cetl::span<const cetl::string_view> registers,
                                    const std::chrono::microseconds           timeout);
+
+    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
+                                   const common::ipc::ClientRouter::Ptr& ipc_router,
+                                   const cetl::span<const std::uint16_t> node_ids,
+                                   const cetl::span<const RegKeyValue>   registers,
+                                   const std::chrono::microseconds       timeout);
 
     AccessRegistersClient(AccessRegistersClient&&)                 = delete;
     AccessRegistersClient(const AccessRegistersClient&)            = delete;

@@ -85,20 +85,20 @@ public:
     {
         using RegValue = uavcan::_register::Value_1_0;
 
-        struct RegNameValue final
+        struct RegKeyValue final
         {
-            std::string name;
-            RegValue    value;
+            cetl::string_view key;
+            RegValue          value;
         };
-        struct RegNameValueOrErr final
+        struct RegKeyValueOrErr final
         {
-            std::string                  name;
+            std::string                  key;
             cetl::variant<RegValue, int> value_or_err;  // `errno`-like error code.
         };
 
         struct NodeRegisters final
         {
-            using Success = std::vector<RegNameValueOrErr>;
+            using Success = std::vector<RegKeyValueOrErr>;
             using Failure = int;  // `errno`-like error code.
             using Result  = cetl::variant<Success, Failure>;
 
@@ -116,10 +116,9 @@ public:
                                                const cetl::span<const cetl::string_view> registers,
                                                const std::chrono::microseconds           timeout) = 0;
 
-    // virtual SenderOf<Access::Result>::Ptr write(
-    //     const cetl::span<const std::uint16_t>                                  node_ids,
-    //     const cetl::span<std::pair<const cetl::string_view, Access::RegValue>> registers,
-    //     const std::chrono::microseconds                                        timeout) = 0;
+    virtual SenderOf<Access::Result>::Ptr write(const cetl::span<const std::uint16_t>       node_ids,
+                                                const cetl::span<const Access::RegKeyValue> registers,
+                                                const std::chrono::microseconds             timeout) = 0;
 
 protected:
     NodeRegistryClient() = default;
