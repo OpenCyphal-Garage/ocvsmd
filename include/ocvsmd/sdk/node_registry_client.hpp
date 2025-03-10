@@ -83,6 +83,10 @@ public:
 
     /// Collects list of register names from the specified Cyphal network node.
     ///
+    /// Internally it calls the above `list` method - just provides more simple API:
+    /// - input is just one node ID (instead of a span of ids);
+    /// - output is just a vector of register names (or error code).
+    ///
     SenderOf<List::NodeRegisters::Result>::Ptr list(const std::uint16_t             node_id,
                                                     const std::chrono::microseconds timeout)
     {
@@ -101,21 +105,37 @@ public:
         });
     }
 
+    /// Defines the result type of the access (read/write) commands execution.
+    ///
+    /// On success, the result is a map of node ID to its register names and values (or error code from the node).
+    /// Missing Cyphal nodes (or failed to respond in a given timeout) are included in the map with ETIMEDOUT code.
+    /// On failure, the result is an error code of some failure to communicate with the OCVSMD engine.
+    ///
     struct Access final
     {
         using RegValue = uavcan::_register::Value_1_0;
 
+        /// Defines an input pair of a register name and (optionally) its value.
+        ///
         struct RegKeyValue final
         {
             cetl::string_view key;
             RegValue          value;
         };
+
+        /// Defines an output pair of a register name and its value (or error code).
+        ///
         struct RegKeyValueOrErr final
         {
             std::string                  key;
             cetl::variant<RegValue, int> value_or_err;  // `errno`-like error code.
         };
 
+        /// Defines the result type of the list of a node registers.
+        ///
+        /// On success, the result is a vector of register names and values (or errors).
+        /// On failure, the result is an error code.
+        ///
         struct NodeRegisters final
         {
             using Success = std::vector<RegKeyValueOrErr>;
@@ -132,13 +152,89 @@ public:
         Access() = delete;
     };
 
+    /// Reads a list of register values from the specified Cyphal network nodes.
+    ///
+    /// On the OCVSMD engine side, Cyphal `384.Access.1.0` requests are sent concurrently to all specified Cyphal nodes.
+    /// Responses are sent back to the client side as they arrive, and collected in the result map.
+    /// The overall result will be available when the last response has arrived, or the timeout has expired.
+    ///
+    /// @param node_ids The set of Cyphal node IDs to be `read`. Duplicates are ignored.
+    /// @param registers The list of register names to be `read`.
+    /// @param timeout The maximum time to wait for all Cyphal node responses to arrive.
+    /// @return An execution sender which emits the async overall result of the operation.
+    ///
     virtual SenderOf<Access::Result>::Ptr read(const cetl::span<const std::uint16_t>     node_ids,
                                                const cetl::span<const cetl::string_view> registers,
                                                const std::chrono::microseconds           timeout) = 0;
 
+    /// Reads a list of register names from the specified Cyphal network node.
+    ///
+    /// Internally it calls the above `read` method - just provides more simple API:
+    /// - input is just one node ID (instead of a span of ids);
+    /// - output is just a vector of the node register names and their values (or error code).
+    ///
+    SenderOf<Access::NodeRegisters::Result>::Ptr read(const std::uint16_t                       node_id,
+                                                      const cetl::span<const cetl::string_view> registers,
+                                                      const std::chrono::microseconds           timeout)
+    {
+        std::array<std::uint16_t, 1>  node_ids = {node_id};
+        SenderOf<Access::Result>::Ptr sender   = read(node_ids, registers, timeout);
+        return then<Access::NodeRegisters::Result, Access::Result>(  //
+            std::move(sender),
+            [node_id](Access::Result&& access_result) {
+                //
+                if (auto* const err = cetl::get_if<Access::Failure>(&access_result))
+                {
+                    return Access::NodeRegisters::Result{*err};
+                }
+                auto list = cetl::get<Access::Success>(std::move(access_result));
+
+                const auto node_it = list.find(node_id);
+                return (node_it != list.end()) ? std::move(node_it->second) : ENOENT;
+            });
+    }
+
+    /// Writes a list of register values to the specified Cyphal network nodes.
+    ///
+    /// On the OCVSMD engine side, Cyphal `384.Access.1.0` requests are sent concurrently to all specified Cyphal nodes.
+    /// Responses are sent back to the client side as they arrive, and collected in the result map.
+    /// The overall result will be available when the last response has arrived, or the timeout has expired.
+    ///
+    /// @param node_ids The set of Cyphal node IDs to be `read`. Duplicates are ignored.
+    /// @param registers The list of register names and their values to be `written`.
+    /// @param timeout The maximum time to wait for all Cyphal node responses to arrive.
+    /// @return An execution sender which emits the async overall result of the operation.
+    ///
     virtual SenderOf<Access::Result>::Ptr write(const cetl::span<const std::uint16_t>       node_ids,
                                                 const cetl::span<const Access::RegKeyValue> registers,
                                                 const std::chrono::microseconds             timeout) = 0;
+
+    /// Writes a list of register names to the specified Cyphal network node.
+    ///
+    /// Internally it calls the above `write` method - just provides more simple API:
+    /// - input is just one node ID (instead of a span of ids);
+    /// - output is just a vector of the node register names and their values (or error code).
+    ///
+    SenderOf<Access::NodeRegisters::Result>::Ptr write(const std::uint16_t                         node_id,
+                                                       const cetl::span<const Access::RegKeyValue> registers,
+                                                       const std::chrono::microseconds             timeout)
+    {
+        std::array<std::uint16_t, 1>  node_ids = {node_id};
+        SenderOf<Access::Result>::Ptr sender   = write(node_ids, registers, timeout);
+        return then<Access::NodeRegisters::Result, Access::Result>(  //
+            std::move(sender),
+            [node_id](Access::Result&& access_result) {
+                //
+                if (auto* const err = cetl::get_if<Access::Failure>(&access_result))
+                {
+                    return Access::NodeRegisters::Result{*err};
+                }
+                auto list = cetl::get<Access::Success>(std::move(access_result));
+
+                const auto node_it = list.find(node_id);
+                return (node_it != list.end()) ? std::move(node_it->second) : ENOENT;
+            });
+    }
 
 protected:
     NodeRegistryClient() = default;

@@ -63,7 +63,7 @@ void setRegisterValue(ocvsmd::sdk::NodeRegistryClient::Access::RegValue& reg_val
 }
 
 void logRegistryListNodeResult(  //
-    std::set<std::string>                                               reg_names_set,
+    std::set<std::string>&                                              reg_names_set,
     const std::uint16_t                                                 node_id,
     const ocvsmd::sdk::NodeRegistryClient::List::NodeRegisters::Result& result)
 {
@@ -311,11 +311,43 @@ int main(const int argc, const char** const argv)
 
             // Try single node id api.
             {
-                auto list_node_sender = registry->list(42, std::chrono::seconds{1});
-                auto list_node_result = ocvsmd::sdk::sync_wait<List::NodeRegisters::Result>(  //
-                    executor,
-                    std::move(list_node_sender));
-                logRegistryListNodeResult({}, 42, list_node_result);
+                constexpr std::uint16_t          node_id{42};
+                std::array<cetl::string_view, 1> reg_keys = {"uavcan.node.description"};
+
+                // List
+                {
+                    auto list_node_sender = registry->list(node_id, std::chrono::seconds{1});
+                    auto list_node_result = ocvsmd::sdk::sync_wait<List::NodeRegisters::Result>(  //
+                        executor,
+                        std::move(list_node_sender));
+
+                    std::set<std::string> reg_names_set;
+                    logRegistryListNodeResult(reg_names_set, node_id, list_node_result);
+                }
+
+                // Write
+                {
+                    const cetl::string_view            reg_key_desc{"uavcan.node.description"};
+                    std::array<Access::RegKeyValue, 1> reg_keys_and_values = {
+                        Access::RegKeyValue{reg_key_desc, Access::RegValue{&memory}}};
+                    setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node42");
+
+                    auto write_node_sender = registry->write(node_id, reg_keys_and_values, std::chrono::seconds{1});
+                    auto write_node_result = ocvsmd::sdk::sync_wait<Access::NodeRegisters::Result>(  //
+                        executor,
+                        std::move(write_node_sender));
+
+                    logRegistryAccessNodeResult(node_id, write_node_result);
+                }
+
+                // Read
+                {
+                    auto read_node_sender = registry->read(node_id, reg_keys, std::chrono::seconds{1});
+                    auto read_node_result = ocvsmd::sdk::sync_wait<Access::NodeRegisters::Result>(  //
+                        executor,
+                        std::move(read_node_sender));
+                    logRegistryAccessNodeResult(node_id, read_node_result);
+                }
             }
         }
 #endif
