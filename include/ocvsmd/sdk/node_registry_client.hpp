@@ -87,13 +87,18 @@ public:
 
         struct RegNameValue final
         {
+            std::string name;
+            RegValue    value;
+        };
+        struct RegNameValueOrErr final
+        {
             std::string                  name;
-            cetl::variant<RegValue, int> value;  // `errno`-like error code.
+            cetl::variant<RegValue, int> value_or_err;  // `errno`-like error code.
         };
 
         struct NodeRegisters final
         {
-            using Success = std::vector<RegNameValue>;
+            using Success = std::vector<RegNameValueOrErr>;
             using Failure = int;  // `errno`-like error code.
             using Result  = cetl::variant<Success, Failure>;
 
@@ -106,9 +111,15 @@ public:
 
         Access() = delete;
     };
+
     virtual SenderOf<Access::Result>::Ptr read(const cetl::span<const std::uint16_t>     node_ids,
                                                const cetl::span<const cetl::string_view> registers,
                                                const std::chrono::microseconds           timeout) = 0;
+
+    // virtual SenderOf<Access::Result>::Ptr write(
+    //     const cetl::span<const std::uint16_t>                                  node_ids,
+    //     const cetl::span<std::pair<const cetl::string_view, Access::RegValue>> registers,
+    //     const std::chrono::microseconds                                        timeout) = 0;
 
 protected:
     NodeRegistryClient() = default;

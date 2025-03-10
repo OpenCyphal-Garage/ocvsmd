@@ -244,12 +244,12 @@ int main(const int argc, const char** const argv)
 
                         for (const auto& reg_name_val : node_reg_vals)
                         {
-                            if (const auto* const reg_err = cetl::get_if<1>(&reg_name_val.value))
+                            if (const auto* const reg_err = cetl::get_if<1>(&reg_name_val.value_or_err))
                             {
                                 spdlog::warn("{:4} → '{}' err={}", id_and_reg_vals.first, reg_name_val.name, *reg_err);
                                 continue;
                             }
-                            const auto& reg_val = cetl::get<0>(reg_name_val.value);
+                            const auto& reg_val = cetl::get<0>(reg_name_val.value_or_err);
 
                             spdlog::info("{:4} → '{}'={}", id_and_reg_vals.first, reg_name_val.name, reg_val);
 

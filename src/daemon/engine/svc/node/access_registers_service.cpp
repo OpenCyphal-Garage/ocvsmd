@@ -259,7 +259,7 @@ private:
             CETL_DEBUG_ASSERT(processing_, "");
             CETL_DEBUG_ASSERT(node_cnxt.client, "");
 
-            while (node_cnxt.reg_index < registers_.size())
+            while (node_cnxt.client && node_cnxt.reg_index < registers_.size())
             {
                 const auto  deadline = service_.context_.executor.now() + node_cnxt.timeout;
                 const auto& reg      = registers_[node_cnxt.reg_index];
