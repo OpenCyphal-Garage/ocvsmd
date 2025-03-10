@@ -17,3 +17,5 @@ cmake-build-*/
 
 __pycache__
 *.log
+
+fs-root/

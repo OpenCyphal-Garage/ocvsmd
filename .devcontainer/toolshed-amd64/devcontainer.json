@@ -1,6 +1,6 @@
 {
     "name": "linux development environment (linux/amd64)",
-    "image": "ghcr.io/opencyphal/toolshed:ts24.4.2",
+    "image": "ghcr.io/opencyphal/toolshed:ts24.4.3",
     "workspaceFolder": "/repo",
     "workspaceMount": "source=${localWorkspaceFolder},target=/repo,type=bind,consistency=delegated",
     "mounts": [
@@ -16,7 +16,7 @@
             ]
         }
     },
-    "runArgs": ["--platform=linux/amd64", "-i", "--net=host"],
+    "runArgs": ["--platform=linux/amd64", "-i"],
     "forwardPorts": [ 
         9382  
     ],

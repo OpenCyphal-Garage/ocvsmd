@@ -23,3 +23,9 @@
 [submodule "submodules/toml11"]
 	path = submodules/toml11
 	url = https://github.com/ToruNiina/toml11.git
+[submodule "submodules/demos"]
+	path = submodules/demos
+	url = https://github.com/OpenCyphal-Garage/demos.git
+[submodule "submodules/o1heap"]
+	path = submodules/o1heap
+	url = https://github.com/pavel-kirienko/o1heap.git

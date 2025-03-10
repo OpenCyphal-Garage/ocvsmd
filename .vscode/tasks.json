@@ -61,11 +61,6 @@
                 "id": "server-process"
             },
             "command": "/repo/.devcontainer/link_ocvsmd.sh",
-            "options": {
-                "shell": {
-                    "executable": "/bin/bash",
-                }
-            },
             "isBackground": true,
             "problemMatcher": [],
             "presentation": {

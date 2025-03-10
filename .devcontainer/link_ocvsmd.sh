@@ -30,6 +30,7 @@ if [[ "$BUILD_TYPE" != "Release" && "$BUILD_TYPE" != "Debug" ]]; then
   exit 1
 fi
 
+set +e
 if [[ -L /usr/local/bin/ocvsmd ]]; then
   unlink /usr/local/bin/ocvsmd
 fi
@@ -54,6 +55,9 @@ ln -s /repo/init.d/ocvsmd /etc/init.d/ocvsmd
 chmod +x /etc/init.d/ocvsmd
 mkdir -p /etc/ocvsmd
 ln -s /repo/init.d/ocvsmd.toml /etc/ocvsmd/ocvsmd.toml
+
+set -e
+echo "Links should be setup. Starting..."
 
 /etc/init.d/ocvsmd start SPDLOG_LEVEL=trace SPDLOG_FLUSH_LEVEL=trace
 
