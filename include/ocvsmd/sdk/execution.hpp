@@ -198,6 +198,38 @@ Result sync_wait(Executor& executor, Sender&& sender)
     return state->get();
 }
 
+template <typename Result, typename Input, typename Func>
+typename SenderOf<Result>::Ptr then(typename SenderOf<Input>::Ptr input_sender, Func&& transform_func)
+{
+    // Private implementation of the sender.
+    class ThenSender final : public SenderOf<Result>
+    {
+    public:
+        ThenSender(typename SenderOf<Input>::Ptr input_sender, Func&& func)
+            : input_sender_{std::move(input_sender)}
+            , transform_func_{std::forward<Func>(func)}
+        {
+        }
+
+    private:
+        // SenderOf
+
+        void submitImpl(std::function<void(Result&&)>&& receiver) override
+        {
+            input_sender_->submit([this, rc = std::move(receiver)](Input&& input) {
+                //
+                rc(transform_func_(std::move(input)));
+            });
+        }
+
+        typename SenderOf<Input>::Ptr input_sender_;
+        Func                          transform_func_;
+
+    };  // ThenSender
+
+    return std::make_unique<ThenSender>(std::move(input_sender), std::forward<Func>(transform_func));
+}
+
 }  // namespace sdk
 }  // namespace ocvsmd
 

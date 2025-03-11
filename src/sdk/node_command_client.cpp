@@ -15,7 +15,6 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
 
 #include <algorithm>
 #include <cerrno>
@@ -49,9 +48,9 @@ public:
         return memory_;
     }
 
-    SenderOf<Command::Result>::Ptr sendCommand(const cetl::span<const std::uint16_t> node_ids,
-                                               const Command::NodeRequest&           node_request,
-                                               const std::chrono::microseconds       timeout) override
+    SenderOf<Command::Result>::Ptr sendCommand(const CyphalNodeIds             node_ids,
+                                               const Command::NodeRequest&     node_request,
+                                               const std::chrono::microseconds timeout) override
     {
         common::svc::node::ExecCmdSpec::Request request{std::max<std::uint64_t>(0, timeout.count()),
                                                         {node_ids.begin(), node_ids.end(), &memory_},
@@ -117,8 +116,8 @@ private:
 }  // namespace
 
 SenderOf<NodeCommandClient::Command::Result>::Ptr NodeCommandClient::restart(  //
-    const cetl::span<const std::uint16_t> node_ids,
-    const std::chrono::microseconds       timeout)
+    const CyphalNodeIds             node_ids,
+    const std::chrono::microseconds timeout)
 {
     auto& memory = getMemoryResource();
 
@@ -130,9 +129,9 @@ SenderOf<NodeCommandClient::Command::Result>::Ptr NodeCommandClient::restart(  /
 }
 
 SenderOf<NodeCommandClient::Command::Result>::Ptr NodeCommandClient::beginSoftwareUpdate(  //
-    const cetl::span<const std::uint16_t> node_ids,
-    const cetl::string_view               file_path,
-    const std::chrono::microseconds       timeout)
+    const CyphalNodeIds             node_ids,
+    const cetl::string_view         file_path,
+    const std::chrono::microseconds timeout)
 {
     using Parameter = Command::NodeRequest::_traits_::TypeOf::parameter;
 
