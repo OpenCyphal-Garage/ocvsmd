@@ -57,6 +57,29 @@ void setupSignalHandlers()
     ::sigaction(SIGTERM, &sigbreak, nullptr);
 }
 
+void logCommandResult(const ocvsmd::sdk::NodeCommandClient::Command::Result& cmd_result)
+{
+    using Command = ocvsmd::sdk::NodeCommandClient::Command;
+
+    if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))
+    {
+        spdlog::error("Failed to send command: {}", std::strerror(*err));
+        return;
+    }
+
+    const auto& responds = cetl::get<Command::Success>(cmd_result);
+    for (const auto& node_and_respond : responds)
+    {
+        if (const auto* const err = cetl::get_if<1>(&node_and_respond.second))
+        {
+            spdlog::warn("{:4} → err={}", node_and_respond.first, *err);
+            continue;
+        }
+        const auto& response = cetl::get<0>(node_and_respond.second);
+        spdlog::info("{:4} → status={}.", node_and_respond.first, response.status);
+    }
+}
+
 void setRegisterValue(ocvsmd::sdk::NodeRegistryClient::Access::RegValue& reg_val, const std::string& text)
 {
     auto& reg_str = reg_val.set_string();
@@ -152,7 +175,7 @@ int main(const int argc, const char** const argv)
             return EXIT_FAILURE;
         }
 
-#if 0  // NOLINT
+#if 1  // NOLINT
 
         // Demo of daemon's node command client - sending a command to node 42, 43 & 44.
         {
@@ -160,24 +183,11 @@ int main(const int argc, const char** const argv)
 
             auto node_cmd_client = daemon->getNodeCommandClient();
 
-            const std::vector<ocvsmd::sdk::CyphalNodeId> node_ids = {42, 43, 44};
-            // auto sender     = node_cmd_client->restart({node_ids.data(), node_ids.size()});
-            auto sender     = node_cmd_client->beginSoftwareUpdate({node_ids.data(), node_ids.size()}, "firmware.bin");
+            std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
+            // auto sender = node_cmd_client->restart(node_ids);
+            auto sender     = node_cmd_client->beginSoftwareUpdate(node_ids, "firmware.bin");
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
-            if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))
-            {
-                spdlog::error("Failed to send command: {}", std::strerror(*err));
-            }
-            else
-            {
-                const auto responds = cetl::get<Command::Success>(std::move(cmd_result));
-                for (const auto& node_and_respond : responds)
-                {
-                    spdlog::info("Node {} responded with status: {}.",
-                                 node_and_respond.first,
-                                 node_and_respond.second.status);
-                }
-            }
+            logCommandResult(cmd_result);
         }
 #endif
 #if 0  // NOLINT
@@ -247,7 +257,7 @@ int main(const int argc, const char** const argv)
             }
         }
 #endif
-#if 1  // NOLINT
+#if 0  // NOLINT
 
         // Demo of daemon's registry client - getting the list of registers from nodes.
         {

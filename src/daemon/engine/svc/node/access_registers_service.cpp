@@ -103,10 +103,7 @@ private:
             });
         }
 
-        ~Fsm()
-        {
-            logger().trace("AccessRegsSvc::~Fsm (id={}).", id_);
-        }
+        ~Fsm() = default;
 
         Fsm(const Fsm&)                = delete;
         Fsm(Fsm&&) noexcept            = delete;
@@ -120,7 +117,6 @@ private:
 
     private:
         using RegKeyValue = common::svc::node::AccessRegistersKeyValue_0_1;
-        using RegKey      = RegKeyValue::_traits_::TypeOf::key;
         using RegValue    = RegKeyValue::_traits_::TypeOf::value;
 
         using CyRegAccessSvc   = uavcan::_register::Access_1_0;

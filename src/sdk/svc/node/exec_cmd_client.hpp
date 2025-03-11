@@ -8,6 +8,7 @@
 
 #include "ipc/client_router.hpp"
 #include "ocvsmd/sdk/defines.hpp"
+#include "ocvsmd/sdk/node_command_client.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
 
 #include <uavcan/node/ExecuteCommand_1_3.hpp>
@@ -33,17 +34,20 @@ namespace node
 class ExecCmdClient
 {
 public:
-    using Ptr          = std::shared_ptr<ExecCmdClient>;
-    using Spec         = common::svc::node::ExecCmdSpec;
-    using NodeResponse = uavcan::node::ExecuteCommand_1_3::Response;
+    using Ptr  = std::shared_ptr<ExecCmdClient>;
+    using Spec = common::svc::node::ExecCmdSpec;
 
-    using Success = std::unordered_map<CyphalNodeId, NodeResponse>;
-    using Failure = int;  // `errno`-like error code
-    using Result  = cetl::variant<Success, Failure>;
+    using Result       = NodeCommandClient::Command::Result;
+    using Success      = NodeCommandClient::Command::Success;
+    using Failure      = NodeCommandClient::Command::Failure;
+    using NodeRequest  = NodeCommandClient::Command::NodeRequest;
+    using NodeResponse = NodeCommandClient::Command::NodeResponse;
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
                                    const common::ipc::ClientRouter::Ptr& ipc_router,
-                                   Spec::Request&&                       request);
+                                   const CyphalNodeIds                   node_ids,
+                                   const NodeRequest&                    node_request,
+                                   const std::chrono::microseconds       timeout);
 
     ExecCmdClient(ExecCmdClient&&)                 = delete;
     ExecCmdClient(const ExecCmdClient&)            = delete;

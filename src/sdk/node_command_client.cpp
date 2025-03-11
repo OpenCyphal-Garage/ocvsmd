@@ -52,12 +52,7 @@ public:
                                                const Command::NodeRequest&     node_request,
                                                const std::chrono::microseconds timeout) override
     {
-        common::svc::node::ExecCmdSpec::Request request{std::max<std::uint64_t>(0, timeout.count()),
-                                                        {node_ids.begin(), node_ids.end(), &memory_},
-                                                        {node_request.command, node_request.parameter, &memory_},
-                                                        &memory_};
-
-        auto svc_client = ExecCmdClient::make(memory_, ipc_router_, std::move(request));
+        auto svc_client = ExecCmdClient::make(memory_, ipc_router_, node_ids, node_request, timeout);
 
         return std::make_unique<CommandSender>(std::move(svc_client));
     }

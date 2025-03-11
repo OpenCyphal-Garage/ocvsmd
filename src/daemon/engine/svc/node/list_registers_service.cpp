@@ -103,10 +103,7 @@ private:
             });
         }
 
-        ~Fsm()
-        {
-            logger().trace("ListRegsSvc::~Fsm (id={}).", id_);
-        }
+        ~Fsm() = default;
 
         Fsm(const Fsm&)                = delete;
         Fsm(Fsm&&) noexcept            = delete;

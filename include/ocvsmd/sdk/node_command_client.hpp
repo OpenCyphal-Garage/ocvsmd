@@ -41,14 +41,21 @@ public:
     /// Defines the result type of the command execution.
     ///
     /// On success, the result is a map of node IDs to their responses (`status` and `output` params).
-    /// Missing Cyphal nodes (or failed to respond in a given timeout) are not included in the map.
+    /// On failure, the result is an error code.
     ///
     struct Command final
     {
-        using NodeRequest  = uavcan::node::ExecuteCommand_1_3::Request;
-        using NodeResponse = uavcan::node::ExecuteCommand_1_3::Response;
+        using NodeRequest = uavcan::node::ExecuteCommand_1_3::Request;
+        struct NodeResponse final
+        {
+            using Success = uavcan::node::ExecuteCommand_1_3::Response;
+            using Failure = int;  // `errno`-like error code.
+            using Result  = cetl::variant<Success, Failure>;
 
-        using Success = std::unordered_map<CyphalNodeId, NodeResponse>;
+            NodeResponse() = delete;
+        };
+
+        using Success = std::unordered_map<CyphalNodeId, NodeResponse::Result>;
         using Failure = int;  // `errno`-like error code.
         using Result  = cetl::variant<Success, Failure>;
 

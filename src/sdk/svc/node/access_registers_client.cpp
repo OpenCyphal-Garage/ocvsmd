@@ -227,11 +227,12 @@ AccessRegistersClient::Ptr AccessRegistersClient::make(  //
     return std::make_shared<AccessRegistersClientImpl>(memory, ipc_router, node_ids, registers, timeout);
 }
 
-AccessRegistersClient::Ptr AccessRegistersClient::make(cetl::pmr::memory_resource&           memory,
-                                                       const common::ipc::ClientRouter::Ptr& ipc_router,
-                                                       const CyphalNodeIds                   node_ids,
-                                                       const cetl::span<const RegKeyValue>   registers,
-                                                       const std::chrono::microseconds       timeout)
+AccessRegistersClient::Ptr AccessRegistersClient::make(  //
+    cetl::pmr::memory_resource&           memory,
+    const common::ipc::ClientRouter::Ptr& ipc_router,
+    const CyphalNodeIds                   node_ids,
+    const cetl::span<const RegKeyValue>   registers,
+    const std::chrono::microseconds       timeout)
 {
     return std::make_shared<AccessRegistersClientImpl>(memory, ipc_router, node_ids, registers, timeout);
 }
