@@ -6,14 +6,15 @@
 #ifndef OCVSMD_SDK_NODE_REGISTRY_CLIENT_HPP_INCLUDED
 #define OCVSMD_SDK_NODE_REGISTRY_CLIENT_HPP_INCLUDED
 
+#include "defines.hpp"
 #include "execution.hpp"
 
 #include <uavcan/_register/Value_1_0.hpp>
 
 #include <cetl/pf20/cetlpf.hpp>
 
+#include <array>
 #include <chrono>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -62,7 +63,7 @@ public:
             NodeRegisters() = delete;
         };
 
-        using Success = std::unordered_map<std::uint16_t, NodeRegisters::Result>;
+        using Success = std::unordered_map<CyphalNodeId, NodeRegisters::Result>;
         using Failure = int;  // `errno`-like error code.
         using Result  = cetl::variant<Success, Failure>;
 
@@ -78,8 +79,7 @@ public:
     /// @param timeout The maximum time to wait for all Cyphal node responses to arrive.
     /// @return An execution sender which emits the async overall result of the operation.
     ///
-    virtual SenderOf<List::Result>::Ptr list(const cetl::span<const std::uint16_t> node_ids,
-                                             const std::chrono::microseconds       timeout) = 0;
+    virtual SenderOf<List::Result>::Ptr list(const CyphalNodeIds node_ids, const std::chrono::microseconds timeout) = 0;
 
     /// Collects list of register names from the specified Cyphal network node.
     ///
@@ -87,11 +87,10 @@ public:
     /// - input is just one node ID (instead of a span of ids);
     /// - output is just a vector of register names (or error code).
     ///
-    SenderOf<List::NodeRegisters::Result>::Ptr list(const std::uint16_t             node_id,
-                                                    const std::chrono::microseconds timeout)
+    SenderOf<List::NodeRegisters::Result>::Ptr list(const CyphalNodeId node_id, const std::chrono::microseconds timeout)
     {
-        std::array<std::uint16_t, 1> node_ids = {node_id};
-        SenderOf<List::Result>::Ptr  sender   = list(node_ids, timeout);
+        std::array<CyphalNodeId, 1> node_ids{node_id};
+        SenderOf<List::Result>::Ptr sender = list(node_ids, timeout);
         return then<List::NodeRegisters::Result, List::Result>(std::move(sender), [node_id](List::Result&& result) {
             //
             if (auto* const err = cetl::get_if<List::Failure>(&result))
@@ -145,7 +144,7 @@ public:
             NodeRegisters() = delete;
         };
 
-        using Success = std::unordered_map<std::uint16_t, NodeRegisters::Result>;
+        using Success = std::unordered_map<CyphalNodeId, NodeRegisters::Result>;
         using Failure = int;  // `errno`-like error code.
         using Result  = cetl::variant<Success, Failure>;
 
@@ -163,7 +162,7 @@ public:
     /// @param timeout The maximum time to wait for all Cyphal node responses to arrive.
     /// @return An execution sender which emits the async overall result of the operation.
     ///
-    virtual SenderOf<Access::Result>::Ptr read(const cetl::span<const std::uint16_t>     node_ids,
+    virtual SenderOf<Access::Result>::Ptr read(const CyphalNodeIds                       node_ids,
                                                const cetl::span<const cetl::string_view> registers,
                                                const std::chrono::microseconds           timeout) = 0;
 
@@ -173,12 +172,12 @@ public:
     /// - input is just one node ID (instead of a span of ids);
     /// - output is just a vector of the node register names and their values (or error code).
     ///
-    SenderOf<Access::NodeRegisters::Result>::Ptr read(const std::uint16_t                       node_id,
+    SenderOf<Access::NodeRegisters::Result>::Ptr read(const CyphalNodeId                        node_id,
                                                       const cetl::span<const cetl::string_view> registers,
                                                       const std::chrono::microseconds           timeout)
     {
-        std::array<std::uint16_t, 1>  node_ids = {node_id};
-        SenderOf<Access::Result>::Ptr sender   = read(node_ids, registers, timeout);
+        std::array<CyphalNodeId, 1>   node_ids{node_id};
+        SenderOf<Access::Result>::Ptr sender = read(node_ids, registers, timeout);
         return then<Access::NodeRegisters::Result, Access::Result>(  //
             std::move(sender),
             [node_id](Access::Result&& access_result) {
@@ -205,7 +204,7 @@ public:
     /// @param timeout The maximum time to wait for all Cyphal node responses to arrive.
     /// @return An execution sender which emits the async overall result of the operation.
     ///
-    virtual SenderOf<Access::Result>::Ptr write(const cetl::span<const std::uint16_t>       node_ids,
+    virtual SenderOf<Access::Result>::Ptr write(const CyphalNodeIds                         node_ids,
                                                 const cetl::span<const Access::RegKeyValue> registers,
                                                 const std::chrono::microseconds             timeout) = 0;
 
@@ -215,12 +214,12 @@ public:
     /// - input is just one node ID (instead of a span of ids);
     /// - output is just a vector of the node register names and their values (or error code).
     ///
-    SenderOf<Access::NodeRegisters::Result>::Ptr write(const std::uint16_t                         node_id,
+    SenderOf<Access::NodeRegisters::Result>::Ptr write(const CyphalNodeId                          node_id,
                                                        const cetl::span<const Access::RegKeyValue> registers,
                                                        const std::chrono::microseconds             timeout)
     {
-        std::array<std::uint16_t, 1>  node_ids = {node_id};
-        SenderOf<Access::Result>::Ptr sender   = write(node_ids, registers, timeout);
+        std::array<CyphalNodeId, 1>   node_ids{node_id};
+        SenderOf<Access::Result>::Ptr sender = write(node_ids, registers, timeout);
         return then<Access::NodeRegisters::Result, Access::Result>(  //
             std::move(sender),
             [node_id](Access::Result&& access_result) {

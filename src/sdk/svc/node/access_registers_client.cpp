@@ -16,6 +16,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -36,7 +37,7 @@ class AccessRegistersClientImpl final : public AccessRegistersClient
 public:
     AccessRegistersClientImpl(cetl::pmr::memory_resource&               memory,
                               const common::ipc::ClientRouter::Ptr&     ipc_router,
-                              const cetl::span<const std::uint16_t>     node_ids,
+                              const CyphalNodeIds                       node_ids,
                               const cetl::span<const cetl::string_view> registers,
                               const std::chrono::microseconds           timeout)
         : memory_{memory}
@@ -49,7 +50,7 @@ public:
 
     AccessRegistersClientImpl(cetl::pmr::memory_resource&           memory,
                               const common::ipc::ClientRouter::Ptr& ipc_router,
-                              const cetl::span<const std::uint16_t> node_ids,
+                              const CyphalNodeIds                   node_ids,
                               const cetl::span<const RegKeyValue>   registers,
                               const std::chrono::microseconds       timeout)
         : memory_{memory}
@@ -75,7 +76,7 @@ private:
     using NodeRegisters    = NodeRegistryClient::Access::NodeRegisters;
     using RegKeyValueOrErr = NodeRegistryClient::Access::RegKeyValueOrErr;
 
-    void buildScopeRequests(const cetl::span<const std::uint16_t> node_ids, const std::chrono::microseconds timeout)
+    void buildScopeRequests(const CyphalNodeIds node_ids, const std::chrono::microseconds timeout)
     {
         using ScopeReq = Spec::Request::_traits_::TypeOf::scope;
 
@@ -219,7 +220,7 @@ private:
 AccessRegistersClient::Ptr AccessRegistersClient::make(  //
     cetl::pmr::memory_resource&               memory,
     const common::ipc::ClientRouter::Ptr&     ipc_router,
-    const cetl::span<const std::uint16_t>     node_ids,
+    const CyphalNodeIds                       node_ids,
     const cetl::span<const cetl::string_view> registers,
     const std::chrono::microseconds           timeout)
 {
@@ -228,7 +229,7 @@ AccessRegistersClient::Ptr AccessRegistersClient::make(  //
 
 AccessRegistersClient::Ptr AccessRegistersClient::make(cetl::pmr::memory_resource&           memory,
                                                        const common::ipc::ClientRouter::Ptr& ipc_router,
-                                                       const cetl::span<const std::uint16_t> node_ids,
+                                                       const CyphalNodeIds                   node_ids,
                                                        const cetl::span<const RegKeyValue>   registers,
                                                        const std::chrono::microseconds       timeout)
 {

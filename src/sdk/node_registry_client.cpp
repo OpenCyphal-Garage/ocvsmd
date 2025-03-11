@@ -18,6 +18,9 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 
+#include <algorithm>
+#include <cstdint>
+
 namespace ocvsmd
 {
 namespace sdk
@@ -37,8 +40,7 @@ public:
 
     // NodeRegistryClient
 
-    SenderOf<List::Result>::Ptr list(const cetl::span<const std::uint16_t> node_ids,
-                                     const std::chrono::microseconds       timeout) override
+    SenderOf<List::Result>::Ptr list(const CyphalNodeIds node_ids, const std::chrono::microseconds timeout) override
     {
         using ListRegistersClient = svc::node::ListRegistersClient;
         using Request             = common::svc::node::ListRegistersSpec::Request;
@@ -56,7 +58,7 @@ public:
             logger_);
     }
 
-    SenderOf<Access::Result>::Ptr read(const cetl::span<const std::uint16_t>     node_ids,
+    SenderOf<Access::Result>::Ptr read(const CyphalNodeIds                       node_ids,
                                        const cetl::span<const cetl::string_view> registers,
                                        const std::chrono::microseconds           timeout) override
     {
@@ -82,7 +84,7 @@ public:
             logger_);
     }
 
-    SenderOf<Access::Result>::Ptr write(const cetl::span<const std::uint16_t>       node_ids,
+    SenderOf<Access::Result>::Ptr write(const CyphalNodeIds                         node_ids,
                                         const cetl::span<const Access::RegKeyValue> registers,
                                         const std::chrono::microseconds             timeout) override
     {

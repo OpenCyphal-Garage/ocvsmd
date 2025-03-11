@@ -9,6 +9,7 @@
 #include "ipc/channel.hpp"
 #include "ipc/server_router.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "svc/node/list_registers_spec.hpp"
 #include "svc/svc_helpers.hpp"
 
@@ -133,7 +134,7 @@ private:
         }
 
     private:
-        using SetOfNodeIds = std::unordered_set<std::uint16_t>;
+        using SetOfNodeIds = std::unordered_set<sdk::CyphalNodeId>;
 
         using CyRegListSvc     = uavcan::_register::List_1_0;
         using CySvcClient      = libcyphal::presentation::ServiceClient<CyRegListSvc>;
@@ -167,7 +168,7 @@ private:
             complete(ECANCELED);
         }
 
-        void makeCyNodeOp(const std::uint16_t node_id)
+        void makeCyNodeOp(const sdk::CyphalNodeId node_id)
         {
             using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
 
@@ -193,7 +194,7 @@ private:
             startCyRegListRpcCallFor(node_id, it->second);
         }
 
-        bool startCyRegListRpcCallFor(const std::uint16_t node_id, CyNodeOp& cy_op)
+        bool startCyRegListRpcCallFor(const sdk::CyphalNodeId node_id, CyNodeOp& cy_op)
         {
             const CyRegListSvc::Request cy_request{cy_op.index, &memory()};
 
@@ -221,7 +222,7 @@ private:
             return true;
         }
 
-        void handleNodeResponse(const std::uint16_t node_id, const CyPromise::Result& result)
+        void handleNodeResponse(const sdk::CyphalNodeId node_id, const CyPromise::Result& result)
         {
             const auto it = node_id_to_op_.find(node_id);
             if (it == node_id_to_op_.end())
@@ -278,7 +279,7 @@ private:
 
         // TODO: Fix nolint by moving from `int` to `ErrorCode`.
         // NOLINTNEXTLINE bugprone-easily-swappable-parameters
-        void sendErrorResponse(const std::uint16_t node_id, const int err_code)
+        void sendErrorResponse(const sdk::CyphalNodeId node_id, const int err_code)
         {
             Spec::Response ipc_response{&memory()};
             ipc_response.error_code = err_code;
@@ -308,11 +309,11 @@ private:
             service_.releaseFsmBy(id_);
         }
 
-        const Id                                    id_;
-        Channel                                     channel_;
-        ListRegistersServiceImpl&                   service_;
-        libcyphal::Duration                         timeout_;
-        std::unordered_map<std::uint16_t, CyNodeOp> node_id_to_op_;
+        const Id                                        id_;
+        Channel                                         channel_;
+        ListRegistersServiceImpl&                       service_;
+        libcyphal::Duration                             timeout_;
+        std::unordered_map<sdk::CyphalNodeId, CyNodeOp> node_id_to_op_;
 
     };  // Fsm
 

@@ -8,15 +8,16 @@
 
 #include <ocvsmd/platform/defines.hpp>
 #include <ocvsmd/sdk/daemon.hpp>
+#include <ocvsmd/sdk/defines.hpp>
 #include <ocvsmd/sdk/execution.hpp>
 #include <ocvsmd/sdk/node_command_client.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 
 #include <spdlog/spdlog.h>
 
 #include <cerrno>
-#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -64,7 +65,7 @@ void setRegisterValue(ocvsmd::sdk::NodeRegistryClient::Access::RegValue& reg_val
 
 void logRegistryListNodeResult(  //
     std::set<std::string>&                                              reg_names_set,
-    const std::uint16_t                                                 node_id,
+    const ocvsmd::sdk::CyphalNodeId                                     node_id,
     const ocvsmd::sdk::NodeRegistryClient::List::NodeRegisters::Result& result)
 {
     using NodeRegisters = ocvsmd::sdk::NodeRegistryClient::List::NodeRegisters;
@@ -83,7 +84,7 @@ void logRegistryListNodeResult(  //
     }
 }
 
-void logRegistryAccessNodeResult(const std::uint16_t                                                   node_id,
+void logRegistryAccessNodeResult(const ocvsmd::sdk::CyphalNodeId                                       node_id,
                                  const ocvsmd::sdk::NodeRegistryClient::Access::NodeRegisters::Result& result)
 {
     using NodeRegs = ocvsmd::sdk::NodeRegistryClient::Access::NodeRegisters;
@@ -159,7 +160,7 @@ int main(const int argc, const char** const argv)
 
             auto node_cmd_client = daemon->getNodeCommandClient();
 
-            const std::vector<std::uint16_t> node_ids = {42, 43, 44};
+            const std::vector<ocvsmd::sdk::CyphalNodeId> node_ids = {42, 43, 44};
             // auto sender     = node_cmd_client->restart({node_ids.data(), node_ids.size()});
             auto sender     = node_cmd_client->beginSoftwareUpdate({node_ids.data(), node_ids.size()}, "firmware.bin");
             auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
@@ -257,7 +258,7 @@ int main(const int argc, const char** const argv)
 
             // List ALL registers.
             //
-            std::array<std::uint16_t, 3> node_ids = {42, 43, 44};
+            std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
             //
             auto sender      = registry->list(node_ids, std::chrono::seconds{1});
             auto list_result = ocvsmd::sdk::sync_wait<List::Result>(executor, std::move(sender));
@@ -293,7 +294,7 @@ int main(const int argc, const char** const argv)
                 // Write 'uavcan.node.description' registers.
                 //
                 const cetl::string_view            reg_key_desc{"uavcan.node.description"};
-                std::array<Access::RegKeyValue, 1> reg_keys_and_values = {
+                std::array<Access::RegKeyValue, 1> reg_keys_and_values{
                     Access::RegKeyValue{reg_key_desc, Access::RegValue{&memory}}};
                 setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node3");
                 //
@@ -311,8 +312,8 @@ int main(const int argc, const char** const argv)
 
             // Try single node id api.
             {
-                constexpr std::uint16_t          node_id{42};
-                std::array<cetl::string_view, 1> reg_keys = {"uavcan.node.description"};
+                constexpr ocvsmd::sdk::CyphalNodeId node_id{42};
+                std::array<cetl::string_view, 1>    reg_keys{"uavcan.node.description"};
 
                 // List
                 {
@@ -328,7 +329,7 @@ int main(const int argc, const char** const argv)
                 // Write
                 {
                     const cetl::string_view            reg_key_desc{"uavcan.node.description"};
-                    std::array<Access::RegKeyValue, 1> reg_keys_and_values = {
+                    std::array<Access::RegKeyValue, 1> reg_keys_and_values{
                         Access::RegKeyValue{reg_key_desc, Access::RegValue{&memory}}};
                     setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node42");
 

@@ -9,6 +9,7 @@
 #include "ipc/channel.hpp"
 #include "ipc/server_router.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
 #include "svc/svc_helpers.hpp"
 
@@ -138,7 +139,7 @@ private:
         }
 
     private:
-        using SetOfNodeIds = std::unordered_set<std::uint16_t>;
+        using SetOfNodeIds = std::unordered_set<sdk::CyphalNodeId>;
 
         using CyExecCmdSvc     = uavcan::node::ExecuteCommand_1_3;
         using CySvcClient      = libcyphal::presentation::ServiceClient<CyExecCmdSvc>;
@@ -172,7 +173,7 @@ private:
         }
 
         int makeCySvcCallFor(const libcyphal::TimePoint   deadline,
-                             const std::uint16_t          node_id,
+                             const sdk::CyphalNodeId      node_id,
                              const CyExecCmdSvc::Request& cy_request)
         {
             using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
@@ -256,10 +257,10 @@ private:
             service_.releaseFsmBy(id_);
         }
 
-        const Id                                    id_;
-        Channel                                     channel_;
-        ExecCmdServiceImpl&                         service_;
-        std::unordered_map<std::uint16_t, CyNodeOp> node_id_to_op_;
+        const Id                                        id_;
+        Channel                                         channel_;
+        ExecCmdServiceImpl&                             service_;
+        std::unordered_map<sdk::CyphalNodeId, CyNodeOp> node_id_to_op_;
 
     };  // Fsm
 

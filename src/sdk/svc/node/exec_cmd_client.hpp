@@ -7,6 +7,7 @@
 #define OCVSMD_SDK_SVC_NODE_EXEC_CMD_CLIENT_HPP_INCLUDED
 
 #include "ipc/client_router.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
 
 #include <uavcan/node/ExecuteCommand_1_3.hpp>
@@ -36,7 +37,7 @@ public:
     using Spec         = common::svc::node::ExecCmdSpec;
     using NodeResponse = uavcan::node::ExecuteCommand_1_3::Response;
 
-    using Success = std::unordered_map<std::uint16_t, NodeResponse>;
+    using Success = std::unordered_map<CyphalNodeId, NodeResponse>;
     using Failure = int;  // `errno`-like error code
     using Result  = cetl::variant<Success, Failure>;
 

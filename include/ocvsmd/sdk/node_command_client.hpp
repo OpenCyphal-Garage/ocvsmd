@@ -6,15 +6,14 @@
 #ifndef OCVSMD_SDK_NODE_COMMAND_CLIENT_HPP_INCLUDED
 #define OCVSMD_SDK_NODE_COMMAND_CLIENT_HPP_INCLUDED
 
+#include "defines.hpp"
 #include "execution.hpp"
 
 #include <uavcan/node/ExecuteCommand_1_3.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
 
 #include <chrono>
-#include <cstdint>
 #include <memory>
 #include <unordered_map>
 
@@ -49,7 +48,7 @@ public:
         using NodeRequest  = uavcan::node::ExecuteCommand_1_3::Request;
         using NodeResponse = uavcan::node::ExecuteCommand_1_3::Response;
 
-        using Success = std::unordered_map<std::uint16_t, NodeResponse>;
+        using Success = std::unordered_map<CyphalNodeId, NodeResponse>;
         using Failure = int;  // `errno`-like error code.
         using Result  = cetl::variant<Success, Failure>;
 
@@ -68,9 +67,9 @@ public:
     /// @param timeout The maximum time to wait for all Cyphal node responses to arrive.
     /// @return An execution sender which emits the async overall result of the operation.
     ///
-    virtual SenderOf<Command::Result>::Ptr sendCommand(const cetl::span<const std::uint16_t> node_ids,
-                                                       const Command::NodeRequest&           node_request,
-                                                       const std::chrono::microseconds       timeout) = 0;
+    virtual SenderOf<Command::Result>::Ptr sendCommand(const CyphalNodeIds             node_ids,
+                                                       const Command::NodeRequest&     node_request,
+                                                       const std::chrono::microseconds timeout) = 0;
 
     /// A convenience method for invoking `sendCommand` with COMMAND_RESTART.
     ///
@@ -79,8 +78,8 @@ public:
     /// @return An execution sender which emits the async result of the operation.
     ///
     SenderOf<Command::Result>::Ptr restart(  //
-        const cetl::span<const std::uint16_t> node_ids,
-        const std::chrono::microseconds       timeout = std::chrono::seconds{1});
+        const CyphalNodeIds             node_ids,
+        const std::chrono::microseconds timeout = std::chrono::seconds{1});
 
     /// A convenience method for invoking `sendCommand` with COMMAND_BEGIN_SOFTWARE_UPDATE.
     ///
@@ -91,9 +90,9 @@ public:
     /// @return An execution sender which emits the async result of the operation.
     ///
     SenderOf<Command::Result>::Ptr beginSoftwareUpdate(  //
-        const cetl::span<const std::uint16_t> node_ids,
-        const cetl::string_view               file_path,
-        const std::chrono::microseconds       timeout = std::chrono::seconds{1});
+        const CyphalNodeIds             node_ids,
+        const cetl::string_view         file_path,
+        const std::chrono::microseconds timeout = std::chrono::seconds{1});
 
 protected:
     NodeCommandClient() = default;

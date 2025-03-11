@@ -9,6 +9,7 @@
 #include "ipc/channel.hpp"
 #include "ipc/server_router.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "svc/node/access_registers_spec.hpp"
 #include "svc/svc_helpers.hpp"
 
@@ -209,7 +210,7 @@ private:
             // Below `makeCyRpcClient` call might modify `node_id_to_cnxt_`,
             // so we need to collect all node ids first.
             //
-            std::vector<std::uint16_t> node_ids;
+            std::vector<sdk::CyphalNodeId> node_ids;
             node_ids.reserve(node_id_to_cnxt_.size());
             for (const auto& pair : node_id_to_cnxt_)
             {
@@ -225,7 +226,7 @@ private:
             }
         }
 
-        void makeCyRpcClient(const std::uint16_t node_id)
+        void makeCyRpcClient(const sdk::CyphalNodeId node_id)
         {
             using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
 
@@ -254,7 +255,7 @@ private:
             startCyRegAccessRpcCallFor(node_id, node_cnxt);
         }
 
-        void startCyRegAccessRpcCallFor(const std::uint16_t node_id, NodeContext& node_cnxt)
+        void startCyRegAccessRpcCallFor(const sdk::CyphalNodeId node_id, NodeContext& node_cnxt)
         {
             CETL_DEBUG_ASSERT(processing_, "");
             CETL_DEBUG_ASSERT(node_cnxt.client, "");
@@ -293,7 +294,7 @@ private:
             releaseNodeContext(node_id);
         }
 
-        void handleNodeResponse(const std::uint16_t node_id, const CyPromise::Result& result)
+        void handleNodeResponse(const sdk::CyphalNodeId node_id, const CyPromise::Result& result)
         {
             const auto it = node_id_to_cnxt_.find(node_id);
             if (it == node_id_to_cnxt_.end())
@@ -327,7 +328,7 @@ private:
             startCyRegAccessRpcCallFor(node_id, node_cnxt);
         }
 
-        void sendResponse(const std::uint16_t node_id, const RegKeyValue& reg, const int err_code = 0)
+        void sendResponse(const sdk::CyphalNodeId node_id, const RegKeyValue& reg, const int err_code = 0)
         {
             Spec::Response ipc_response{&memory()};
             ipc_response.error_code = err_code;
@@ -343,7 +344,7 @@ private:
             }
         }
 
-        void releaseNodeContext(const std::uint16_t node_id)
+        void releaseNodeContext(const sdk::CyphalNodeId node_id)
         {
             node_id_to_cnxt_.erase(node_id);
             if (node_id_to_cnxt_.empty())
@@ -365,12 +366,12 @@ private:
             service_.releaseFsmBy(id_);
         }
 
-        const Id                                       id_;
-        Channel                                        channel_;
-        AccessRegistersServiceImpl&                    service_;
-        bool                                           processing_;
-        std::vector<RegKeyValue>                       registers_;
-        std::unordered_map<std::uint16_t, NodeContext> node_id_to_cnxt_;
+        const Id                                           id_;
+        Channel                                            channel_;
+        AccessRegistersServiceImpl&                        service_;
+        bool                                               processing_;
+        std::vector<RegKeyValue>                           registers_;
+        std::unordered_map<sdk::CyphalNodeId, NodeContext> node_id_to_cnxt_;
 
     };  // Fsm
 

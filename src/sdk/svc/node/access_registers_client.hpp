@@ -12,6 +12,7 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 
 #include <memory>
 #include <utility>
@@ -40,13 +41,13 @@ public:
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&               memory,
                                    const common::ipc::ClientRouter::Ptr&     ipc_router,
-                                   const cetl::span<const std::uint16_t>     node_ids,
+                                   const CyphalNodeIds                       node_ids,
                                    const cetl::span<const cetl::string_view> registers,
                                    const std::chrono::microseconds           timeout);
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
                                    const common::ipc::ClientRouter::Ptr& ipc_router,
-                                   const cetl::span<const std::uint16_t> node_ids,
+                                   const CyphalNodeIds                   node_ids,
                                    const cetl::span<const RegKeyValue>   registers,
                                    const std::chrono::microseconds       timeout);
 
