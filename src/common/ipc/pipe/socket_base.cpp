@@ -7,6 +7,7 @@
 
 #include "ipc/ipc_types.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 
 #include <cerrno>
 #include <cstddef>
@@ -36,7 +37,7 @@ constexpr std::size_t   MsgPayloadMaxSize  = 1ULL << 20ULL;  // 1 MB
 
 }  // namespace
 
-int SocketBase::send(const IoState& io_state, const Payloads payloads) const
+sdk::ErrorCode SocketBase::send(const IoState& io_state, const Payloads payloads) const
 {
     // 1. Write the message header (signature and total size of the following fragments).
     //
@@ -55,7 +56,7 @@ int SocketBase::send(const IoState& io_state, const Payloads payloads) const
         }))
     {
         logger_->error("SocketBase: Failed to send msg header (fd={}): {}.", io_state.fd.get(), std::strerror(err));
-        return err;
+        return static_cast<sdk::ErrorCode>(err);
     }
 
     // 2. Write the message payload fragments.
@@ -70,13 +71,13 @@ int SocketBase::send(const IoState& io_state, const Payloads payloads) const
             logger_->error("SocketBase: Failed to send msg payload (fd={}): {}.",
                            io_state.fd.get(),
                            std::strerror(err));
-            return err;
+            return static_cast<sdk::ErrorCode>(err);
         }
     }
-    return 0;
+    return sdk::ErrorCode::Success;
 }
 
-int SocketBase::receiveData(IoState& io_state) const
+sdk::ErrorCode SocketBase::receiveData(IoState& io_state) const
 {
     // 1. Receive and validate the message header.
     //
@@ -90,7 +91,7 @@ int SocketBase::receiveData(IoState& io_state) const
             // Try to read the remaining part of the message header.
             //
             ssize_t bytes_read = 0;
-            if (const auto err = platform::posixSyscallError([&io_state, &bytes_read, &msg_header] {
+            if (const int err = platform::posixSyscallError([&io_state, &bytes_read, &msg_header] {
                     //
                     // No lint b/c of low-level (potentially partial) reading.
                     // NOLINTNEXTLINE(*-reinterpret-cast, *-pointer-arithmetic)
@@ -105,19 +106,19 @@ int SocketBase::receiveData(IoState& io_state) const
                     // No data available yet - that's ok, the next attempt will try to read again.
                     //
                     logger_->trace("Msg header read would block (fd={}).", io_state.fd.get());
-                    return 0;
+                    return sdk::ErrorCode::Success;
                 }
                 if (errno == ECONNRESET)
                 {
                     logger_->debug("Connection reset by peer (fd={}).", io_state.fd.get());
-                    return -1;  // EOF
+                    return sdk::ErrorCode::Disconnected;  // EOF
                 }
 
                 logger_->error("Failed to read msg header (fd={}, err={}): {}.",
                                io_state.fd.get(),
                                err,
                                std::strerror(err));
-                return err;
+                return static_cast<sdk::ErrorCode>(err);
             }
 
             // Progress the partial read state.
@@ -127,12 +128,12 @@ int SocketBase::receiveData(IoState& io_state) const
             if (bytes_read == 0)
             {
                 logger_->debug("Zero bytes of msg header read - end of stream (fd={}).", io_state.fd.get());
-                return -1;  // EOF
+                return sdk::ErrorCode::Disconnected;  // EOF
             }
             if (io_state.rx_partial_size < sizeof(msg_header))
             {
                 // Not enough data yet - that's ok, the next attempt will try to read the rest.
-                return 0;
+                return sdk::ErrorCode::Success;
             }
 
             // Validate the message header.
@@ -145,11 +146,11 @@ int SocketBase::receiveData(IoState& io_state) const
                 logger_->error("Invalid msg header read - closing invalid stream (fd={}, payload_size={}).",
                                io_state.fd.get(),
                                msg_header.payload_size);
-                return EINVAL;
+                return sdk::ErrorCode::InvalidArgument;
             }
         }
 
-        // Message header has been read and validated.
+        // The message header has been read and validated.
         // Switch to the next part - message payload.
         //
         io_state.rx_partial_size = 0;
@@ -168,7 +169,7 @@ int SocketBase::receiveData(IoState& io_state) const
         if (io_state.rx_partial_size < msg_payload.size)
         {
             ssize_t bytes_read = 0;
-            if (const auto err = platform::posixSyscallError([&io_state, &bytes_read, &msg_payload] {
+            if (const int err = platform::posixSyscallError([&io_state, &bytes_read, &msg_payload] {
                     //
                     std::uint8_t* const dst_buf = msg_payload.buffer.get() + io_state.rx_partial_size;
                     //
@@ -181,10 +182,10 @@ int SocketBase::receiveData(IoState& io_state) const
                     // No data available yet - that's ok, the next attempt will try to read again.
                     //
                     logger_->trace("Msg payload read would block (fd={}).", io_state.fd.get());
-                    return 0;
+                    return sdk::ErrorCode::Success;
                 }
                 logger_->error("Failed to read msg payload (fd={}): {}.", io_state.fd.get(), std::strerror(err));
-                return err;
+                return static_cast<sdk::ErrorCode>(err);
             }
 
             // Progress the partial read state.
@@ -194,12 +195,12 @@ int SocketBase::receiveData(IoState& io_state) const
             if (bytes_read == 0)
             {
                 logger_->debug("Zero bytes of msg payload read - end of stream (fd={}).", io_state.fd.get());
-                return -1;  // EOF
+                return sdk::ErrorCode::Disconnected;  // EOF
             }
             if (io_state.rx_partial_size < msg_payload.size)
             {
                 // Not enough data yet - that's ok, the next attempt will try to read the rest.
-                return 0;
+                return sdk::ErrorCode::Success;
             }
         }
 
@@ -213,7 +214,7 @@ int SocketBase::receiveData(IoState& io_state) const
         io_state.on_rx_msg_payload(Payload{payload.buffer.get(), payload.size});
     }
 
-    return 0;
+    return sdk::ErrorCode::Success;
 }
 
 }  // namespace pipe

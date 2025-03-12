@@ -9,6 +9,7 @@
 #include "io/io.hpp"
 #include "ipc/ipc_types.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -45,10 +46,10 @@ public:
         };
         using MsgPart = cetl::variant<MsgHeader, MsgPayload>;
 
-        io::OwnFd                   fd;
-        std::size_t                 rx_partial_size{0};
-        MsgPart                     rx_msg_part{MsgHeader{}};
-        std::function<int(Payload)> on_rx_msg_payload;
+        io::OwnFd                              fd;
+        std::size_t                            rx_partial_size{0};
+        MsgPart                                rx_msg_part{MsgHeader{}};
+        std::function<sdk::ErrorCode(Payload)> on_rx_msg_payload;
 
     };  // IoState
 
@@ -66,8 +67,8 @@ protected:
         return *logger_;
     }
 
-    CETL_NODISCARD int send(const IoState& io_state, const Payloads payloads) const;
-    CETL_NODISCARD int receiveData(IoState& io_state) const;
+    CETL_NODISCARD sdk::ErrorCode send(const IoState& io_state, const Payloads payloads) const;
+    CETL_NODISCARD sdk::ErrorCode receiveData(IoState& io_state) const;
 
 private:
     LoggerPtr logger_{getLogger("ipc")};

@@ -8,6 +8,7 @@
 #include "io.hpp"
 #include "logging.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -122,7 +123,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) co
     OwnFd out_fd;
 
     const auto& addr_generic = asGenericAddr();
-    if (const auto err = platform::posixSyscallError([this, socket_type, &addr_generic, &out_fd] {
+    if (const int err = platform::posixSyscallError([this, socket_type, &addr_generic, &out_fd] {
             //
             const int fd = ::socket(addr_generic.sa_family, socket_type, 0);
             if (fd != -1)
@@ -133,17 +134,17 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) co
         }))
     {
         getLogger("io")->error("Failed to create socket: {}.", std::strerror(err));
-        return err;
+        return static_cast<sdk::ErrorCode>(err);
     }
 
-    if (const auto err = platform::posixSyscallError([&out_fd] {
+    if (const int err = platform::posixSyscallError([&out_fd] {
             //
             // NOLINTNEXTLINE(*-vararg)
             return ::fcntl(out_fd.get(), F_SETFL, O_NONBLOCK);
         }))
     {
         getLogger("io")->error("Failed to fcntl(O_NONBLOCK) socket: {}.", std::strerror(err));
-        return err;
+        return static_cast<sdk::ErrorCode>(err);
     }
 
     // Disable Nagle's algorithm for TCP sockets, so that our small IPC packets are sent immediately.
@@ -156,7 +157,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) co
     return out_fd;
 }
 
-int SocketAddress::bind(const OwnFd& socket_fd) const
+sdk::ErrorCode SocketAddress::bind(const OwnFd& socket_fd) const
 {
     const int raw_fd = socket_fd.get();
     CETL_DEBUG_ASSERT(raw_fd != -1, "");
@@ -164,18 +165,18 @@ int SocketAddress::bind(const OwnFd& socket_fd) const
     // Disable IPv6-only mode for dual-stack sockets (aka wildcard).
     if (is_wildcard_)
     {
-        if (const auto err = platform::posixSyscallError([raw_fd] {
+        if (const int err = platform::posixSyscallError([raw_fd] {
                 //
-                int disable = 0;
+                constexpr int disable = 0;
                 return ::setsockopt(raw_fd, IPPROTO_IPV6, IPV6_V6ONLY, &disable, sizeof(disable));
             }))
         {
             getLogger("io")->error("Failed to set IPV6_V6ONLY=0: {}.", std::strerror(err));
-            return err;
+            return static_cast<sdk::ErrorCode>(err);
         }
     }
 
-    const auto err = platform::posixSyscallError([this, raw_fd] {
+    const int err = platform::posixSyscallError([this, raw_fd] {
         //
         return ::bind(raw_fd, &asGenericAddr(), addr_len_);
     });
@@ -183,15 +184,15 @@ int SocketAddress::bind(const OwnFd& socket_fd) const
     {
         getLogger("io")->error("Failed to bind socket: {}.", std::strerror(err));
     }
-    return err;
+    return static_cast<sdk::ErrorCode>(err);
 }
 
-int SocketAddress::connect(const OwnFd& socket_fd) const
+sdk::ErrorCode SocketAddress::connect(const OwnFd& socket_fd) const
 {
     const int raw_fd = socket_fd.get();
     CETL_DEBUG_ASSERT(raw_fd != -1, "");
 
-    const auto err = platform::posixSyscallError([this, raw_fd] {
+    const int err = platform::posixSyscallError([this, raw_fd] {
         //
         return ::connect(raw_fd, &asGenericAddr(), addr_len_);
     });
@@ -199,11 +200,11 @@ int SocketAddress::connect(const OwnFd& socket_fd) const
     {
     case 0:
     case EINPROGRESS: {
-        return 0;
+        return sdk::ErrorCode::Success;
     }
     default: {
         getLogger("io")->error("Failed to connect to server: {}.", std::strerror(err));
-        return err;
+        return static_cast<sdk::ErrorCode>(err);
     }
     }
 }
@@ -218,7 +219,7 @@ cetl::optional<OwnFd> SocketAddress::accept(const OwnFd& server_fd)
         OwnFd client_fd{::accept(server_fd.get(), &asGenericAddr(), &addr_len_)};
         if (client_fd.get() >= 0)
         {
-            if (const auto err = platform::posixSyscallError([&client_fd] {
+            if (const int err = platform::posixSyscallError([&client_fd] {
                     //
                     // NOLINTNEXTLINE(*-vararg)
                     return ::fcntl(client_fd.get(), F_SETFL, O_NONBLOCK);
@@ -287,17 +288,13 @@ cetl::optional<OwnFd> SocketAddress::accept(const OwnFd& server_fd)
 ///
 void SocketAddress::configureNoDelay(const OwnFd& fd)
 {
-    constexpr int enable = 1;
-    if (const auto err = platform::posixSyscallError([&fd, &enable] {
+    if (const int err = platform::posixSyscallError([&fd] {
             //
+            constexpr int enable = 1;
             return ::setsockopt(fd.get(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
         }))
     {
-        getLogger("io")->warn("Failed to set TCP_NODELAY={} (fd={}, err={}): {}.",
-                              enable,
-                              fd.get(),
-                              err,
-                              std::strerror(err));
+        getLogger("io")->warn("Failed to set TCP_NODELAY=1 (fd={}, err={}): {}.", fd.get(), err, std::strerror(err));
     }
 }
 
@@ -319,7 +316,7 @@ SocketAddress::ParseResult::Var SocketAddress::parse(const std::string& conn_str
     }
 
     getLogger("io")->error("Unsupported connection string format (conn_str='{}').", conn_str);
-    return EINVAL;
+    return sdk::ErrorCode::InvalidArgument;
 }
 
 cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsTcpAddress(const std::string&  conn_str,
@@ -339,7 +336,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsTcpAddr
     const int     family = extractFamilyHostAndPort(addr_str, host, port);
     if (family == AF_UNSPEC)
     {
-        return EINVAL;
+        return sdk::ErrorCode::InvalidArgument;
     }
     if (auto result = tryParseAsWildcard(host, port))
     {
@@ -374,12 +371,12 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsTcpAddr
     }
     case 0: {
         getLogger("io")->error("Unsupported ip address format (addr='{}').", host);
-        return EINVAL;
+        return sdk::ErrorCode::InvalidArgument;
     }
     default: {
         const int err = errno;
         getLogger("io")->error("Failed to parse address (addr='{}'): {}", host, std::strerror(err));
-        return err;
+        return static_cast<sdk::ErrorCode>(err);
     }
     }
 }
@@ -401,7 +398,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsUnixDom
     if ((path.size() + 1) > sizeof(result_un.sun_path))
     {
         getLogger("io")->error("Unix domain path is too long (path='{}').", conn_str);
-        return EINVAL;
+        return sdk::ErrorCode::InvalidArgument;
     }
 
     // NOLINTNEXTLINE(*-array-to-pointer-decay, *-no-array-decay)
@@ -428,7 +425,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsAbstrac
     if ((path.size() + 1) > (sizeof(result_un.sun_path) - 1))  // `-1` b/c path starts at `[1]` (see `memcpy` below).
     {
         getLogger("io")->error("Unix domain path is too long (path='{}').", conn_str);
-        return EINVAL;
+        return sdk::ErrorCode::InvalidArgument;
     }
 
     result_un.sun_path[0] = '\0';

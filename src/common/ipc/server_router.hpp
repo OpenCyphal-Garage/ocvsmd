@@ -9,6 +9,7 @@
 #include "channel.hpp"
 #include "gateway.hpp"
 #include "ipc_types.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "pipe/server_pipe.hpp"
 
 #include <cetl/cetl.hpp>
@@ -41,7 +42,7 @@ public:
 
     virtual ~ServerRouter() = default;
 
-    CETL_NODISCARD virtual int                         start()  = 0;
+    CETL_NODISCARD virtual sdk::ErrorCode              start()  = 0;
     CETL_NODISCARD virtual cetl::pmr::memory_resource& memory() = 0;
 
     template <typename Ch>

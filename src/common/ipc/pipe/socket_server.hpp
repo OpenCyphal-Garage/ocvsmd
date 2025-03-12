@@ -8,8 +8,10 @@
 
 #include "client_context.hpp"
 #include "io/io.hpp"
+#include "io/socket_address.hpp"
 #include "ipc/ipc_types.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "server_pipe.hpp"
 #include "socket_base.hpp"
 
@@ -41,15 +43,15 @@ public:
     ~SocketServer() override = default;
 
 private:
-    int            makeSocketHandle();
+    sdk::ErrorCode makeSocketHandle();
     void           handleAccept();
     void           handleClientRequest(const ClientId client_id);
     ClientContext* tryFindClientContext(const ClientId client_id);
 
     // ServerPipe
     //
-    CETL_NODISCARD int start(EventHandler event_handler) override;
-    CETL_NODISCARD int send(const ClientId client_id, const Payloads payloads) override;
+    CETL_NODISCARD sdk::ErrorCode start(EventHandler event_handler) override;
+    CETL_NODISCARD sdk::ErrorCode send(const ClientId client_id, const Payloads payloads) override;
 
     io::OwnFd                                        server_fd_;
     io::SocketAddress                                socket_address_;

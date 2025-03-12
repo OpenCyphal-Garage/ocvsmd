@@ -6,6 +6,7 @@
 #ifndef OCVSMD_SDK_FILE_SERVER_HPP_INCLUDED
 #define OCVSMD_SDK_FILE_SERVER_HPP_INCLUDED
 
+#include "defines.hpp"
 #include "execution.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -46,7 +47,7 @@ public:
     struct ListRoots final
     {
         using Success = std::vector<std::string>;
-        using Failure = int;  // `errno`-like error code
+        using Failure = ErrorCode;
         using Result  = cetl::variant<Success, Failure>;
     };
     virtual SenderOf<ListRoots::Result>::Ptr listRoots() = 0;
@@ -61,7 +62,7 @@ public:
     struct PopRoot final
     {
         using Success = cetl::monostate;  // like `void`
-        using Failure = int;              // `errno`-like error code
+        using Failure = ErrorCode;
         using Result  = cetl::variant<Success, Failure>;
     };
     /// Removes a root directory from the list of directories that the file server will serve.
@@ -85,7 +86,7 @@ public:
     struct PushRoot final
     {
         using Success = cetl::monostate;  // like `void`
-        using Failure = int;              // `errno`-like error code
+        using Failure = ErrorCode;
         using Result  = cetl::variant<Success, Failure>;
     };
     /// Adds a new root directory to the list of directories that the file server will serve.

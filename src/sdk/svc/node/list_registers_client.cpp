@@ -57,11 +57,12 @@ private:
     {
         logger_->trace("ListRegistersClient::handleEvent({}).", connected);
 
-        if (const auto err = channel_.send(request_))
+        const auto error_code = channel_.send(request_);
+        if (error_code != ErrorCode::Success)
         {
             CETL_DEBUG_ASSERT(receiver_, "");
 
-            receiver_(Failure{err});
+            receiver_(error_code);
         }
     }
 
@@ -75,7 +76,7 @@ private:
                           input.node_id,
                           input.error_code);
 
-            node_id_to_registers_.emplace(input.node_id, input.error_code);
+            node_id_to_registers_.emplace(input.node_id, static_cast<ErrorCode>(input.error_code));
             return;
         }
 
@@ -97,9 +98,9 @@ private:
 
         logger_->debug("ListRegistersClient::handleEvent({}).", completed);
 
-        if (completed.error_code != common::ipc::ErrorCode::Success)
+        if (completed.error_code != ErrorCode::Success)
         {
-            receiver_(static_cast<Failure>(completed.error_code));
+            receiver_(Failure{completed.error_code});
             return;
         }
         receiver_(std::move(node_id_to_registers_));

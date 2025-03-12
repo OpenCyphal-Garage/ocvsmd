@@ -9,6 +9,7 @@
 #include "ipc/client_router.hpp"
 #include "ipc/ipc_types.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "svc/file_server/pop_root_spec.hpp"
 
 #include <cetl/cetl.hpp>
@@ -62,11 +63,12 @@ private:
     {
         logger_->trace("PopRootClient::handleEvent({}).", connected);
 
-        if (const auto err = channel_.send(request_))
+        const auto error_code = channel_.send(request_);
+        if (error_code != ErrorCode::Success)
         {
             CETL_DEBUG_ASSERT(receiver_, "");
 
-            receiver_(Failure{err});
+            receiver_(Failure{error_code});
         }
     }
 
@@ -79,12 +81,12 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        if (completed.error_code != common::ipc::ErrorCode::Success)
+        if (completed.error_code != ErrorCode::Success)
         {
-            receiver_(static_cast<Failure>(completed.error_code));
+            receiver_(Failure{completed.error_code});
             return;
         }
-        receiver_({});
+        receiver_(Success{});
     }
 
     cetl::pmr::memory_resource&   memory_;

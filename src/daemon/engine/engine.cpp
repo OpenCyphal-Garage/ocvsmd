@@ -146,7 +146,7 @@ cetl::optional<std::string> Engine::init()
     svc::node::registerAllServices(svc_context);
     svc::file_server::registerAllServices(svc_context, *file_provider_);
     //
-    if (0 != ipc_router_->start())
+    if (sdk::ErrorCode::Success != ipc_router_->start())
     {
         std::string msg = "Failed to start IPC router.";
         logger_->error(msg);

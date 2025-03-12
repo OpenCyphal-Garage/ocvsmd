@@ -65,7 +65,7 @@ public:
         if (path.size() > Request::_traits_::TypeOf::item::_traits_::ArrayCapacity::path)
         {
             logger_->error("Too long path '{}'.", path);
-            return just<PopRoot::Result>(EINVAL);
+            return just<PopRoot::Result>(ErrorCode::InvalidArgument);
         }
 
         common::svc::file_server::PopRootSpec::Request request{&memory_};
@@ -89,7 +89,7 @@ public:
         if (path.size() > Request::_traits_::TypeOf::item::_traits_::ArrayCapacity::path)
         {
             logger_->error("Too long path '{}'.", path);
-            return just<PopRoot::Result>(EINVAL);
+            return just<PopRoot::Result>(ErrorCode::InvalidArgument);
         }
 
         Request request{&memory_};

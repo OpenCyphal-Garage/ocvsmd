@@ -126,7 +126,7 @@ private:
 
             if (node_id_to_op_.empty())
             {
-                complete(0);
+                complete(sdk::ErrorCode::Success);
             }
         }
 
@@ -162,7 +162,7 @@ private:
         void handleEvent(const Channel::Completed& completed)
         {
             logger().debug("ListRegsSvc::Fsm::handleEvent({}) (id={}).", completed, id_);
-            complete(ECANCELED);
+            complete(sdk::ErrorCode::Canceled);
         }
 
         void makeCyNodeOp(const sdk::CyphalNodeId node_id)
@@ -172,13 +172,13 @@ private:
             auto cy_make_result = service_.context_.presentation.makeClient<CyRegListSvc>(node_id);
             if (const auto* cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
             {
-                const auto err = failureToErrorCode(*cy_failure);
+                const auto error_code = failureToErrorCode(*cy_failure);
                 logger().error("ListRegsSvc: failed to make RPC client for node {} (err={}, fsm_id={}).",
                                node_id,
-                               err,
+                               error_code,
                                id_);
 
-                sendErrorResponse(node_id, err);
+                sendErrorResponse(node_id, error_code);
                 return;
             }
 
@@ -199,13 +199,13 @@ private:
             auto       cy_req_result = cy_op.client.request(deadline, cy_request);
             if (const auto* cy_failure = cetl::get_if<CySvcClient::Failure>(&cy_req_result))
             {
-                const auto err = failureToErrorCode(*cy_failure);
+                const auto error_code = failureToErrorCode(*cy_failure);
                 logger().error("ListRegsSvc: failed to send RPC request to node {} (err={}, fsm_id={})",
                                node_id,
-                               err,
+                               error_code,
                                id_);
 
-                sendErrorResponse(node_id, err);
+                sendErrorResponse(node_id, error_code);
                 return false;
             }
             auto cy_promise = cetl::get<CyPromise>(std::move(cy_req_result));
@@ -239,11 +239,12 @@ private:
                     // and start the next RPC call for the same node (with ++index).
                     //
                     const Spec::Response ipc_response{0, node_id, res.name, &memory()};
-                    if (const auto err = channel_.send(ipc_response))
+                    const auto           failure = channel_.send(ipc_response);
+                    if (failure != sdk::ErrorCode::Success)
                     {
                         logger().warn("ListRegsSvc: failed to send ipc response for node {} (err={}, fsm_id={}).",
                                       node_id,
-                                      err,
+                                      failure,
                                       id_);
                     }
                     else
@@ -258,9 +259,12 @@ private:
             }
             else if (const auto* cy_failure = cetl::get_if<CyPromiseFailure>(&result))
             {
-                const auto err = failureToErrorCode(*cy_failure);
-                logger().warn("ListRegsSvc: RPC promise failure for node {} (err={}, fsm_id={}).", node_id, err, id_);
-                sendErrorResponse(node_id, err);
+                const auto error_code = failureToErrorCode(*cy_failure);
+                logger().warn("ListRegsSvc: RPC promise failure for node {} (err={}, fsm_id={}).",
+                              node_id,
+                              error_code,
+                              id_);
+                sendErrorResponse(node_id, error_code);
             }
 
             // We've got an empty response from the node (or there was an error).
@@ -270,37 +274,39 @@ private:
             node_id_to_op_.erase(it);
             if (node_id_to_op_.empty())
             {
-                complete(0);
+                complete(sdk::ErrorCode::Success);
             }
         }
 
         // TODO: Fix nolint by moving from `int` to `ErrorCode`.
         // NOLINTNEXTLINE bugprone-easily-swappable-parameters
-        void sendErrorResponse(const sdk::CyphalNodeId node_id, const int err_code)
+        void sendErrorResponse(const sdk::CyphalNodeId node_id, const sdk::ErrorCode error_code)
         {
             Spec::Response ipc_response{&memory()};
-            ipc_response.error_code = err_code;
+            ipc_response.error_code = static_cast<std::int32_t>(error_code);
             ipc_response.node_id    = node_id;
 
-            if (const auto err = channel_.send(ipc_response))
+            const auto failure = channel_.send(ipc_response);
+            if (failure != sdk::ErrorCode::Success)
             {
                 logger().warn(  //
-                    "ListRegsSvc: failed to send ipc failure (err_code={}) response for node {} (err={}, fsm_id={}).",
-                    err_code,
+                    "ListRegsSvc: failed to send ipc failure (error_code={}) response for node {} (err={}, fsm_id={}).",
+                    error_code,
                     node_id,
-                    err,
+                    failure,
                     id_);
             }
         }
 
-        void complete(const int err_code)
+        void complete(const sdk::ErrorCode error_code)
         {
             // Cancel anything that might be still pending.
             node_id_to_op_.clear();
 
-            if (const auto err = channel_.complete(err_code))
+            const auto failure = channel_.complete(error_code);
+            if (failure != sdk::ErrorCode::Success)
             {
-                logger().warn("ListRegsSvc: failed to complete channel (err={}, fsm_id={}).", err, id_);
+                logger().warn("ListRegsSvc: failed to complete channel (err={}, fsm_id={}).", failure, id_);
             }
 
             service_.releaseFsmBy(id_);

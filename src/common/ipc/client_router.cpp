@@ -10,6 +10,7 @@
 #include "gateway.hpp"
 #include "ipc_types.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "pipe/client_pipe.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelEnd_0_2.hpp"
@@ -63,7 +64,7 @@ public:
         return memory_;
     }
 
-    CETL_NODISCARD int start() override
+    CETL_NODISCARD sdk::ErrorCode start() override
     {
         return client_pipe_->start([this](const auto& pipe_event_var) {
             //
@@ -95,7 +96,7 @@ private:
 
     /// Defines private IPC gateway entity of this client-side IPC router.
     ///
-    /// Gateway is a glue between this IPC router and a service channel.
+    /// Gateway is glue between this IPC router and a service channel.
     /// Lifetime of a gateway is exactly the same as the lifetime of the associated service channel.
     ///
     class GatewayImpl final : public std::enable_shared_from_this<GatewayImpl>, public detail::Gateway
@@ -115,7 +116,7 @@ private:
             : router_{router}
             , endpoint_{endpoint}
             , next_sequence_{0}
-            , completion_error_code_{0}
+            , completion_error_code_{sdk::ErrorCode::Success}
         {
             router_.logger_->trace("Gateway(tag={}).", endpoint.tag);
         }
@@ -139,15 +140,15 @@ private:
 
         // detail::Gateway
 
-        CETL_NODISCARD int send(const detail::ServiceDesc::Id service_id, const Payload payload) override
+        CETL_NODISCARD sdk::ErrorCode send(const detail::ServiceDesc::Id service_id, const Payload payload) override
         {
             if (!router_.isConnected(endpoint_))
             {
-                return static_cast<int>(ErrorCode::NotConnected);
+                return sdk::ErrorCode::NotConnected;
             }
             if (!router_.isRegisteredGateway(endpoint_))
             {
-                return static_cast<int>(ErrorCode::Shutdown);
+                return sdk::ErrorCode::Shutdown;
             }
 
             Route_0_2 route{&router_.memory_};
@@ -164,15 +165,15 @@ private:
             });
         }
 
-        CETL_NODISCARD int complete(const int error_code, const bool keep_alive) override
+        CETL_NODISCARD sdk::ErrorCode complete(const sdk::ErrorCode error_code, const bool keep_alive) override
         {
             if (!router_.isConnected(endpoint_))
             {
-                return static_cast<int>(ErrorCode::NotConnected);
+                return sdk::ErrorCode::NotConnected;
             }
             if (!router_.isRegisteredGateway(endpoint_))
             {
-                return static_cast<int>(ErrorCode::Shutdown);
+                return sdk::ErrorCode::Shutdown;
             }
 
             completion_error_code_ = error_code;
@@ -181,13 +182,13 @@ private:
             // and so remote router never knew about it (its tag) - no need to post "ChEnd" event.
             if (next_sequence_ == 0)
             {
-                return 0;
+                return sdk::ErrorCode::Success;
             }
 
             Route_0_2 route{&router_.memory_};
             auto&     channel_end  = route.set_channel_end();
             channel_end.tag        = endpoint_.tag;
-            channel_end.error_code = error_code;
+            channel_end.error_code = static_cast<std::int32_t>(error_code);
             channel_end.keep_alive = keep_alive;
 
             return tryPerformOnSerialized(route, [this](const auto payload) {
@@ -196,10 +197,10 @@ private:
             });
         }
 
-        CETL_NODISCARD int event(const Event::Var& event) override
+        CETL_NODISCARD sdk::ErrorCode event(const Event::Var& event) override
         {
             // It's fine to be not subscribed to events.
-            return (event_handler_) ? event_handler_(event) : 0;
+            return (event_handler_) ? event_handler_(event) : sdk::ErrorCode::Success;
         }
 
         void subscribe(EventHandler event_handler) override
@@ -213,7 +214,7 @@ private:
         const Endpoint    endpoint_;
         std::uint64_t     next_sequence_;
         EventHandler      event_handler_;
-        int               completion_error_code_;
+        sdk::ErrorCode    completion_error_code_;
 
     };  // GatewayImpl
 
@@ -231,7 +232,7 @@ private:
     }
 
     template <typename Action>
-    CETL_NODISCARD int findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action) const
+    CETL_NODISCARD sdk::ErrorCode findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action) const
     {
         const auto tag_to_gw = map_of_gateways_.find(endpoint.tag);
         if (tag_to_gw != map_of_gateways_.end())
@@ -243,7 +244,7 @@ private:
         }
 
         // It's fine and expected to have no gateway registered for the given endpoint.
-        return 0;
+        return sdk::ErrorCode::Success;
     }
 
     template <typename Action>
@@ -272,11 +273,11 @@ private:
     {
         if (is_connected_)
         {
-            const int err = findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
+            const auto error_code = findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
                 //
                 return gateway.event(detail::Gateway::Event::Connected{});
             });
-            (void) err;  // Best efforts strategy.
+            (void) error_code;  // Best efforts strategy.
         }
     }
 
@@ -286,7 +287,7 @@ private:
     /// The "dying" gateway might wish to notify the remote router about its disposal.
     /// This local router fulfills the wish if the gateway was registered and the router is connected.
     ///
-    void onGatewayDisposal(const Endpoint& endpoint, const bool send_ch_end, const int completion_err)
+    void onGatewayDisposal(const Endpoint& endpoint, const bool send_ch_end, const sdk::ErrorCode completion_err)
     {
         const bool was_registered = (map_of_gateways_.erase(endpoint.tag) > 0);
 
@@ -298,19 +299,19 @@ private:
             Route_0_2 route{&memory_};
             auto&     channel_end  = route.set_channel_end();
             channel_end.tag        = endpoint.tag;
-            channel_end.error_code = completion_err;
+            channel_end.error_code = static_cast<std::int32_t>(completion_err);
             channel_end.keep_alive = false;
 
-            const int error = tryPerformOnSerialized(route, [this](const auto payload) {
+            const auto error_code = tryPerformOnSerialized(route, [this](const auto payload) {
                 //
                 return client_pipe_->send({{payload}});
             });
             // Best efforts strategy - gateway anyway is gone, so nowhere to report.
-            (void) error;
+            (void) error_code;
         }
     }
 
-    CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Connected) const
+    CETL_NODISCARD sdk::ErrorCode handlePipeEvent(const pipe::ClientPipe::Event::Connected) const
     {
         logger_->debug("Pipe is connected.");
 
@@ -328,14 +329,14 @@ private:
         });
     }
 
-    CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Message& msg)
+    CETL_NODISCARD sdk::ErrorCode handlePipeEvent(const pipe::ClientPipe::Event::Message& msg)
     {
         Route_0_2  route_msg{&memory_};
         const auto result_size = tryDeserializePayload(msg.payload, route_msg);
         if (!result_size.has_value())
         {
             // Invalid message payload.
-            return EINVAL;
+            return sdk::ErrorCode::InvalidArgument;
         }
 
         return cetl::visit(         //
@@ -344,7 +345,7 @@ private:
                     //
                     // Unexpected message, but we can't remove it
                     // b/c Nunavut generated code needs a default case.
-                    return EINVAL;
+                    return sdk::ErrorCode::InvalidArgument;
                 },
                 [this](const RouteConnect_0_1& route_conn) {
                     //
@@ -361,7 +362,7 @@ private:
             route_msg.union_value);
     }
 
-    CETL_NODISCARD int handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
+    CETL_NODISCARD sdk::ErrorCode handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
     {
         logger_->debug("Pipe is disconnected.");
 
@@ -377,24 +378,24 @@ private:
             {
                 if (const auto gateway = tag_to_gw.second.lock())
                 {
-                    constexpr detail::Gateway::Event::Completed completed{ErrorCode::Disconnected, false};
+                    constexpr detail::Gateway::Event::Completed completed{sdk::ErrorCode::Disconnected, false};
 
-                    const int err = gateway->event(completed);
-                    (void) err;  // Best efforts strategy.
+                    const auto error_code = gateway->event(completed);
+                    (void) error_code;  // Best efforts strategy.
                 }
             }
         }
 
         // It's fine to be already disconnected.
-        return 0;
+        return sdk::ErrorCode::Success;
     }
 
-    CETL_NODISCARD int handleRouteConnect(const RouteConnect_0_1& rt_conn)
+    CETL_NODISCARD sdk::ErrorCode handleRouteConnect(const RouteConnect_0_1& rt_conn)
     {
         logger_->debug("Route connect response (ver='{}.{}', err={}).",
                        static_cast<int>(rt_conn.version.major),
                        static_cast<int>(rt_conn.version.minor),
-                       static_cast<int>(rt_conn.error_code));
+                       rt_conn.error_code);
 
         if (!is_connected_)
         {
@@ -404,16 +405,16 @@ private:
             //
             forEachRegisteredGateway([](auto& gateway) {
                 //
-                const int err = gateway.event(detail::Gateway::Event::Connected{});
-                (void) err;  // Best efforts strategy.
+                const auto error_code = gateway.event(detail::Gateway::Event::Connected{});
+                (void) error_code;  // Best efforts strategy.
             });
         }
 
         // It's fine to be already connected.
-        return 0;
+        return sdk::ErrorCode::Success;
     }
 
-    CETL_NODISCARD int handleRouteChannelMsg(const RouteChannelMsg_0_1& route_ch_msg, const Payload payload)
+    CETL_NODISCARD sdk::ErrorCode handleRouteChannelMsg(const RouteChannelMsg_0_1& route_ch_msg, const Payload payload)
     {
         // Cut routing stuff from the payload - remaining is the real message payload.
         const auto msg_real_payload = payload.subspan(payload.size() - route_ch_msg.payload_size);
@@ -437,10 +438,10 @@ private:
                        route_ch_msg.tag,
                        route_ch_msg.sequence,
                        route_ch_msg.service_id);
-        return 0;
+        return sdk::ErrorCode::Success;
     }
 
-    CETL_NODISCARD int handleRouteChannelEnd(const RouteChannelEnd_0_2& route_ch_end)
+    CETL_NODISCARD sdk::ErrorCode handleRouteChannelEnd(const RouteChannelEnd_0_2& route_ch_end)
     {
         logger_->debug("Route Ch End (tag={}, err={}, keep_alive={}).",
                        route_ch_end.tag,
@@ -448,7 +449,7 @@ private:
                        route_ch_end.keep_alive);
 
         const Endpoint endpoint{route_ch_end.tag};
-        const auto     error_code = static_cast<ErrorCode>(route_ch_end.error_code);
+        const auto     error_code = static_cast<sdk::ErrorCode>(route_ch_end.error_code);
         const bool     keep_alive = route_ch_end.keep_alive;
 
         return findAndActOnRegisteredGateway(endpoint, [this, error_code, keep_alive](auto& gateway, auto found_it) {

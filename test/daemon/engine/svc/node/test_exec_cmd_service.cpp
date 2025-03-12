@@ -12,6 +12,7 @@
 #include "daemon/engine/cyphal/transport_gtest_helpers.hpp"
 #include "daemon/engine/cyphal/transport_mock.hpp"
 #include "ipc/channel.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
 #include "svc/node/services.hpp"
 #include "svc/svc_helpers.hpp"
@@ -32,6 +33,7 @@ namespace
 
 using namespace ocvsmd::common;               // NOLINT This our main concern here in the unit tests.
 using namespace ocvsmd::daemon::engine::svc;  // NOLINT This our main concern here in the unit tests.
+using ocvsmd::sdk::ErrorCode;
 
 using testing::_;
 using testing::Invoke;
@@ -166,13 +168,13 @@ TEST_F(TestExecCmdService, empty_request)
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::move(gateway), payload);
-            return 0;
+            return ErrorCode::Success;
         });
-        EXPECT_THAT(result, 0);
+        EXPECT_THAT(result, ErrorCode::Success);
 
-        EXPECT_CALL(gateway_mock, complete(0, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(ErrorCode::Success, false)).Times(1);
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
-        gateway_mock.event_handler_(GatewayEvent::Completed{ipc::ErrorCode::Success, true});
+        gateway_mock.event_handler_(GatewayEvent::Completed{ErrorCode::Success, true});
     }
 }
 
@@ -207,13 +209,13 @@ TEST_F(TestExecCmdService, two_nodes_request)
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::make_shared<GatewayMock::Wrapper>(gateway_mock), payload);
-            return 0;
+            return ErrorCode::Success;
         });
-        EXPECT_THAT(result, 0);
+        EXPECT_THAT(result, ErrorCode::Success);
 
         expectCySvcSessions(cy_sess_42, 42);
         expectCySvcSessions(cy_sess_43, 43);
-        gateway_mock.event_handler_(GatewayEvent::Completed{ipc::ErrorCode::Success, true});
+        gateway_mock.event_handler_(GatewayEvent::Completed{ErrorCode::Success, true});
     });
     scheduler_.scheduleAt(1s + 100ms, [&](const auto&) {
         //
@@ -232,7 +234,7 @@ TEST_F(TestExecCmdService, two_nodes_request)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        EXPECT_CALL(gateway_mock, complete(0, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(ErrorCode::Success, false)).Times(1);
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
     });
     scheduler_.scheduleAt(2s + 1ms, [&](const auto&) {
@@ -273,9 +275,9 @@ TEST_F(TestExecCmdService, out_of_memory)
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::move(gateway), payload);
-            return 0;
+            return ErrorCode::Success;
         });
-        EXPECT_THAT(result, 0);
+        EXPECT_THAT(result, ErrorCode::Success);
 
         ExecCmdSpec::Response expected_response{&mr_};
         expected_response.error_code = ENOMEM;
@@ -285,9 +287,9 @@ TEST_F(TestExecCmdService, out_of_memory)
         expected_response.node_id    = 31;
         EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
 
-        EXPECT_CALL(gateway_mock, complete(0, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(ErrorCode::Success, false)).Times(1);
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
-        gateway_mock.event_handler_(GatewayEvent::Completed{ipc::ErrorCode::Success, true});
+        gateway_mock.event_handler_(GatewayEvent::Completed{ErrorCode::Success, true});
     }
 }
 

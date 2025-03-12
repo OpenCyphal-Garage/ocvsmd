@@ -40,7 +40,7 @@ public:
     {
     }
 
-    CETL_NODISCARD int start(const std::string& connection)
+    CETL_NODISCARD ErrorCode start(const std::string& connection)
     {
         logger_->info("Starting with IPC connection '{}'...", connection);
 
@@ -49,10 +49,10 @@ public:
             using ParseResult = common::io::SocketAddress::ParseResult;
 
             auto maybe_socket_address = common::io::SocketAddress::parse(connection, 0);
-            if (const auto* const err = cetl::get_if<ParseResult::Failure>(&maybe_socket_address))
+            if (const auto* const failure = cetl::get_if<ParseResult::Failure>(&maybe_socket_address))
             {
-                logger_->error("Failed to parse IPC connection string ('{}'): {}.", connection, std::strerror(*err));
-                return *err;
+                logger_->error("Failed to parse IPC connection string ('{}', err={}).", connection, *failure);
+                return *failure;
             }
             const auto socket_address = cetl::get<ParseResult::Success>(maybe_socket_address);
             client_pipe               = std::make_unique<common::ipc::pipe::SocketClient>(executor_, socket_address);
@@ -64,14 +64,15 @@ public:
         node_command_client_  = Factory::makeNodeCommandClient(memory_, ipc_router_);
         node_registry_client_ = Factory::makeNodeRegistryClient(memory_, ipc_router_);
 
-        if (const int err = ipc_router_->start())
+        const ErrorCode error_code = ipc_router_->start();
+        if (error_code != ErrorCode::Success)
         {
-            logger_->error("Failed to start IPC router: {}.", std::strerror(err));
-            return err;
+            logger_->error("Failed to start IPC router (err={}).", error_code);
+            return error_code;
         }
 
         logger_->debug("Started IPC connection.");
-        return 0;
+        return ErrorCode::Success;
     }
 
     // Daemon
@@ -109,7 +110,7 @@ CETL_NODISCARD Daemon::Ptr Daemon::make(cetl::pmr::memory_resource& memory,
                                         const std::string&          connection)
 {
     auto daemon = std::make_shared<DaemonImpl>(memory, executor);
-    if (0 != daemon->start(connection))
+    if (ErrorCode::Success != daemon->start(connection))
     {
         return nullptr;
     }

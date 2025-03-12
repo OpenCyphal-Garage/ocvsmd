@@ -61,18 +61,18 @@ void logCommandResult(const ocvsmd::sdk::NodeCommandClient::Command::Result& cmd
 {
     using Command = ocvsmd::sdk::NodeCommandClient::Command;
 
-    if (const auto* const err = cetl::get_if<Command::Failure>(&cmd_result))
+    if (const auto* const failure = cetl::get_if<Command::Failure>(&cmd_result))
     {
-        spdlog::error("Failed to send command: {}", std::strerror(*err));
+        spdlog::error("Failed to send command (err={}).", *failure);
         return;
     }
 
     const auto& responds = cetl::get<Command::Success>(cmd_result);
     for (const auto& node_and_respond : responds)
     {
-        if (const auto* const err = cetl::get_if<1>(&node_and_respond.second))
+        if (const auto* const failure = cetl::get_if<1>(&node_and_respond.second))
         {
-            spdlog::warn("{:4} → err={}", node_and_respond.first, *err);
+            spdlog::warn("{:4} → err={}", node_and_respond.first, *failure);
             continue;
         }
         const auto& response = cetl::get<0>(node_and_respond.second);
@@ -93,9 +93,9 @@ void logRegistryListNodeResult(  //
 {
     using NodeRegisters = ocvsmd::sdk::NodeRegistryClient::List::NodeRegisters;
 
-    if (const auto* const node_err = cetl::get_if<NodeRegisters::Failure>(&result))
+    if (const auto* const failure = cetl::get_if<NodeRegisters::Failure>(&result))
     {
-        spdlog::warn("{:4} → err={}", node_id, *node_err);
+        spdlog::warn("{:4} → err={}", node_id, *failure);
         return;
     }
 
@@ -112,18 +112,18 @@ void logRegistryAccessNodeResult(const ocvsmd::sdk::CyphalNodeId                
 {
     using NodeRegs = ocvsmd::sdk::NodeRegistryClient::Access::NodeRegisters;
 
-    if (const auto* const node_err = cetl::get_if<NodeRegs::Failure>(&result))
+    if (const auto* const failure = cetl::get_if<NodeRegs::Failure>(&result))
     {
-        spdlog::warn("{:4} → err={}", node_id, *node_err);
+        spdlog::warn("{:4} → err={}", node_id, *failure);
         return;
     }
     const auto& node_reg_vals = cetl::get<NodeRegs::Success>(result);
 
     for (const auto& reg_key_val : node_reg_vals)
     {
-        if (const auto* const reg_err = cetl::get_if<1>(&reg_key_val.value_or_err))
+        if (const auto* const failure = cetl::get_if<1>(&reg_key_val.value_or_err))
         {
-            spdlog::warn("{:4} → '{}' err={}", node_id, reg_key_val.key, *reg_err);
+            spdlog::warn("{:4} → '{}' err={}", node_id, reg_key_val.key, *failure);
             continue;
         }
         const auto& reg_val = cetl::get<0>(reg_key_val.value_or_err);
@@ -175,7 +175,7 @@ int main(const int argc, const char** const argv)
             return EXIT_FAILURE;
         }
 
-#if 1  // NOLINT
+#if 0  // NOLINT
 
         // Demo of daemon's node command client - sending a command to node 42, 43 & 44.
         {
@@ -201,9 +201,9 @@ int main(const int argc, const char** const argv)
             const std::string path{"key"};
             auto              sender     = file_server->pushRoot(path, true);
             auto              cmd_result = ocvsmd::sdk::sync_wait<PushRoot::Result>(executor, std::move(sender));
-            if (const auto* const err = cetl::get_if<PushRoot::Failure>(&cmd_result))
+            if (const auto* const failure = cetl::get_if<PushRoot::Failure>(&cmd_result))
             {
-                spdlog::error("Failed to push FS root (path='{}'): {}.", path, std::strerror(*err));
+                spdlog::error("Failed to push FS root (path='{}', err={}).", path, *failure);
             }
             else
             {
@@ -222,9 +222,9 @@ int main(const int argc, const char** const argv)
             const std::string path{"key"};
             auto              sender     = file_server->popRoot(path, true);
             auto              cmd_result = ocvsmd::sdk::sync_wait<PopRoot::Result>(executor, std::move(sender));
-            if (const auto* const err = cetl::get_if<PopRoot::Failure>(&cmd_result))
+            if (const auto* const failure = cetl::get_if<PopRoot::Failure>(&cmd_result))
             {
-                spdlog::error("Failed to pop FS root (path='{}'): {}.", path, std::strerror(*err));
+                spdlog::error("Failed to pop FS root (path='{}', err={}).", path, *failure);
             }
             else
             {
@@ -242,9 +242,9 @@ int main(const int argc, const char** const argv)
 
             auto sender     = file_server->listRoots();
             auto cmd_result = ocvsmd::sdk::sync_wait<ListRoots::Result>(executor, std::move(sender));
-            if (const auto* const err = cetl::get_if<ListRoots::Failure>(&cmd_result))
+            if (const auto* const failure = cetl::get_if<ListRoots::Failure>(&cmd_result))
             {
-                spdlog::error("Failed to list FS roots: {}", std::strerror(*err));
+                spdlog::error("Failed to list FS roots (err={}).", *failure);
             }
             else
             {
@@ -257,7 +257,7 @@ int main(const int argc, const char** const argv)
             }
         }
 #endif
-#if 0  // NOLINT
+#if 1  // NOLINT
 
         // Demo of daemon's registry client - getting the list of registers from nodes.
         {
@@ -272,9 +272,9 @@ int main(const int argc, const char** const argv)
             //
             auto sender      = registry->list(node_ids, std::chrono::seconds{1});
             auto list_result = ocvsmd::sdk::sync_wait<List::Result>(executor, std::move(sender));
-            if (const auto* const list_err = cetl::get_if<List::Failure>(&list_result))
+            if (const auto* const failure = cetl::get_if<List::Failure>(&list_result))
             {
-                spdlog::error("Failed to list registers: {}", std::strerror(*list_err));
+                spdlog::error("Failed to list registers (err={}).", *failure);
             }
             else
             {
@@ -292,9 +292,9 @@ int main(const int argc, const char** const argv)
                 //
                 auto read_sender = registry->read(node_ids, reg_names, std::chrono::seconds{1});
                 auto read_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(read_sender));
-                if (const auto* const read_err = cetl::get_if<Access::Failure>(&read_result))
+                if (const auto* const failure = cetl::get_if<Access::Failure>(&read_result))
                 {
-                    spdlog::error("Failed to read registers: {}", std::strerror(*read_err));
+                    spdlog::error("Failed to read registers (err={}).", *failure);
                 }
                 else
                 {
@@ -310,9 +310,9 @@ int main(const int argc, const char** const argv)
                 //
                 auto write_sender = registry->write(node_ids, reg_keys_and_values, std::chrono::seconds{1});
                 auto write_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(write_sender));
-                if (const auto* const write_err = cetl::get_if<Access::Failure>(&write_result))
+                if (const auto* const failure = cetl::get_if<Access::Failure>(&write_result))
                 {
-                    spdlog::error("Failed to write registers: {}", std::strerror(*write_err));
+                    spdlog::error("Failed to write registers (err={}).", *failure);
                 }
                 else
                 {

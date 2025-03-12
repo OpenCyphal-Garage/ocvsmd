@@ -177,8 +177,8 @@ private:
         auto maybe_server = presentation.makeServer<Service>();
         if (const auto* const failure = cetl::get_if<Presentation::MakeFailure>(&maybe_server))
         {
-            const auto err = failureToErrorCode(*failure);
-            spdlog::error("Failed to make '{}' server (err={}).", role, err);
+            const auto error_code = failureToErrorCode(*failure);
+            spdlog::error("Failed to make '{}' server (err={}).", role, error_code);
             return cetl::nullopt;
         }
         return cetl::get<typename Service::Server>(std::move(maybe_server));

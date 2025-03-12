@@ -6,6 +6,8 @@
 #ifndef OCVSMD_DAEMON_ENGINE_HELPERS_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_HELPERS_HPP_INCLUDED
 
+#include "ocvsmd/sdk/defines.hpp"
+
 #include <nunavut/support/serialization.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -14,8 +16,6 @@
 #include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/transport/errors.hpp>
 
-#include <cerrno>
-
 namespace ocvsmd
 {
 namespace daemon
@@ -23,50 +23,51 @@ namespace daemon
 namespace engine
 {
 
-inline int errorToCode(const libcyphal::MemoryError) noexcept
+inline sdk::ErrorCode errorToCode(const libcyphal::MemoryError) noexcept
 {
-    return ENOMEM;
+    return sdk::ErrorCode::OutOfMemory;
 }
-inline int errorToCode(const libcyphal::transport::CapacityError) noexcept
+inline sdk::ErrorCode errorToCode(const libcyphal::transport::CapacityError) noexcept
 {
-    return ENOMEM;
-}
-
-inline int errorToCode(const libcyphal::ArgumentError) noexcept
-{
-    return EINVAL;
-}
-inline int errorToCode(const libcyphal::transport::AnonymousError) noexcept
-{
-    return EINVAL;
-}
-inline int errorToCode(const nunavut::support::Error) noexcept
-{
-    return EINVAL;
+    return sdk::ErrorCode::OutOfMemory;
 }
 
-inline int errorToCode(const libcyphal::transport::AlreadyExistsError) noexcept
+inline sdk::ErrorCode errorToCode(const libcyphal::ArgumentError) noexcept
 {
-    return EEXIST;
+    return sdk::ErrorCode::InvalidArgument;
+}
+inline sdk::ErrorCode errorToCode(const libcyphal::transport::AnonymousError) noexcept
+{
+    return sdk::ErrorCode::InvalidArgument;
+}
+inline sdk::ErrorCode errorToCode(const nunavut::support::Error) noexcept
+{
+    return sdk::ErrorCode::InvalidArgument;
 }
 
-inline int errorToCode(const libcyphal::transport::PlatformError& platform_error) noexcept
+inline sdk::ErrorCode errorToCode(const libcyphal::transport::AlreadyExistsError) noexcept
 {
-    return static_cast<int>(platform_error->code());
+    return sdk::ErrorCode::AlreadyExists;
 }
 
-inline int errorToCode(const libcyphal::presentation::ResponsePromiseExpired) noexcept
+inline sdk::ErrorCode errorToCode(const libcyphal::transport::PlatformError& platform_error) noexcept
 {
-    return ETIMEDOUT;
+    return static_cast<sdk::ErrorCode>(platform_error->code());
 }
 
-inline int errorToCode(const libcyphal::presentation::detail::ClientBase::TooManyPendingRequestsError) noexcept
+inline sdk::ErrorCode errorToCode(const libcyphal::presentation::ResponsePromiseExpired) noexcept
 {
-    return EBUSY;
+    return sdk::ErrorCode::TimedOut;
+}
+
+inline sdk::ErrorCode errorToCode(
+    const libcyphal::presentation::detail::ClientBase::TooManyPendingRequestsError) noexcept
+{
+    return sdk::ErrorCode::Busy;
 }
 
 template <typename Variant>
-int failureToErrorCode(const Variant& failure)
+sdk::ErrorCode failureToErrorCode(const Variant& failure)
 {
     return cetl::visit([](const auto& error) { return errorToCode(error); }, failure);
 }

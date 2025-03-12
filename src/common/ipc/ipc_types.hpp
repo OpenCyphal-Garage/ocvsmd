@@ -18,19 +18,6 @@ namespace common
 namespace ipc
 {
 
-/// Defines some common error codes of IPC operations.
-///
-/// Maps to `errno` values, hence `int` inheritance and zero on success.
-///
-enum class ErrorCode : int  // NOLINT
-{
-    Success      = 0,
-    NotConnected = ENOTCONN,
-    Disconnected = ECONNRESET,
-    Shutdown     = ESHUTDOWN,
-
-};  // ErrorCode
-
 using Payload  = cetl::span<const std::uint8_t>;
 using Payloads = cetl::span<const Payload>;
 

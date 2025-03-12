@@ -6,9 +6,10 @@
 #ifndef OCVSMD_COMMON_IPC_CHANNEL_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_CHANNEL_HPP_INCLUDED
 
+#include "common_helpers.hpp"
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
-#include "ipc_types.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -18,6 +19,7 @@
 
 #include <cerrno>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <utility>
@@ -37,8 +39,8 @@ public:
 
     struct Completed final
     {
-        /// Channel completion error code. Zero means success.
-        ErrorCode error_code;
+        /// Channel completion error code.
+        sdk::ErrorCode error_code;
 
         /// If `true` then it marks that all incoming messages have been received,
         /// but the channel is still alive and could be used for sending outgoing messages.
@@ -96,7 +98,7 @@ public:
     Channel(const Channel&)            = delete;
     Channel& operator=(const Channel&) = delete;
 
-    CETL_NODISCARD int send(const Output& output)
+    CETL_NODISCARD sdk::ErrorCode send(const Output& output)
     {
         constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
@@ -109,7 +111,8 @@ public:
             });
     }
 
-    CETL_NODISCARD int complete(const int error_code = 0, const bool keep_alive = false)
+    CETL_NODISCARD sdk::ErrorCode complete(const sdk::ErrorCode error_code = sdk::ErrorCode::Success,
+                                           const bool           keep_alive = false)
     {
         return gateway_->complete(error_code, keep_alive);
     }
@@ -141,29 +144,29 @@ private:
         cetl::pmr::memory_resource& memory;            // NOLINT
         EventHandler                ch_event_handler;  // NOLINT
 
-        CETL_NODISCARD int operator()(const GatewayEvent::Connected&) const
+        CETL_NODISCARD sdk::ErrorCode operator()(const GatewayEvent::Connected&) const
         {
             ch_event_handler(Connected{});
-            return 0;
+            return sdk::ErrorCode::Success;
         }
 
-        CETL_NODISCARD int operator()(const GatewayEvent::Message& gateway_msg) const
+        CETL_NODISCARD sdk::ErrorCode operator()(const GatewayEvent::Message& gateway_msg) const
         {
             Input input{&memory};
             if (!tryDeserializePayload(gateway_msg.payload, input))
             {
                 // Invalid message payload.
-                return EINVAL;
+                return sdk::ErrorCode::InvalidArgument;
             }
 
             ch_event_handler(input);
-            return 0;
+            return sdk::ErrorCode::Success;
         }
 
-        CETL_NODISCARD int operator()(const GatewayEvent::Completed& completed) const
+        CETL_NODISCARD sdk::ErrorCode operator()(const GatewayEvent::Completed& completed) const
         {
             ch_event_handler(Completed{completed.error_code, completed.keep_alive});
-            return 0;
+            return sdk::ErrorCode::Success;
         }
 
     };  // Adapter
@@ -205,10 +208,7 @@ struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Completed> : formatter<st
 {
     auto format(ocvsmd::common::ipc::AnyChannel::Completed completed, format_context& ctx) const
     {
-        return format_to(ctx.out(),
-                         "Completed(err={}, keep_alive={})",
-                         static_cast<int>(completed.error_code),
-                         completed.keep_alive);
+        return format_to(ctx.out(), "Completed(alive={}, err={})", completed.keep_alive, completed.error_code);
     }
 };
 // NOLINTEND

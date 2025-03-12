@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_IPC_GATEWAY_HPP_INCLUDED
 
 #include "ipc_types.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -57,15 +58,15 @@ public:
         };
         struct Completed final
         {
-            ErrorCode error_code;
-            bool      keep_alive;
+            sdk::ErrorCode error_code;
+            bool           keep_alive;
         };
 
         using Var = cetl::variant<Connected, Message, Completed>;
 
     };  // Event
 
-    using EventHandler = std::function<int(const Event::Var&)>;
+    using EventHandler = std::function<sdk::ErrorCode(const Event::Var&)>;
 
     // No copying or moving.
     Gateway(const Gateway&)                = delete;
@@ -73,10 +74,10 @@ public:
     Gateway& operator=(const Gateway&)     = delete;
     Gateway& operator=(Gateway&&) noexcept = delete;
 
-    CETL_NODISCARD virtual int send(const ServiceDesc::Id service_id, const Payload payload) = 0;
-    CETL_NODISCARD virtual int complete(const int error_code, const bool keep_alive)         = 0;
-    CETL_NODISCARD virtual int event(const Event::Var& event)                                = 0;
-    virtual void               subscribe(EventHandler event_handler)                         = 0;
+    CETL_NODISCARD virtual sdk::ErrorCode send(const ServiceDesc::Id service_id, const Payload payload)    = 0;
+    CETL_NODISCARD virtual sdk::ErrorCode complete(const sdk::ErrorCode error_code, const bool keep_alive) = 0;
+    CETL_NODISCARD virtual sdk::ErrorCode event(const Event::Var& event)                                   = 0;
+    virtual void                          subscribe(EventHandler event_handler)                            = 0;
 
 protected:
     Gateway()  = default;

@@ -7,6 +7,7 @@
 #define OCVSMD_SDK_SVC_FILE_SERVER_LIST_ROOTS_CLIENT_HPP_INCLUDED
 
 #include "ipc/client_router.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "svc/file_server/list_roots_spec.hpp"
 
 #include <cetl/cetl.hpp>
@@ -36,7 +37,7 @@ public:
     using Spec = common::svc::file_server::ListRootsSpec;
 
     using Success = std::vector<std::string>;
-    using Failure = int;  // `errno`-like error code
+    using Failure = ErrorCode;
     using Result  = cetl::variant<Success, Failure>;
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,

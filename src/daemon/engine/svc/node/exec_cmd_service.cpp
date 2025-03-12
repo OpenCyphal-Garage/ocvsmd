@@ -169,7 +169,7 @@ private:
             if (!completed.keep_alive)
             {
                 logger().warn("ExecCmdSvc: canceling processing (id={}).", id_);
-                complete(ECANCELED);
+                complete(sdk::ErrorCode::Canceled);
                 return;
             }
 
@@ -185,7 +185,7 @@ private:
                 logger().debug("ExecCmdSvc: Nothing to do - empty working set (id={}, nodes={}).",
                                id_,
                                node_id_to_cnxt_.size());
-                complete(0);
+                complete(sdk::ErrorCode::Success);
                 return;
             }
 
@@ -221,13 +221,13 @@ private:
             auto cy_make_result = service_.context_.presentation.makeClient<CyExecCmdSvc>(node_id);
             if (const auto* cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
             {
-                const auto err = failureToErrorCode(*cy_failure);
+                const auto error_code = failureToErrorCode(*cy_failure);
                 logger().warn("ExecCmdSvc: failed to make RPC client for node {} (err={}, fsm_id={}).",
                               node_id,
-                              err,
+                              error_code,
                               id_);
 
-                sendResponse(node_id, ResponsePayload{&memory()}, err);
+                sendResponse(node_id, ResponsePayload{&memory()}, error_code);
                 releaseNodeContext(node_id);
                 return;
             }
@@ -247,13 +247,13 @@ private:
             auto cy_req_result = node_cnxt.client->request(deadline, cy_request);
             if (auto* const cy_failure = cetl::get_if<CySvcClient::Failure>(&cy_req_result))
             {
-                const auto err = failureToErrorCode(*cy_failure);
+                const auto error_code = failureToErrorCode(*cy_failure);
                 logger().warn("ExecCmdSvc: failed to send RPC request to node {} (err={}, fsm_id={})",
                               node_id,
-                              err,
+                              error_code,
                               id_);
 
-                sendResponse(node_id, ResponsePayload{&memory()}, err);
+                sendResponse(node_id, ResponsePayload{&memory()}, error_code);
                 releaseNodeContext(node_id);
                 return;
             }
@@ -277,7 +277,7 @@ private:
 
             CETL_DEBUG_ASSERT(processing_, "");
 
-            int             err_code = 0;
+            sdk::ErrorCode  error_code = sdk::ErrorCode::Success;
             ResponsePayload payload{&memory()};
             //
             if (const auto* success = cetl::get_if<CyPromise::Success>(&result))
@@ -293,29 +293,32 @@ private:
             }
             else if (const auto* cy_failure = cetl::get_if<CyPromiseFailure>(&result))
             {
-                err_code = failureToErrorCode(*cy_failure);
+                error_code = failureToErrorCode(*cy_failure);
                 logger().warn("ExecCmdSvc: RPC promise failure for node {} (err={}, fsm_id={}).",
                               node_id,
-                              err_code,
+                              error_code,
                               id_);
             }
-            sendResponse(node_id, payload, err_code);
+            sendResponse(node_id, payload, error_code);
 
             releaseNodeContext(node_id);
         }
 
-        void sendResponse(const sdk::CyphalNodeId node_id, const ResponsePayload& payload, const int err_code = 0)
+        void sendResponse(const sdk::CyphalNodeId node_id,
+                          const ResponsePayload&  payload,
+                          const sdk::ErrorCode    error_code = sdk::ErrorCode::Success)
         {
             Spec::Response ipc_response{&memory()};
-            ipc_response.error_code = err_code;
+            ipc_response.error_code = static_cast<std::int32_t>(error_code);
             ipc_response.node_id    = node_id;
             ipc_response.payload    = payload;
 
-            if (const auto err = channel_.send(ipc_response))
+            const auto failure = channel_.send(ipc_response);
+            if (failure != sdk::ErrorCode::Success)
             {
                 logger().warn("ExecCmdSvc: failed to send ipc response for node {} (err={}, fsm_id={}).",
                               node_id,
-                              err,
+                              failure,
                               id_);
             }
         }
@@ -325,18 +328,19 @@ private:
             node_id_to_cnxt_.erase(node_id);
             if (node_id_to_cnxt_.empty())
             {
-                complete(0);
+                complete(sdk::ErrorCode::Success);
             }
         }
 
-        void complete(const int err_code)
+        void complete(const sdk::ErrorCode error_code)
         {
             // Cancel anything that might be still pending.
             node_id_to_cnxt_.clear();
 
-            if (const auto err = channel_.complete(err_code))
+            const auto failure = channel_.complete(error_code);
+            if (failure != sdk::ErrorCode::Success)
             {
-                logger().warn("ExecCmdSvc: failed to complete channel (err={}, fsm_id={}).", err, id_);
+                logger().warn("ExecCmdSvc: failed to complete channel (err={}, fsm_id={}).", failure, id_);
             }
 
             service_.releaseFsmBy(id_);

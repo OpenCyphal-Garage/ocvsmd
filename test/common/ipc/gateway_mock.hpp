@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_IPC_GATEWAY_MOCK_HPP_INCLUDED
 
 #include "ipc/gateway.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "ref_wrapper.hpp"
 
 #include <gmock/gmock.h>
@@ -29,17 +30,17 @@ public:
 
         // MARK: Gateway
 
-        CETL_NODISCARD int send(const ServiceDesc::Id service_id, const Payload payload) override
+        CETL_NODISCARD sdk::ErrorCode send(const ServiceDesc::Id service_id, const Payload payload) override
         {
             return reference().send(service_id, payload);
         }
 
-        CETL_NODISCARD int complete(const int error_code, const bool keep_alive) override
+        CETL_NODISCARD sdk::ErrorCode complete(const sdk::ErrorCode error_code, const bool keep_alive) override
         {
             return reference().complete(error_code, keep_alive);
         }
 
-        CETL_NODISCARD int event(const Event::Var& event) override
+        CETL_NODISCARD sdk::ErrorCode event(const Event::Var& event) override
         {
             return reference().event(event);
         }
@@ -53,9 +54,9 @@ public:
     };  // Wrapper
 
     MOCK_METHOD(void, deinit, (), (const));
-    MOCK_METHOD(int, send, (const ServiceDesc::Id service_id, const Payload payload), (override));
-    MOCK_METHOD(int, complete, (const int error_code, const bool keep_alive), (override));
-    MOCK_METHOD(int, event, (const Event::Var& event), (override));
+    MOCK_METHOD(sdk::ErrorCode, send, (const ServiceDesc::Id service_id, const Payload payload), (override));
+    MOCK_METHOD(sdk::ErrorCode, complete, (const sdk::ErrorCode error_code, const bool keep_alive), (override));
+    MOCK_METHOD(sdk::ErrorCode, event, (const Event::Var& event), (override));
     MOCK_METHOD(void, subscribe, (EventHandler event_handler), (override));
 
     // NOLINTBEGIN

@@ -49,14 +49,14 @@ public:
         struct NodeResponse final
         {
             using Success = uavcan::node::ExecuteCommand_1_3::Response;
-            using Failure = int;  // `errno`-like error code.
+            using Failure = ErrorCode;
             using Result  = cetl::variant<Success, Failure>;
 
             NodeResponse() = delete;
         };
 
         using Success = std::unordered_map<CyphalNodeId, NodeResponse::Result>;
-        using Failure = int;  // `errno`-like error code.
+        using Failure = ErrorCode;
         using Result  = cetl::variant<Success, Failure>;
 
         Command() = delete;
