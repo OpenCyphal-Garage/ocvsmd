@@ -226,6 +226,8 @@ private:
         {
             using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
 
+            CETL_DEBUG_ASSERT(processing_, "");
+
             const auto it = node_id_to_cnxt_.find(node_id);
             if (it == node_id_to_cnxt_.end())
             {

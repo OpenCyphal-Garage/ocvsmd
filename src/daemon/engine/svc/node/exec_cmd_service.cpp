@@ -211,6 +211,8 @@ private:
         {
             using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
 
+            CETL_DEBUG_ASSERT(processing_, "");
+
             const auto it = node_id_to_cnxt_.find(node_id);
             if (it == node_id_to_cnxt_.end())
             {
@@ -240,6 +242,11 @@ private:
         {
             CETL_DEBUG_ASSERT(processing_, "");
             CETL_DEBUG_ASSERT(node_cnxt.client, "");
+            if (!node_cnxt.client)
+            {
+                releaseNodeContext(node_id);
+                return;
+            }
 
             const auto                  deadline = service_.context_.executor.now() + node_cnxt.timeout;
             const CyExecCmdSvc::Request cy_request{node_cnxt.payload.command, node_cnxt.payload.parameter, &memory()};
