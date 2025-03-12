@@ -271,9 +271,9 @@ int main(const int argc, const char** const argv)
             //
             auto sender      = registry->list(node_ids, std::chrono::seconds{1});
             auto list_result = ocvsmd::sdk::sync_wait<List::Result>(executor, std::move(sender));
-            if (const auto* const failure = cetl::get_if<List::Failure>(&list_result))
+            if (const auto* const list_failure = cetl::get_if<List::Failure>(&list_result))
             {
-                spdlog::error("Failed to list registers (err={}).", *failure);
+                spdlog::error("Failed to list registers (err={}).", *list_failure);
             }
             else
             {

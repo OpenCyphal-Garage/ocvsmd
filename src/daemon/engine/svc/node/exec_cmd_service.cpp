@@ -140,7 +140,7 @@ private:
             return service_.context_.memory;
         }
 
-        // We are not interested in handling this events.
+        // We are not interested in handling this event.
         static void handleEvent(const Channel::Connected&) {}
 
         void handleEvent(const Channel::Input& input)
@@ -148,7 +148,7 @@ private:
             CETL_DEBUG_ASSERT(!processing_, "");
             if (processing_)
             {
-                logger().warn("ExecCmdSvc: Ignoring extra input - already processing (id={}).", id_);
+                logger().warn("ExecCmdSvc: Ignoring extra input - already processing (fsm_id={}).", id_);
                 return;
             }
 
@@ -163,25 +163,25 @@ private:
 
         void handleEvent(const Channel::Completed& completed)
         {
-            logger().debug("ExecCmdSvc::handleEvent({}) (id={}).", completed, id_);
+            logger().debug("ExecCmdSvc::handleEvent({}) (fsm_id={}).", completed, id_);
 
             if (!completed.keep_alive)
             {
-                logger().warn("ExecCmdSvc: canceling processing (id={}).", id_);
+                logger().warn("ExecCmdSvc: canceling processing (fsm_id={}).", id_);
                 complete(sdk::ErrorCode::Canceled);
                 return;
             }
 
             if (processing_)
             {
-                logger().warn("ExecCmdSvc: Ignoring extra channel completion - already processing (id={}).", id_);
+                logger().warn("ExecCmdSvc: Ignoring extra channel completion - already processing (fsm_id={}).", id_);
                 return;
             }
             processing_ = true;
 
             if (node_id_to_cnxt_.empty())
             {
-                logger().debug("ExecCmdSvc: Nothing to do - empty working set (id={}, nodes={}).",
+                logger().debug("ExecCmdSvc: Nothing to do - empty working set (fsm_id={}, nodes={}).",
                                id_,
                                node_id_to_cnxt_.size());
                 complete(sdk::ErrorCode::Success);

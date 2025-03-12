@@ -92,7 +92,7 @@ private:
             : id_{id}
             , channel_{std::move(channel)}
             , service_{service}
-            , timeout_{}
+            , processing_{false}
         {
             logger().trace("ListRegsSvc::Fsm (id={}).", id_);
 
@@ -111,37 +111,23 @@ private:
 
         void start(const Spec::Request& request)
         {
-            logger().trace("ListRegsSvc::Fsm::start (fsm_id={}, timeout={}us).", id_, request.timeout_us);
-
-            timeout_ = std::chrono::duration_cast<libcyphal::Duration>(std::chrono::microseconds{request.timeout_us});
-
-            // It's ok to have duplicates in the request -
-            // we just ignore duplicates, and work with unique ones.
-            const SetOfNodeIds unique_node_ids{request.node_ids.begin(), request.node_ids.end()};
-            for (const auto node_id : unique_node_ids)
-            {
-                makeCyNodeOp(node_id);
-            }
-
-            if (node_id_to_op_.empty())
-            {
-                complete(sdk::ErrorCode::Success);
-            }
+            handleEvent(request);
         }
 
     private:
-        using SetOfNodeIds = std::unordered_set<sdk::CyphalNodeId>;
+        using ResponseItem = uavcan::_register::Name_1_0;
 
         using CyRegListSvc     = uavcan::_register::List_1_0;
         using CySvcClient      = libcyphal::presentation::ServiceClient<CyRegListSvc>;
         using CyPromise        = libcyphal::presentation::ResponsePromise<CyRegListSvc::Response>;
         using CyPromiseFailure = libcyphal::presentation::ResponsePromiseFailure;
 
-        struct CyNodeOp
+        struct NodeContext
         {
-            std::uint16_t             index;
-            CySvcClient               client;
-            cetl::optional<CyPromise> promise;
+            libcyphal::Duration         timeout;
+            std::uint16_t               reg_index{0};
+            cetl::optional<CySvcClient> client;
+            cetl::optional<CyPromise>   promise;
         };
 
         common::Logger& logger() const
@@ -154,48 +140,117 @@ private:
             return service_.context_.memory;
         }
 
-        // We are not interested in handling these events.
+        // We are not interested in handling this event.
         static void handleEvent(const Channel::Connected&) {}
-        static void handleEvent(const Channel::Input&) {}
+
+        void handleEvent(const Channel::Input& input)
+        {
+            CETL_DEBUG_ASSERT(!processing_, "");
+            if (processing_)
+            {
+                logger().warn("ListRegsSvc: Ignoring extra input - already processing (fsm_id={}).", id_);
+                return;
+            }
+
+            const auto timeout = std::chrono::duration_cast<libcyphal::Duration>(  //
+                std::chrono::microseconds{input.timeout_us});
+
+            for (const auto node_id : input.node_ids)
+            {
+                node_id_to_cnxt_.emplace(node_id, NodeContext{timeout});
+            }
+        }
 
         void handleEvent(const Channel::Completed& completed)
         {
-            logger().debug("ListRegsSvc::Fsm::handleEvent({}) (id={}).", completed, id_);
-            complete(sdk::ErrorCode::Canceled);
+            logger().debug("ListRegsSvc::handleEvent({}) (fsm_id={}).", completed, id_);
+
+            if (!completed.keep_alive)
+            {
+                logger().warn("ListRegsSvc: canceling processing (fsm_id={}).", id_);
+                complete(sdk::ErrorCode::Canceled);
+                return;
+            }
+
+            if (processing_)
+            {
+                logger().warn("ListRegsSvc: Ignoring extra channel completion - already processing (fsm_id={}).", id_);
+                return;
+            }
+            processing_ = true;
+
+            if (node_id_to_cnxt_.empty())
+            {
+                logger().debug("ListRegsSvc: Nothing to do - empty working set (fsm_id={}, nodes={}).",
+                               id_,
+                               node_id_to_cnxt_.size());
+                complete(sdk::ErrorCode::Success);
+                return;
+            }
+
+            // Below `makeCyRpcClient` call might modify `node_id_to_cnxt_`,
+            // so we need to collect all node ids first.
+            //
+            std::vector<sdk::CyphalNodeId> node_ids;
+            node_ids.reserve(node_id_to_cnxt_.size());
+            for (const auto& pair : node_id_to_cnxt_)
+            {
+                node_ids.push_back(pair.first);
+            }
+
+            // For each node we try initiate execute command RPC call.
+            //
+            for (const auto node_id : node_ids)
+            {
+                makeCyRpcClient(node_id);
+            }
         }
 
-        void makeCyNodeOp(const sdk::CyphalNodeId node_id)
+        void makeCyRpcClient(const sdk::CyphalNodeId node_id)
         {
             using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
+
+            CETL_DEBUG_ASSERT(processing_, "");
+
+            const auto it = node_id_to_cnxt_.find(node_id);
+            if (it == node_id_to_cnxt_.end())
+            {
+                return;
+            }
+            auto& node_cnxt = it->second;
 
             auto cy_make_result = service_.context_.presentation.makeClient<CyRegListSvc>(node_id);
             if (const auto* cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
             {
                 const auto error_code = failureToErrorCode(*cy_failure);
-                logger().error("ListRegsSvc: failed to make RPC client for node {} (err={}, fsm_id={}).",
-                               node_id,
-                               error_code,
-                               id_);
+                logger().warn("ListRegsSvc: failed to make RPC client for node {} (err={}, fsm_id={}).",
+                              node_id,
+                              error_code,
+                              id_);
 
-                sendErrorResponse(node_id, error_code);
+                sendResponse(node_id, ResponseItem{&memory()}, error_code);
+                releaseNodeContext(node_id);
+                return;
+            }
+            node_cnxt.client.emplace(cetl::get<CySvcClient>(std::move(cy_make_result)));
+
+            startCyRegListRpcCallFor(node_id, node_cnxt);
+        }
+
+        void startCyRegListRpcCallFor(const sdk::CyphalNodeId node_id, NodeContext& node_cnxt)
+        {
+            CETL_DEBUG_ASSERT(processing_, "");
+            CETL_DEBUG_ASSERT(node_cnxt.client, "");
+            if (!node_cnxt.client)
+            {
+                releaseNodeContext(node_id);
                 return;
             }
 
-            auto it = node_id_to_op_
-                          .emplace(  //
-                              node_id,
-                              CyNodeOp{0, cetl::get<CySvcClient>(std::move(cy_make_result)), cetl::nullopt})
-                          .first;
+            const auto                  deadline = service_.context_.executor.now() + node_cnxt.timeout;
+            const CyRegListSvc::Request cy_request{node_cnxt.reg_index, &memory()};
 
-            startCyRegListRpcCallFor(node_id, it->second);
-        }
-
-        bool startCyRegListRpcCallFor(const sdk::CyphalNodeId node_id, CyNodeOp& cy_op)
-        {
-            const CyRegListSvc::Request cy_request{cy_op.index, &memory()};
-
-            const auto deadline      = service_.context_.executor.now() + timeout_;
-            auto       cy_req_result = cy_op.client.request(deadline, cy_request);
+            auto cy_req_result = node_cnxt.client->request(deadline, cy_request);
             if (const auto* cy_failure = cetl::get_if<CySvcClient::Failure>(&cy_req_result))
             {
                 const auto error_code = failureToErrorCode(*cy_failure);
@@ -204,8 +259,9 @@ private:
                                error_code,
                                id_);
 
-                sendErrorResponse(node_id, error_code);
-                return false;
+                sendResponse(node_id, ResponseItem{&memory()}, error_code);
+                releaseNodeContext(node_id);
+                return;
             }
             auto cy_promise = cetl::get<CyPromise>(std::move(cy_req_result));
 
@@ -214,18 +270,19 @@ private:
                 handleNodeResponse(node_id, arg.result);
             });
 
-            cy_op.promise.emplace(std::move(cy_promise));
-            return true;
+            node_cnxt.promise.emplace(std::move(cy_promise));
         }
 
         void handleNodeResponse(const sdk::CyphalNodeId node_id, const CyPromise::Result& result)
         {
-            const auto it = node_id_to_op_.find(node_id);
-            if (it == node_id_to_op_.end())
+            const auto it = node_id_to_cnxt_.find(node_id);
+            if (it == node_id_to_cnxt_.end())
             {
                 return;
             }
-            auto& cy_op = it->second;
+            auto& node_cnxt = it->second;
+
+            CETL_DEBUG_ASSERT(processing_, "");
 
             if (const auto* success = cetl::get_if<CyPromise::Success>(&result))
             {
@@ -237,23 +294,10 @@ private:
                     // Forward intermediate response to the IPC client,
                     // and start the next RPC call for the same node (with ++index).
                     //
-                    const Spec::Response ipc_response{0, node_id, res.name, &memory()};
-                    const auto           failure = channel_.send(ipc_response);
-                    if (failure != sdk::ErrorCode::Success)
-                    {
-                        logger().warn("ListRegsSvc: failed to send ipc response for node {} (err={}, fsm_id={}).",
-                                      node_id,
-                                      failure,
-                                      id_);
-                    }
-                    else
-                    {
-                        cy_op.index++;
-                        if (startCyRegListRpcCallFor(node_id, cy_op))
-                        {
-                            return;
-                        }
-                    }
+                    sendResponse(node_id, res.name, sdk::ErrorCode::Success);
+                    node_cnxt.reg_index++;
+                    startCyRegListRpcCallFor(node_id, node_cnxt);
+                    return;
                 }
             }
             else if (const auto* cy_failure = cetl::get_if<CyPromiseFailure>(&result))
@@ -263,44 +307,46 @@ private:
                               node_id,
                               error_code,
                               id_);
-                sendErrorResponse(node_id, error_code);
+                sendResponse(node_id, ResponseItem{&memory()}, error_code);
             }
 
             // We've got an empty response from the node (or there was an error).
             // So we can release associated resources (client and promise).
-            // If no nodes left, then it means we did it for all nodes, so the whole FSM is completed.
-            //
-            node_id_to_op_.erase(it);
-            if (node_id_to_op_.empty())
-            {
-                complete(sdk::ErrorCode::Success);
-            }
+            releaseNodeContext(node_id);
         }
 
-        // TODO: Fix nolint by moving from `int` to `ErrorCode`.
-        // NOLINTNEXTLINE bugprone-easily-swappable-parameters
-        void sendErrorResponse(const sdk::CyphalNodeId node_id, const sdk::ErrorCode error_code)
+        void sendResponse(const sdk::CyphalNodeId node_id,
+                          const ResponseItem&     item,
+                          const sdk::ErrorCode    error_code = sdk::ErrorCode::Success)
         {
             Spec::Response ipc_response{&memory()};
             ipc_response.error_code = static_cast<std::int32_t>(error_code);
             ipc_response.node_id    = node_id;
+            ipc_response.item       = item;
 
             const auto failure = channel_.send(ipc_response);
             if (failure != sdk::ErrorCode::Success)
             {
-                logger().warn(  //
-                    "ListRegsSvc: failed to send ipc failure (error_code={}) response for node {} (err={}, fsm_id={}).",
-                    error_code,
-                    node_id,
-                    failure,
-                    id_);
+                logger().warn("ListRegsSvc: failed to send ipc response for node {} (err={}, fsm_id={}).",
+                              node_id,
+                              failure,
+                              id_);
+            }
+        }
+
+        void releaseNodeContext(const sdk::CyphalNodeId node_id)
+        {
+            node_id_to_cnxt_.erase(node_id);
+            if (node_id_to_cnxt_.empty())
+            {
+                complete(sdk::ErrorCode::Success);
             }
         }
 
         void complete(const sdk::ErrorCode error_code)
         {
             // Cancel anything that might be still pending.
-            node_id_to_op_.clear();
+            node_id_to_cnxt_.clear();
 
             const auto failure = channel_.complete(error_code);
             if (failure != sdk::ErrorCode::Success)
@@ -311,11 +357,11 @@ private:
             service_.releaseFsmBy(id_);
         }
 
-        const Id                                        id_;
-        Channel                                         channel_;
-        ListRegistersServiceImpl&                       service_;
-        libcyphal::Duration                             timeout_;
-        std::unordered_map<sdk::CyphalNodeId, CyNodeOp> node_id_to_op_;
+        const Id                                           id_;
+        Channel                                            channel_;
+        ListRegistersServiceImpl&                          service_;
+        bool                                               processing_;
+        std::unordered_map<sdk::CyphalNodeId, NodeContext> node_id_to_cnxt_;
 
     };  // Fsm
 

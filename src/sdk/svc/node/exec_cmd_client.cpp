@@ -7,7 +7,6 @@
 
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
-#include "ipc/ipc_types.hpp"
 #include "logging.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
 

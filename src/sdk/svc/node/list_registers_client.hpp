@@ -36,7 +36,10 @@ public:
     using Success = NodeRegistryClient::List::Success;
     using Failure = NodeRegistryClient::List::Failure;
 
-    CETL_NODISCARD static Ptr make(const common::ipc::ClientRouter::Ptr& ipc_router, Spec::Request&& request);
+    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
+                                   const common::ipc::ClientRouter::Ptr& ipc_router,
+                                   const CyphalNodeIds                   node_ids,
+                                   const std::chrono::microseconds       timeout);
 
     ListRegistersClient(ListRegistersClient&&)                 = delete;
     ListRegistersClient(const ListRegistersClient&)            = delete;

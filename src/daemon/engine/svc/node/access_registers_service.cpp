@@ -149,7 +149,7 @@ private:
             CETL_DEBUG_ASSERT(!processing_, "");
             if (processing_)
             {
-                logger().warn("AccessRegsSvc: Ignoring extra input - already processing (id={}).", id_);
+                logger().warn("AccessRegsSvc: Ignoring extra input - already processing (fsm_id={}).", id_);
                 return;
             }
 
@@ -176,25 +176,26 @@ private:
 
         void handleEvent(const Channel::Completed& completed)
         {
-            logger().debug("AccessRegsSvc::Fsm::handleEvent({}) (id={}).", completed, id_);
+            logger().debug("AccessRegsSvc::handleEvent({}) (fsm_id={}).", completed, id_);
 
             if (!completed.keep_alive)
             {
-                logger().warn("AccessRegsSvc: canceling processing (id={}).", id_);
+                logger().warn("AccessRegsSvc: canceling processing (fsm_id={}).", id_);
                 complete(sdk::ErrorCode::Canceled);
                 return;
             }
 
             if (processing_)
             {
-                logger().warn("AccessRegsSvc: Ignoring extra channel completion - already processing (id={}).", id_);
+                logger().warn("AccessRegsSvc: Ignoring extra channel completion - already processing (fsm_id={}).",
+                              id_);
                 return;
             }
             processing_ = true;
 
             if (node_id_to_cnxt_.empty() || registers_.empty())
             {
-                logger().debug("AccessRegsSvc: Nothing to do - empty working set (id={}, nodes={}, regs={}).",
+                logger().debug("AccessRegsSvc: Nothing to do - empty working set (fsm_id={}, nodes={}, regs={}).",
                                id_,
                                node_id_to_cnxt_.size(),
                                registers_.size());
@@ -334,12 +335,12 @@ private:
             ipc_response.node_id    = node_id;
             ipc_response._register  = reg;
 
-            const auto send_error_code = channel_.send(ipc_response);
-            if (send_error_code != sdk::ErrorCode::Success)
+            const auto failure = channel_.send(ipc_response);
+            if (failure != sdk::ErrorCode::Success)
             {
                 logger().warn("AccessRegsSvc: failed to send ipc response for node {} (err={}, fsm_id={}).",
                               node_id,
-                              send_error_code,
+                              failure,
                               id_);
             }
         }
