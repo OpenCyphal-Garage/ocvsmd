@@ -17,9 +17,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <algorithm>
-#include <cerrno>
 #include <chrono>
-#include <cstdint>
 #include <functional>
 #include <memory>
 #include <utility>

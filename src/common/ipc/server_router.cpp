@@ -22,7 +22,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
 
-#include <cerrno>
 #include <cstdint>
 #include <memory>
 #include <unordered_map>

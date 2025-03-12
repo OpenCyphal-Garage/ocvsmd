@@ -8,7 +8,6 @@
 
 #include <cetl/pf20/cetlpf.hpp>
 
-#include <cerrno>
 #include <cstdint>
 
 namespace ocvsmd

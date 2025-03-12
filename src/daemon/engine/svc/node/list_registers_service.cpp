@@ -20,7 +20,6 @@
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
 
-#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <memory>

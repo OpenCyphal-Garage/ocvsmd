@@ -12,7 +12,6 @@
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <array>
-#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <memory>

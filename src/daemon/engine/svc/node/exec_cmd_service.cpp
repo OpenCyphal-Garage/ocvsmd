@@ -20,7 +20,6 @@
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
 
-#include <cerrno>
 #include <cstdint>
 #include <memory>
 #include <unordered_map>

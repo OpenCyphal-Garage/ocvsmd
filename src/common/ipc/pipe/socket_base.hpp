@@ -14,7 +14,6 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
-#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <functional>

@@ -19,7 +19,6 @@
 #include <cetl/rtti.hpp>
 #include <libcyphal/executor.hpp>
 
-#include <cerrno>
 #include <cstring>
 #include <memory>
 #include <sys/socket.h>

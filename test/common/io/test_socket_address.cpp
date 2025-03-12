@@ -12,7 +12,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <cerrno>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>

@@ -17,7 +17,6 @@
 
 #include <spdlog/fmt/fmt.h>
 
-#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
