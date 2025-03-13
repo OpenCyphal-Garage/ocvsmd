@@ -16,6 +16,7 @@
 #include <spdlog/fmt/ranges.h>
 
 #include <string>
+#include <type_traits>
 
 template <>
 struct fmt::formatter<uavcan::_register::Value_1_0> : formatter<std::string>
@@ -89,7 +90,7 @@ struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
             error_name = "Disconnected";
             break;
         case ErrorCode::Shutdown:
-            error_name = "NotConnected";
+            error_name = "Shutdown";
             break;
         case ErrorCode::OperationInProgress:
             error_name = "OperationInProgress";
@@ -98,7 +99,7 @@ struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
             error_name = "ErrorCode";
             break;
         }
-        return format_to(ctx.out(), "{}({})", error_name, static_cast<std::int32_t>(error_code));
+        return format_to(ctx.out(), "{}({})", error_name, static_cast<std::underlying_type_t<ErrorCode>>(error_code));
     }
 };
 

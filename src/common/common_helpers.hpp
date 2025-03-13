@@ -11,6 +11,7 @@
 #include <spdlog/spdlog.h>
 
 #include <exception>
+#include <type_traits>
 #include <utility>
 
 namespace ocvsmd
@@ -53,6 +54,8 @@ struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
 {
     auto format(const ocvsmd::sdk::ErrorCode error_code, format_context& ctx) const
     {
+        using ocvsmd::sdk::ErrorCode;
+
         if (error_code == ocvsmd::sdk::ErrorCode::Success)
         {
             return format_to(ctx.out(), "Success");
@@ -61,44 +64,44 @@ struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
         const char* error_name = "ErrorCode";
         switch (error_code)
         {
-        case ocvsmd::sdk::ErrorCode::Busy:
+        case ErrorCode::Busy:
             error_name = "Busy";
             break;
-        case ocvsmd::sdk::ErrorCode::NoEntry:
+        case ErrorCode::NoEntry:
             error_name = "NoEntry";
             break;
-        case ocvsmd::sdk::ErrorCode::TimedOut:
+        case ErrorCode::TimedOut:
             error_name = "TimedOut";
             break;
-        case ocvsmd::sdk::ErrorCode::OutOfMemory:
+        case ErrorCode::OutOfMemory:
             error_name = "OutOfMemory";
             break;
-        case ocvsmd::sdk::ErrorCode::AlreadyExists:
+        case ErrorCode::AlreadyExists:
             error_name = "AlreadyExists";
             break;
-        case ocvsmd::sdk::ErrorCode::InvalidArgument:
+        case ErrorCode::InvalidArgument:
             error_name = "InvalidArgument";
             break;
-        case ocvsmd::sdk::ErrorCode::Canceled:
+        case ErrorCode::Canceled:
             error_name = "Canceled";
             break;
-        case ocvsmd::sdk::ErrorCode::NotConnected:
+        case ErrorCode::NotConnected:
             error_name = "NotConnected";
             break;
-        case ocvsmd::sdk::ErrorCode::Disconnected:
+        case ErrorCode::Disconnected:
             error_name = "Disconnected";
             break;
-        case ocvsmd::sdk::ErrorCode::Shutdown:
-            error_name = "NotConnected";
+        case ErrorCode::Shutdown:
+            error_name = "Shutdown";
             break;
-        case ocvsmd::sdk::ErrorCode::OperationInProgress:
+        case ErrorCode::OperationInProgress:
             error_name = "OperationInProgress";
             break;
         default:
             error_name = "ErrorCode";
             break;
         }
-        return format_to(ctx.out(), "{}({})", error_name, static_cast<std::int32_t>(error_code));
+        return format_to(ctx.out(), "{}({})", error_name, static_cast<std::underlying_type_t<ErrorCode>>(error_code));
     }
 };
 // NOLINTEND
