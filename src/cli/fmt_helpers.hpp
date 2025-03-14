@@ -97,14 +97,5 @@ struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
         return format_to(ctx.out(), "{}({})", error_name, static_cast<std::underlying_type_t<ErrorCode>>(error_code));
     }
 };
-template <>
-struct fmt::formatter<ocvsmd::sdk::OptErrorCode> : formatter<std::string>
-{
-    static auto format(const ocvsmd::sdk::OptErrorCode error_code, format_context& ctx)
-    {
-        return error_code.has_value() ? formatter<ocvsmd::sdk::ErrorCode>::format(*error_code, ctx)
-                                      : format_to(ctx.out(), "null");
-    }
-};
 
 #endif  // OCVSMD_CLI_FMT_HELPERS_HPP_INCLUDED

@@ -6,10 +6,12 @@
 #ifndef OCVSMD_COMMON_HELPERS_HPP_INCLUDED
 #define OCVSMD_COMMON_HELPERS_HPP_INCLUDED
 
+#include "ipc/channel.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
 
+#include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
 #include <exception>
@@ -93,6 +95,7 @@ inline std::underlying_type_t<sdk::ErrorCode> optErrorCodeToRawInt(const sdk::Op
 // MARK: - Formatting
 
 // NOLINTBEGIN
+
 template <>
 struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
 {
@@ -152,6 +155,29 @@ struct fmt::formatter<ocvsmd::sdk::OptErrorCode> : formatter<std::string>
                                       : format_to(ctx.out(), "null");
     }
 };
+
+template <>
+struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Connected> : formatter<std::string>
+{
+    auto format(ocvsmd::common::ipc::AnyChannel::Connected, format_context& ctx) const
+    {
+        return format_to(ctx.out(), "Connected");
+    }
+};
+
+template <>
+struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Completed> : formatter<std::string>
+{
+    auto format(ocvsmd::common::ipc::AnyChannel::Completed completed, format_context& ctx) const
+    {
+        if (const auto error_code = completed.error_code)
+        {
+            return format_to(ctx.out(), "Completed(alive={}, err={})", completed.keep_alive, *error_code);
+        }
+        return format_to(ctx.out(), "Completed(alive={}, err=null)", completed.keep_alive);
+    }
+};
+
 // NOLINTEND
 
 #endif  // OCVSMD_COMMON_HELPERS_HPP_INCLUDED

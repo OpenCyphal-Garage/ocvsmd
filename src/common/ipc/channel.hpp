@@ -6,7 +6,6 @@
 #ifndef OCVSMD_COMMON_IPC_CHANNEL_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_CHANNEL_HPP_INCLUDED
 
-#include "common_helpers.hpp"
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
 #include "ocvsmd/sdk/defines.hpp"
@@ -14,8 +13,6 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/common/crc.hpp>
-
-#include <spdlog/fmt/fmt.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -188,27 +185,5 @@ private:
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd
-
-// MARK: - Formatting
-
-// NOLINTBEGIN
-template <>
-struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Connected> : formatter<std::string>
-{
-    auto format(ocvsmd::common::ipc::AnyChannel::Connected, format_context& ctx) const
-    {
-        return format_to(ctx.out(), "Connected");
-    }
-};
-
-template <>
-struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Completed> : formatter<std::string>
-{
-    auto format(ocvsmd::common::ipc::AnyChannel::Completed completed, format_context& ctx) const
-    {
-        return format_to(ctx.out(), "Completed(alive={}, err={})", completed.keep_alive, completed.error_code);
-    }
-};
-// NOLINTEND
 
 #endif  // OCVSMD_COMMON_IPC_CHANNEL_HPP_INCLUDED

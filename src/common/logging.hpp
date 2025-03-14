@@ -56,7 +56,7 @@ inline LoggerPtr getLogger(const std::string& name) noexcept
 template <>
 struct fmt::formatter<cetl::string_view> : formatter<string_view>
 {
-    auto format(cetl::string_view sv, format_context& ctx) const
+    auto format(const cetl::string_view sv, format_context& ctx) const
     {
         return formatter<string_view>::format(string_view{sv.data(), sv.size()}, ctx);
     }
