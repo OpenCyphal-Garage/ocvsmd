@@ -33,7 +33,6 @@ namespace
 
 using namespace ocvsmd::common;               // NOLINT This our main concern here in the unit tests.
 using namespace ocvsmd::daemon::engine::svc;  // NOLINT This our main concern here in the unit tests.
-using ocvsmd::sdk::ErrorCode;
 using ocvsmd::sdk::OptErrorCode;
 
 using testing::_;

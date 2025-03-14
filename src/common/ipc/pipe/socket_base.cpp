@@ -39,16 +39,11 @@ namespace
 ///
 bool isNotReadyCondition(const int err)
 {
-    switch (err)
-    {
-    case EAGAIN:
-#if EAGAIN != EWOULDBLOCK
-    case EWOULDBLOCK:
+#if EAGAIN == EWOULDBLOCK
+    return err == EAGAIN;
+#else
+    return (err == EAGAIN) || (err == EWOULDBLOCK);
 #endif
-        return true;
-    default:
-        return false;
-    }
 }
 
 constexpr std::uint32_t MsgHeaderSignature = 0x5356434F;     // 'OCVS'

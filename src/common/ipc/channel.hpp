@@ -193,11 +193,11 @@ private:
 
 // NOLINTBEGIN
 template <>
-struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Connected> : formatter<string_view>
+struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Connected> : formatter<std::string>
 {
     auto format(ocvsmd::common::ipc::AnyChannel::Connected, format_context& ctx) const
     {
-        return formatter<string_view>::format("Connected", ctx);
+        return format_to(ctx.out(), "Connected");
     }
 };
 

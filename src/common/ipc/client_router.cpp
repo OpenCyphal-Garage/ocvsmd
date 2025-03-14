@@ -343,7 +343,7 @@ private:
                     //
                     // Unexpected message, but we can't remove it
                     // b/c Nunavut generated code needs a default case.
-                    return sdk::ErrorCode::InvalidArgument;
+                    return sdk::OptErrorCode{sdk::ErrorCode::InvalidArgument};
                 },
                 [this](const RouteConnect_0_1& route_conn) {
                     //
