@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_IPC_SERVER_PIPE_MOCK_HPP_INCLUDED
 
 #include "ipc/pipe/server_pipe.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 
 #include "ipc/ipc_types.hpp"
 #include "ref_wrapper.hpp"
@@ -31,13 +32,13 @@ public:
 
         // MARK: ServerPipe
 
-        int start(EventHandler event_handler) override
+        sdk::ErrorCode start(EventHandler event_handler) override
         {
             reference().event_handler_ = event_handler;
             return reference().start(event_handler);
         }
 
-        int send(const ClientId client_id, const Payloads payloads) override
+        sdk::ErrorCode send(const ClientId client_id, const Payloads payloads) override
         {
             return reference().send(client_id, payloads);
         }
@@ -45,8 +46,8 @@ public:
     };  // Wrapper
 
     MOCK_METHOD(void, deinit, (), (const));
-    MOCK_METHOD(int, start, (EventHandler event_handler), (override));
-    MOCK_METHOD(int, send, (const ClientId client_id, const Payloads payloads), (override));
+    MOCK_METHOD(sdk::ErrorCode, start, (EventHandler event_handler), (override));
+    MOCK_METHOD(sdk::ErrorCode, send, (const ClientId client_id, const Payloads payloads), (override));
 
     // MARK: Data members:
 

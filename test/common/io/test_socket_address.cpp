@@ -5,12 +5,13 @@
 
 #include "io/socket_address.hpp"
 
+#include "ocvsmd/sdk/defines.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <cerrno>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
@@ -20,6 +21,7 @@ namespace
 {
 
 using namespace ocvsmd::common::io;  // NOLINT This our main concern here in the unit tests.
+using ocvsmd::sdk::ErrorCode;
 
 using testing::_;
 using testing::VariantWith;
@@ -67,7 +69,7 @@ TEST_F(TestSocketAddress, parse_unix_domain)
     {
         const std::string too_long_path(MaxPath, 'x');
         auto              maybe_socket_addr = SocketAddress::parse("unix:" + too_long_path, 0);
-        ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(ErrorCode::InvalidArgument));
     }
 }
 
@@ -121,7 +123,7 @@ TEST_F(TestSocketAddress, parse_abstract_unix_domain)
     {
         const std::string too_long_path(MaxPath - 1, 'x');
         auto              maybe_socket_addr = SocketAddress::parse("unix-abstract:" + too_long_path, 0);
-        ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(ErrorCode::InvalidArgument));
     }
 }
 
@@ -160,14 +162,14 @@ TEST_F(TestSocketAddress, parse_ipv4)
     {
         const std::string test_addr         = "tcp://127.0.0.256";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 80);
-        ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(ErrorCode::InvalidArgument));
     }
 
     // try unsupported
     {
         const std::string test_addr         = "tcp://localhost";
         auto              maybe_socket_addr = SocketAddress::parse(test_addr, 80);
-        ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(maybe_socket_addr, VariantWith<Result::Failure>(ErrorCode::InvalidArgument));
     }
 }
 
@@ -207,16 +209,19 @@ TEST_F(TestSocketAddress, parse_ipv6)
     // try invalid
     {
         // missing closing bracket
-        ASSERT_THAT(SocketAddress::parse("tcp://[::1", 0), VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(SocketAddress::parse("tcp://[::1", 0), VariantWith<Result::Failure>(ErrorCode::InvalidArgument));
 
         // missing colon after bracket
-        ASSERT_THAT(SocketAddress::parse("tcp://[::1]8080", 0), VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(SocketAddress::parse("tcp://[::1]8080", 0),
+                    VariantWith<Result::Failure>(ErrorCode::InvalidArgument));
 
         // invalid port number
-        ASSERT_THAT(SocketAddress::parse("tcp://[::1]:80_80", 0), VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(SocketAddress::parse("tcp://[::1]:80_80", 0),
+                    VariantWith<Result::Failure>(ErrorCode::InvalidArgument));
 
         // too big port number
-        ASSERT_THAT(SocketAddress::parse("tcp://[::1]:65536", 0), VariantWith<Result::Failure>(EINVAL));
+        ASSERT_THAT(SocketAddress::parse("tcp://[::1]:65536", 0),
+                    VariantWith<Result::Failure>(ErrorCode::InvalidArgument));
     }
 }
 

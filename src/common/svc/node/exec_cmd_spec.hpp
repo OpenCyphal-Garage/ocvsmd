@@ -6,7 +6,7 @@
 #ifndef OCVSMD_COMMON_SVC_NODE_EXEC_CMD_SPEC_HPP_INCLUDED
 #define OCVSMD_COMMON_SVC_NODE_EXEC_CMD_SPEC_HPP_INCLUDED
 
-#include "ocvsmd/common/svc/node/ExecCmd_0_1.hpp"
+#include "ocvsmd/common/svc/node/ExecCmd_0_2.hpp"
 
 namespace ocvsmd
 {
@@ -19,8 +19,8 @@ namespace node
 
 struct ExecCmdSpec
 {
-    using Request  = ExecCmd::Request_0_1;
-    using Response = ExecCmd::Response_0_1;
+    using Request  = ExecCmd::Request_0_2;
+    using Response = ExecCmd::Response_0_2;
 
     constexpr auto static svc_full_name()
     {

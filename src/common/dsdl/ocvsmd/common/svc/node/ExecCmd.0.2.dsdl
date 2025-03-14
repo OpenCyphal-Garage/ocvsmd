@@ -6,6 +6,7 @@ UavcanNodeExecCmdReq.0.1 payload
 
 ---
 
+int32 error_code
 uint16 node_id
 UavcanNodeExecCmdRes.0.1 payload
 

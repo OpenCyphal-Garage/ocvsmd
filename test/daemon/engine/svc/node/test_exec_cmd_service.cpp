@@ -12,6 +12,7 @@
 #include "daemon/engine/cyphal/transport_gtest_helpers.hpp"
 #include "daemon/engine/cyphal/transport_mock.hpp"
 #include "ipc/channel.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
 #include "svc/node/services.hpp"
 #include "svc/svc_helpers.hpp"
@@ -32,6 +33,7 @@ namespace
 
 using namespace ocvsmd::common;               // NOLINT This our main concern here in the unit tests.
 using namespace ocvsmd::daemon::engine::svc;  // NOLINT This our main concern here in the unit tests.
+using ocvsmd::sdk::ErrorCode;
 
 using testing::_;
 using testing::Invoke;
@@ -52,8 +54,9 @@ using std::literals::chrono_literals::operator""ms;
 class TestExecCmdService : public testing::Test
 {
 protected:
-    using ExecCmdSpec = svc::node::ExecCmdSpec;
-    using GatewayMock = ipc::detail::GatewayMock;
+    using ExecCmdSpec  = svc::node::ExecCmdSpec;
+    using GatewayMock  = ipc::detail::GatewayMock;
+    using GatewayEvent = ipc::detail::Gateway::Event;
 
     using CyService               = uavcan::node::ExecuteCommand_1_3;
     using CyPresentation          = libcyphal::presentation::Presentation;
@@ -162,15 +165,16 @@ TEST_F(TestExecCmdService, empty_request)
         const ExecCmdSpec::Request request{&mr_};
 
         EXPECT_CALL(gateway_mock, subscribe(_)).Times(1);
-        EXPECT_CALL(gateway_mock, complete(0, false)).Times(1);
-        EXPECT_CALL(gateway_mock, deinit()).Times(1);
-        //
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::move(gateway), payload);
-            return 0;
+            return ErrorCode::Success;
         });
-        EXPECT_THAT(result, 0);
+        EXPECT_THAT(result, ErrorCode::Success);
+
+        EXPECT_CALL(gateway_mock, complete(ErrorCode::Success, false)).Times(1);
+        EXPECT_CALL(gateway_mock, deinit()).Times(1);
+        gateway_mock.event_handler_(GatewayEvent::Completed{ErrorCode::Success, true});
     }
 }
 
@@ -202,27 +206,35 @@ TEST_F(TestExecCmdService, two_nodes_request)
         //
         // Emulate service request.
         EXPECT_CALL(gateway_mock, subscribe(_)).Times(1);
-        expectCySvcSessions(cy_sess_42, 42);
-        expectCySvcSessions(cy_sess_43, 43);
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::make_shared<GatewayMock::Wrapper>(gateway_mock), payload);
-            return 0;
+            return ErrorCode::Success;
         });
-        EXPECT_THAT(result, 0);
+        EXPECT_THAT(result, ErrorCode::Success);
+
+        expectCySvcSessions(cy_sess_42, 42);
+        expectCySvcSessions(cy_sess_43, 43);
+        gateway_mock.event_handler_(GatewayEvent::Completed{ErrorCode::Success, true});
     });
     scheduler_.scheduleAt(1s + 100ms, [&](const auto&) {
         //
         // Emulate that node 42 has responded in time (after 100ms).
         ExecCmdSpec::Response expected_response{&mr_};
-        expected_response.node_id = 42;
+        expected_response.error_code = 0;
+        expected_response.node_id    = 42;
         EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
         CyServiceRxTransfer transfer{{{{0, libcyphal::transport::Priority::Nominal}, now()}, 42}, {}};
         cy_sess_42.res_rx_cb_fn({transfer});
+
+        // Node 43 never responded, so timeout is expected.
+        expected_response.error_code = ETIMEDOUT;
+        expected_response.node_id    = 43;
+        EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        EXPECT_CALL(gateway_mock, complete(0, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(ErrorCode::Success, false)).Times(1);
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
     });
     scheduler_.scheduleAt(2s + 1ms, [&](const auto&) {
@@ -255,18 +267,29 @@ TEST_F(TestExecCmdService, out_of_memory)
         request.node_ids.push_back(13);
         request.node_ids.push_back(31);
 
-        EXPECT_CALL(cy_transport_mock_, makeRequestTxSession(_)).WillOnce(Return(libcyphal::MemoryError{}));
+        EXPECT_CALL(cy_transport_mock_, makeRequestTxSession(_)).WillRepeatedly([] {
+            return libcyphal::MemoryError{};
+        });
 
         EXPECT_CALL(gateway_mock, subscribe(_)).Times(1);
-        EXPECT_CALL(gateway_mock, complete(ENOMEM, false)).Times(1);
-        EXPECT_CALL(gateway_mock, deinit()).Times(1);
-        //
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::move(gateway), payload);
-            return 0;
+            return ErrorCode::Success;
         });
-        EXPECT_THAT(result, 0);
+        EXPECT_THAT(result, ErrorCode::Success);
+
+        ExecCmdSpec::Response expected_response{&mr_};
+        expected_response.error_code = ENOMEM;
+        expected_response.node_id    = 13;
+        EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
+        expected_response.error_code = ENOMEM;
+        expected_response.node_id    = 31;
+        EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
+
+        EXPECT_CALL(gateway_mock, complete(ErrorCode::Success, false)).Times(1);
+        EXPECT_CALL(gateway_mock, deinit()).Times(1);
+        gateway_mock.event_handler_(GatewayEvent::Completed{ErrorCode::Success, true});
     }
 }
 
@@ -284,13 +307,13 @@ namespace node
 {
 namespace ExecCmd
 {
-static void PrintTo(const Response_0_1& res, std::ostream* os)  // NOLINT
+static void PrintTo(const Response_0_2& res, std::ostream* os)  // NOLINT
 {
-    *os << "ExecCmd::Response_0_1{node_id=" << res.node_id << "}";
+    *os << "ExecCmd::Response_0_2{err=" << res.error_code << ", node_id=" << res.node_id << "}";
 }
-static bool operator==(const Response_0_1& lhs, const Response_0_1& rhs)  // NOLINT
+static bool operator==(const Response_0_2& lhs, const Response_0_2& rhs)  // NOLINT
 {
-    return lhs.node_id == rhs.node_id;
+    return (lhs.error_code == rhs.error_code) && (lhs.node_id == rhs.node_id);
 }
 }  // namespace ExecCmd
 }  // namespace node

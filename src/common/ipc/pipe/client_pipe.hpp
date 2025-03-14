@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_IPC_PIPE_CLIENT_PIPE_HPP_INCLUDED
 
 #include "ipc/ipc_types.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -43,7 +44,7 @@ public:
 
     };  // Event
 
-    using EventHandler = std::function<int(const Event::Var&)>;
+    using EventHandler = std::function<sdk::ErrorCode(const Event::Var&)>;
 
     ClientPipe(const ClientPipe&)                = delete;
     ClientPipe(ClientPipe&&) noexcept            = delete;
@@ -52,8 +53,8 @@ public:
 
     virtual ~ClientPipe() = default;
 
-    CETL_NODISCARD virtual int start(EventHandler event_handler) = 0;
-    CETL_NODISCARD virtual int send(const Payloads payloads)     = 0;
+    CETL_NODISCARD virtual sdk::ErrorCode start(EventHandler event_handler) = 0;
+    CETL_NODISCARD virtual sdk::ErrorCode send(const Payloads payloads)     = 0;
 
 protected:
     ClientPipe() = default;

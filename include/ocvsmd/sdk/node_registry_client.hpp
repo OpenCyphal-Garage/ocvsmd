@@ -57,14 +57,14 @@ public:
         struct NodeRegisters final
         {
             using Success = std::vector<std::string>;
-            using Failure = int;  // `errno`-like error code.
+            using Failure = ErrorCode;
             using Result  = cetl::variant<Success, Failure>;
 
             NodeRegisters() = delete;
         };
 
         using Success = std::unordered_map<CyphalNodeId, NodeRegisters::Result>;
-        using Failure = int;  // `errno`-like error code.
+        using Failure = ErrorCode;
         using Result  = cetl::variant<Success, Failure>;
 
         List() = delete;
@@ -93,14 +93,14 @@ public:
         SenderOf<List::Result>::Ptr sender = list(node_ids, timeout);
         return then<List::NodeRegisters::Result, List::Result>(std::move(sender), [node_id](List::Result&& result) {
             //
-            if (auto* const err = cetl::get_if<List::Failure>(&result))
+            if (auto* const failure = cetl::get_if<List::Failure>(&result))
             {
-                return List::NodeRegisters::Result{*err};
+                return List::NodeRegisters::Result{*failure};
             }
             auto list = cetl::get<List::Success>(std::move(result));
 
             const auto node_it = list.find(node_id);
-            return (node_it != list.end()) ? std::move(node_it->second) : ENOENT;
+            return (node_it != list.end()) ? std::move(node_it->second) : ErrorCode::NoEntry;
         });
     }
 
@@ -126,8 +126,8 @@ public:
         ///
         struct RegKeyValueOrErr final
         {
-            std::string                  key;
-            cetl::variant<RegValue, int> value_or_err;  // `errno`-like error code.
+            std::string                        key;
+            cetl::variant<RegValue, ErrorCode> value_or_err;
         };
 
         /// Defines the result type of the list of a node registers.
@@ -138,14 +138,14 @@ public:
         struct NodeRegisters final
         {
             using Success = std::vector<RegKeyValueOrErr>;
-            using Failure = int;  // `errno`-like error code.
+            using Failure = ErrorCode;
             using Result  = cetl::variant<Success, Failure>;
 
             NodeRegisters() = delete;
         };
 
         using Success = std::unordered_map<CyphalNodeId, NodeRegisters::Result>;
-        using Failure = int;  // `errno`-like error code.
+        using Failure = ErrorCode;
         using Result  = cetl::variant<Success, Failure>;
 
         Access() = delete;
@@ -182,14 +182,14 @@ public:
             std::move(sender),
             [node_id](Access::Result&& access_result) {
                 //
-                if (auto* const err = cetl::get_if<Access::Failure>(&access_result))
+                if (auto* const failure = cetl::get_if<Access::Failure>(&access_result))
                 {
-                    return Access::NodeRegisters::Result{*err};
+                    return Access::NodeRegisters::Result{*failure};
                 }
                 auto list = cetl::get<Access::Success>(std::move(access_result));
 
                 const auto node_it = list.find(node_id);
-                return (node_it != list.end()) ? std::move(node_it->second) : ENOENT;
+                return (node_it != list.end()) ? std::move(node_it->second) : ErrorCode::NoEntry;
             });
     }
 
@@ -224,14 +224,14 @@ public:
             std::move(sender),
             [node_id](Access::Result&& access_result) {
                 //
-                if (auto* const err = cetl::get_if<Access::Failure>(&access_result))
+                if (auto* const failure = cetl::get_if<Access::Failure>(&access_result))
                 {
-                    return Access::NodeRegisters::Result{*err};
+                    return Access::NodeRegisters::Result{*failure};
                 }
                 auto list = cetl::get<Access::Success>(std::move(access_result));
 
                 const auto node_it = list.find(node_id);
-                return (node_it != list.end()) ? std::move(node_it->second) : ENOENT;
+                return (node_it != list.end()) ? std::move(node_it->second) : ErrorCode::NoEntry;
             });
     }
 

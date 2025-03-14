@@ -6,11 +6,12 @@
 #ifndef OCVSMD_COMMON_DSDL_HELPERS_HPP_INCLUDED
 #define OCVSMD_COMMON_DSDL_HELPERS_HPP_INCLUDED
 
+#include "ocvsmd/sdk/defines.hpp"
+
 #include <cetl/cetl.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <array>
-#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -28,7 +29,7 @@ CETL_NODISCARD static auto tryDeserializePayload(const cetl::span<const std::uin
 }
 
 template <typename Message, typename Action>
-CETL_NODISCARD static int tryPerformOnSerialized(const Message& message, Action&& action)
+CETL_NODISCARD static sdk::ErrorCode tryPerformOnSerialized(const Message& message, Action&& action)
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -39,7 +40,7 @@ CETL_NODISCARD static int tryPerformOnSerialized(const Message& message, Action&
     const auto result_size = serialize(message, {buffer.data(), buffer.size()});
     if (!result_size)
     {
-        return EINVAL;
+        return sdk::ErrorCode::InvalidArgument;
     }
 
     const cetl::span<const std::uint8_t> bytes{buffer.data(), result_size.value()};
@@ -47,8 +48,9 @@ CETL_NODISCARD static int tryPerformOnSerialized(const Message& message, Action&
 }
 
 template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
-CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
-                                                  Action&&       action) -> std::enable_if_t<IsOnStack, int>
+CETL_NODISCARD static auto tryPerformOnSerialized(  //
+    const Message& message,
+    Action&&       action) -> std::enable_if_t<IsOnStack, sdk::ErrorCode>
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -59,7 +61,7 @@ CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
     const auto result_size = serialize(message, {buffer.data(), buffer.size()});
     if (!result_size)
     {
-        return EINVAL;
+        return sdk::ErrorCode::InvalidArgument;
     }
 
     const cetl::span<const std::uint8_t> bytes{buffer.data(), result_size.value()};
@@ -68,7 +70,7 @@ CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
 
 template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
 CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
-                                                  Action&&       action) -> std::enable_if_t<!IsOnStack, int>
+                                                  Action&&       action) -> std::enable_if_t<!IsOnStack, sdk::ErrorCode>
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -78,7 +80,7 @@ CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
     const auto result_size = serialize(message, {buffer->data(), buffer->size()});
     if (!result_size)
     {
-        return EINVAL;
+        return sdk::ErrorCode::InvalidArgument;
     }
 
     const cetl::span<const std::uint8_t> bytes{buffer->data(), result_size.value()};

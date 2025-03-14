@@ -43,14 +43,10 @@ public:
     SenderOf<List::Result>::Ptr list(const CyphalNodeIds node_ids, const std::chrono::microseconds timeout) override
     {
         using ListRegistersClient = svc::node::ListRegistersClient;
-        using Request             = common::svc::node::ListRegistersSpec::Request;
 
         logger_->trace("NodeRegistryClient: Making sender of `list()`.");
 
-        Request request{std::max<std::uint64_t>(0, timeout.count()),
-                        {node_ids.begin(), node_ids.end(), &memory_},
-                        &memory_};
-        auto    svc_client = ListRegistersClient::make(ipc_router_, std::move(request));
+        auto svc_client = ListRegistersClient::make(memory_, ipc_router_, node_ids, timeout);
 
         return std::make_unique<svc::AsSender<ListRegistersClient, ListRegistersClient::Result>>(  //
             "NodeRegistryClient::list",
@@ -72,7 +68,7 @@ public:
             if (reg_key.size() > RegKey::_traits_::ArrayCapacity::name)
             {
                 logger_->error("Too long register key '{}'.", reg_key);
-                return just<Access::Result>(EINVAL);
+                return just<Access::Result>(ErrorCode::InvalidArgument);
             }
         }
 
@@ -91,14 +87,14 @@ public:
         using RegKey                = uavcan::_register::Name_1_0;
         using AccessRegistersClient = svc::node::AccessRegistersClient;
 
-        logger_->trace("NodeRegistryClient: Making sender of `read()`.");
+        logger_->trace("NodeRegistryClient: Making sender of `write()`.");
 
         for (const auto& reg : registers)
         {
             if (reg.key.size() > RegKey::_traits_::ArrayCapacity::name)
             {
                 logger_->error("Too long register key '{}'.", reg.key);
-                return just<Access::Result>(EINVAL);
+                return just<Access::Result>(ErrorCode::InvalidArgument);
             }
         }
 

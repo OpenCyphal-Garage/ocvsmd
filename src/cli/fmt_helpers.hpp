@@ -6,6 +6,8 @@
 #ifndef OCVSMD_CLI_FMT_HELPERS_HPP_INCLUDED
 #define OCVSMD_CLI_FMT_HELPERS_HPP_INCLUDED
 
+#include "ocvsmd/sdk/defines.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <uavcan/_register/Value_1_0.hpp>
@@ -14,6 +16,7 @@
 #include <spdlog/fmt/ranges.h>
 
 #include <string>
+#include <type_traits>
 
 template <>
 struct fmt::formatter<uavcan::_register::Value_1_0> : formatter<std::string>
@@ -41,6 +44,62 @@ public:
     static auto format(const uavcan::_register::Value_1_0& value, format_context& ctx)
     {
         return cetl::visit([&ctx](const auto& val) { return format_to(val, ctx); }, value.union_value);
+    }
+};
+
+template <>
+struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
+{
+    auto format(const ocvsmd::sdk::ErrorCode error_code, format_context& ctx) const
+    {
+        using ocvsmd::sdk::ErrorCode;
+
+        if (error_code == ErrorCode::Success)
+        {
+            return format_to(ctx.out(), "Success");
+        }
+
+        const char* error_name = "ErrorCode";
+        switch (error_code)
+        {
+        case ErrorCode::Busy:
+            error_name = "Busy";
+            break;
+        case ErrorCode::NoEntry:
+            error_name = "NoEntry";
+            break;
+        case ErrorCode::TimedOut:
+            error_name = "TimedOut";
+            break;
+        case ErrorCode::OutOfMemory:
+            error_name = "OutOfMemory";
+            break;
+        case ErrorCode::AlreadyExists:
+            error_name = "AlreadyExists";
+            break;
+        case ErrorCode::InvalidArgument:
+            error_name = "InvalidArgument";
+            break;
+        case ErrorCode::Canceled:
+            error_name = "Canceled";
+            break;
+        case ErrorCode::NotConnected:
+            error_name = "NotConnected";
+            break;
+        case ErrorCode::Disconnected:
+            error_name = "Disconnected";
+            break;
+        case ErrorCode::Shutdown:
+            error_name = "Shutdown";
+            break;
+        case ErrorCode::OperationInProgress:
+            error_name = "OperationInProgress";
+            break;
+        default:
+            error_name = "ErrorCode";
+            break;
+        }
+        return format_to(ctx.out(), "{}({})", error_name, static_cast<std::underlying_type_t<ErrorCode>>(error_code));
     }
 };
 

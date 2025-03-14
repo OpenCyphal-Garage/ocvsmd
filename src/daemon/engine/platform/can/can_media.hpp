@@ -23,7 +23,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>

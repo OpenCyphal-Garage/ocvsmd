@@ -7,7 +7,6 @@
 
 #include "logging.hpp"
 
-#include <cerrno>
 #include <cstring>
 #include <unistd.h>
 

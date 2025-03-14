@@ -13,6 +13,7 @@
 #include "ocvsmd/common/ipc/RouteChannelMsg_0_1.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_0_1.hpp"
 #include "ocvsmd/common/ipc/Route_0_2.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 
 #include <uavcan/node/Version_1_0.hpp>
 #include <uavcan/primitive/Empty_1_0.hpp>
@@ -234,7 +235,7 @@ testing::PolymorphicMatcher<PayloadVariantMatcher<Msg>> PayloadVariantWith(
 inline auto PayloadOfRouteConnect(cetl::pmr::memory_resource& mr,
                                   const std::uint8_t          ver_major  = VERSION_MAJOR,
                                   const std::uint8_t          ver_minor  = VERSION_MINOR,
-                                  ErrorCode                   error_code = ErrorCode::Success)
+                                  const sdk::ErrorCode        error_code = sdk::ErrorCode::Success)
 {
     const RouteConnect_0_1 route_conn{{ver_major, ver_minor, &mr}, static_cast<std::int32_t>(error_code), &mr};
     return PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteConnect_0_1>(route_conn));
@@ -253,15 +254,15 @@ auto PayloadOfRouteChannelMsg(const Msg&                  msg,
                     [&route_ch_msg](const auto payload) {
                         //
                         route_ch_msg.payload_size = payload.size();
-                        return 0;
+                        return ocvsmd::sdk::ErrorCode::Success;
                     }),
-                0);
+                ocvsmd::sdk::ErrorCode::Success);
     return PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteChannelMsg_0_1>(route_ch_msg));
 }
 
 inline auto PayloadOfRouteChannelEnd(cetl::pmr::memory_resource& mr,  //
                                      const std::uint64_t         tag,
-                                     const ErrorCode             error_code,
+                                     const sdk::ErrorCode        error_code,
                                      const bool                  keep_alive = false)
 {
     const RouteChannelEnd_0_2 ch_end{{tag, static_cast<std::int32_t>(error_code), keep_alive, &mr}, &mr};

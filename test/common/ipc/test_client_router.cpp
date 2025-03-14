@@ -16,14 +16,13 @@
 #include "ocvsmd/common/ipc/RouteChannelMsg_0_1.hpp"
 #include "ocvsmd/common/ipc/RouteConnect_0_1.hpp"
 #include "ocvsmd/common/ipc/Route_0_2.hpp"
-#include "ocvsmd/common/svc/node/ExecCmd_0_1.hpp"
+#include "ocvsmd/common/svc/node/ExecCmd_0_2.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <cerrno>
 #include <cstdint>
 #include <iterator>
 #include <memory>
@@ -33,6 +32,7 @@ namespace
 {
 
 using namespace ocvsmd::common::ipc;  // NOLINT This our main concern here in the unit tests.
+using ocvsmd::sdk::ErrorCode;
 
 using testing::_;
 using testing::IsTrue;
@@ -69,7 +69,7 @@ protected:
 
         // client RouteConnect -> server
         EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteConnect(mr_)))  //
-            .WillOnce(Return(0));
+            .WillOnce(Return(ErrorCode::Success));
         client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Connected{});
 
         Route_0_2 route{&mr_};
@@ -78,11 +78,11 @@ protected:
         rt_conn.version.minor = ver_minor;
         rt_conn.error_code    = static_cast<std::int32_t>(error_code);
         //
-        const int result = tryPerformOnSerialized(route, [&](const auto payload) {
+        const auto result = tryPerformOnSerialized(route, [&](const auto payload) {
             //
             return client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
         });
-        EXPECT_THAT(result, 0);
+        EXPECT_THAT(result, ErrorCode::Success);
     }
 
     template <typename Msg>
@@ -100,7 +100,7 @@ protected:
         channel_msg.sequence   = seq++;
         channel_msg.service_id = AnyChannel::getServiceDesc<Msg>(service_name).id;
 
-        const int result = tryPerformOnSerialized(route, [&](const auto prefix) {
+        const auto result = tryPerformOnSerialized(route, [&](const auto prefix) {
             //
             return tryPerformOnSerialized(msg, [&](const auto suffix) {
                 //
@@ -111,7 +111,7 @@ protected:
                 return client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
             });
         });
-        EXPECT_THAT(result, 0);
+        EXPECT_THAT(result, ErrorCode::Success);
     }
 
     void emulateRouteChannelEnd(pipe::ClientPipeMock& client_pipe_mock,
@@ -127,11 +127,11 @@ protected:
         channel_end.error_code = static_cast<std::int32_t>(error_code);
         channel_end.keep_alive = keep_alive;
 
-        const int result = tryPerformOnSerialized(route, [&](const auto payload) {
+        const auto result = tryPerformOnSerialized(route, [&](const auto payload) {
             //
             return client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Message{payload});
         });
-        EXPECT_THAT(result, 0);
+        EXPECT_THAT(result, ErrorCode::Success);
     }
 
     // MARK: Data members:
@@ -167,7 +167,7 @@ TEST_F(TestClientRouter, start)
     EXPECT_THAT(client_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(client_router->start(), 0);
+    EXPECT_THAT(client_router->start(), ErrorCode::Success);
     EXPECT_THAT(client_pipe_mock.event_handler_, IsTrue());
 
     EXPECT_CALL(client_pipe_mock, deinit()).Times(1);
@@ -175,7 +175,7 @@ TEST_F(TestClientRouter, start)
 
 TEST_F(TestClientRouter, makeChannel)
 {
-    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_1;
+    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_2;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
@@ -187,7 +187,7 @@ TEST_F(TestClientRouter, makeChannel)
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(client_router->start(), 0);
+    EXPECT_THAT(client_router->start(), ErrorCode::Success);
 
     const auto channel = client_router->makeChannel<Channel>();
     (void) channel;
@@ -195,7 +195,7 @@ TEST_F(TestClientRouter, makeChannel)
 
 TEST_F(TestClientRouter, channel_send)
 {
-    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_1;
+    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_2;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
@@ -207,7 +207,7 @@ TEST_F(TestClientRouter, channel_send)
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(client_router->start(), 0);
+    EXPECT_THAT(client_router->start(), ErrorCode::Success);
 
     auto channel = client_router->makeChannel<Channel>();
 
@@ -217,20 +217,20 @@ TEST_F(TestClientRouter, channel_send)
     std::uint64_t           seq = 0;
     const Msg               msg{&mr_};
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
-        .WillOnce(Return(0));
-    EXPECT_THAT(channel.send(msg), 0);
+        .WillOnce(Return(ErrorCode::Success));
+    EXPECT_THAT(channel.send(msg), ErrorCode::Success);
 
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
-        .WillOnce(Return(0));
-    EXPECT_THAT(channel.send(msg), 0);
+        .WillOnce(Return(ErrorCode::Success));
+    EXPECT_THAT(channel.send(msg), ErrorCode::Success);
 
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelEnd(mr_, tag, ErrorCode::Success)))  //
-        .WillOnce(Return(0));
+        .WillOnce(Return(ErrorCode::Success));
 }
 
 TEST_F(TestClientRouter, channel_send_after_end)
 {
-    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_1;
+    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_2;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
@@ -242,7 +242,7 @@ TEST_F(TestClientRouter, channel_send_after_end)
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(client_router->start(), 0);
+    EXPECT_THAT(client_router->start(), ErrorCode::Success);
 
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
 
@@ -250,8 +250,8 @@ TEST_F(TestClientRouter, channel_send_after_end)
     channel.subscribe(ch_event_mock.AsStdFunction());
 
     const Msg msg{&mr_};
-    EXPECT_THAT(channel.send(msg), static_cast<int>(ErrorCode::NotConnected));
-    EXPECT_THAT(channel.complete(), static_cast<int>(ErrorCode::NotConnected));
+    EXPECT_THAT(channel.send(msg), ErrorCode::NotConnected);
+    EXPECT_THAT(channel.complete(), ErrorCode::NotConnected);
 
     EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
     emulateRouteConnect(client_pipe_mock);
@@ -264,25 +264,25 @@ TEST_F(TestClientRouter, channel_send_after_end)
 
     std::uint64_t seq = 0;
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
-        .WillOnce(Return(0));
-    EXPECT_THAT(channel.send(msg), 0);
+        .WillOnce(Return(ErrorCode::Success));
+    EXPECT_THAT(channel.send(msg), ErrorCode::Success);
     //
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelEnd(mr_, tag, ErrorCode::Success, true)))  //
-        .WillOnce(Return(0));
-    EXPECT_THAT(channel.complete(0, true), 0);
+        .WillOnce(Return(ErrorCode::Success));
+    EXPECT_THAT(channel.complete(ErrorCode::Success, true), ErrorCode::Success);
 
     // Emulate that server posted final `RouteChannelEnd(keep-alive)`.
     //
     EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
     emulateRouteChannelEnd(client_pipe_mock, tag, ErrorCode::Success, false);
 
-    EXPECT_THAT(channel.send(msg), static_cast<int>(ErrorCode::Shutdown));
-    EXPECT_THAT(channel.complete(), static_cast<int>(ErrorCode::Shutdown));
+    EXPECT_THAT(channel.send(msg), ErrorCode::Shutdown);
+    EXPECT_THAT(channel.complete(), ErrorCode::Shutdown);
 }
 
 TEST_F(TestClientRouter, channel_receive_events)
 {
-    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_1;
+    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_2;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
@@ -294,7 +294,7 @@ TEST_F(TestClientRouter, channel_receive_events)
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(client_router->start(), 0);
+    EXPECT_THAT(client_router->start(), ErrorCode::Success);
 
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch1_event_mock;
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch2_event_mock;
@@ -333,7 +333,7 @@ TEST_F(TestClientRouter, channel_receive_events)
 
 TEST_F(TestClientRouter, channel_unsolicited)
 {
-    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_1;
+    using Msg     = ocvsmd::common::svc::node::ExecCmd::Request_0_2;
     using Channel = Channel<Msg, Msg>;
 
     StrictMock<pipe::ClientPipeMock> client_pipe_mock;
@@ -345,7 +345,7 @@ TEST_F(TestClientRouter, channel_unsolicited)
     ASSERT_THAT(client_router, NotNull());
 
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(client_router->start(), 0);
+    EXPECT_THAT(client_router->start(), ErrorCode::Success);
 
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
 

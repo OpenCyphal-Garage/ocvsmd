@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_NET_SOCKET_ADDRESS_HPP_INCLUDED
 
 #include "io.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -29,7 +30,7 @@ class SocketAddress final
 public:
     struct ParseResult
     {
-        using Failure = int;  // aka errno
+        using Failure = sdk::ErrorCode;
         using Success = SocketAddress;
         using Var     = cetl::variant<Success, Failure>;
     };
@@ -55,14 +56,14 @@ public:
 
     struct SocketResult
     {
-        using Failure = int;  // aka errno
+        using Failure = sdk::ErrorCode;
         using Success = OwnFd;
         using Var     = cetl::variant<Success, Failure>;
     };
     SocketResult::Var socket(const int socket_type) const;
 
-    int                   bind(const OwnFd& socket_fd) const;
-    int                   connect(const OwnFd& socket_fd) const;
+    sdk::ErrorCode        bind(const OwnFd& socket_fd) const;
+    sdk::ErrorCode        connect(const OwnFd& socket_fd) const;
     cetl::optional<OwnFd> accept(const OwnFd& server_fd);
 
 private:
