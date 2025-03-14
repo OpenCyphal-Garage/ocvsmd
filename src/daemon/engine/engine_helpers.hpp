@@ -6,6 +6,7 @@
 #ifndef OCVSMD_DAEMON_ENGINE_HELPERS_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_HELPERS_HPP_INCLUDED
 
+#include "common_helpers.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <nunavut/support/serialization.hpp>
@@ -52,7 +53,7 @@ inline sdk::ErrorCode errorToCode(const libcyphal::transport::AlreadyExistsError
 
 inline sdk::ErrorCode errorToCode(const libcyphal::transport::PlatformError& platform_error) noexcept
 {
-    return static_cast<sdk::ErrorCode>(platform_error->code());
+    return common::errnoToErrorCode(platform_error->code());
 }
 
 inline sdk::ErrorCode errorToCode(const libcyphal::presentation::ResponsePromiseExpired) noexcept
@@ -67,9 +68,9 @@ inline sdk::ErrorCode errorToCode(
 }
 
 template <typename Variant>
-sdk::ErrorCode failureToErrorCode(const Variant& failure)
+sdk::OptErrorCode failureToOptErrorCode(const Variant& failure)
 {
-    return cetl::visit([](const auto& error) { return errorToCode(error); }, failure);
+    return sdk::OptErrorCode{cetl::visit([](const auto& error) { return errorToCode(error); }, failure)};
 }
 
 }  // namespace engine

@@ -5,6 +5,7 @@
 
 #include "socket_base.hpp"
 
+#include "common_helpers.hpp"
 #include "ipc/ipc_types.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
 #include "ocvsmd/sdk/defines.hpp"
@@ -32,12 +33,30 @@ namespace pipe
 namespace
 {
 
+/// Returns `true` if the given error code indicates that the operation is not ready yet.
+///
+/// `EAGAIN` and `EWOULDBLOCK` are considered as not ready conditions.
+///
+bool isNotReadyCondition(const int err)
+{
+    switch (err)
+    {
+    case EAGAIN:
+#if EAGAIN != EWOULDBLOCK
+    case EWOULDBLOCK:
+#endif
+        return true;
+    default:
+        return false;
+    }
+}
+
 constexpr std::uint32_t MsgHeaderSignature = 0x5356434F;     // 'OCVS'
 constexpr std::size_t   MsgPayloadMaxSize  = 1ULL << 20ULL;  // 1 MB
 
 }  // namespace
 
-sdk::ErrorCode SocketBase::send(const IoState& io_state, const Payloads payloads) const
+sdk::OptErrorCode SocketBase::send(const IoState& io_state, const Payloads payloads) const
 {
     // 1. Write the message header (signature and total size of the following fragments).
     //
@@ -56,7 +75,7 @@ sdk::ErrorCode SocketBase::send(const IoState& io_state, const Payloads payloads
         }))
     {
         logger_->error("SocketBase: Failed to send msg header (fd={}): {}.", io_state.fd.get(), std::strerror(err));
-        return static_cast<sdk::ErrorCode>(err);
+        return errnoToErrorCode(err);
     }
 
     // 2. Write the message payload fragments.
@@ -71,13 +90,13 @@ sdk::ErrorCode SocketBase::send(const IoState& io_state, const Payloads payloads
             logger_->error("SocketBase: Failed to send msg payload (fd={}): {}.",
                            io_state.fd.get(),
                            std::strerror(err));
-            return static_cast<sdk::ErrorCode>(err);
+            return errnoToErrorCode(err);
         }
     }
-    return sdk::ErrorCode::Success;
+    return sdk::OptErrorCode{};
 }
 
-sdk::ErrorCode SocketBase::receiveData(IoState& io_state) const
+sdk::OptErrorCode SocketBase::receiveData(IoState& io_state) const
 {
     // 1. Receive and validate the message header.
     //
@@ -101,14 +120,15 @@ sdk::ErrorCode SocketBase::receiveData(IoState& io_state) const
                     return bytes_read        = ::recv(io_state.fd.get(), dst_buf, bytes_to_read, MSG_DONTWAIT);
                 }))
             {
-                if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+                if (isNotReadyCondition(err))
                 {
                     // No data available yet - that's ok, the next attempt will try to read again.
                     //
-                    logger_->trace("Msg header read would block (fd={}).", io_state.fd.get());
-                    return sdk::ErrorCode::Success;
+                    logger_->trace("Msg header read is not ready (fd={}).", io_state.fd.get());
+                    return sdk::OptErrorCode{};
                 }
-                if (errno == ECONNRESET)
+
+                if (err == ECONNRESET)
                 {
                     logger_->debug("Connection reset by peer (fd={}).", io_state.fd.get());
                     return sdk::ErrorCode::Disconnected;  // EOF
@@ -118,7 +138,7 @@ sdk::ErrorCode SocketBase::receiveData(IoState& io_state) const
                                io_state.fd.get(),
                                err,
                                std::strerror(err));
-                return static_cast<sdk::ErrorCode>(err);
+                return errnoToErrorCode(err);
             }
 
             // Progress the partial read state.
@@ -133,7 +153,7 @@ sdk::ErrorCode SocketBase::receiveData(IoState& io_state) const
             if (io_state.rx_partial_size < sizeof(msg_header))
             {
                 // Not enough data yet - that's ok, the next attempt will try to read the rest.
-                return sdk::ErrorCode::Success;
+                return sdk::OptErrorCode{};
             }
 
             // Validate the message header.
@@ -177,15 +197,16 @@ sdk::ErrorCode SocketBase::receiveData(IoState& io_state) const
                     return bytes_read        = ::recv(io_state.fd.get(), dst_buf, bytes_to_read, MSG_DONTWAIT);
                 }))
             {
-                if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+                if (isNotReadyCondition(err))
                 {
                     // No data available yet - that's ok, the next attempt will try to read again.
                     //
-                    logger_->trace("Msg payload read would block (fd={}).", io_state.fd.get());
-                    return sdk::ErrorCode::Success;
+                    logger_->trace("Msg payload read is not ready (fd={}).", io_state.fd.get());
+                    return sdk::OptErrorCode{};
                 }
+
                 logger_->error("Failed to read msg payload (fd={}): {}.", io_state.fd.get(), std::strerror(err));
-                return static_cast<sdk::ErrorCode>(err);
+                return errnoToErrorCode(err);
             }
 
             // Progress the partial read state.
@@ -200,7 +221,7 @@ sdk::ErrorCode SocketBase::receiveData(IoState& io_state) const
             if (io_state.rx_partial_size < msg_payload.size)
             {
                 // Not enough data yet - that's ok, the next attempt will try to read the rest.
-                return sdk::ErrorCode::Success;
+                return sdk::OptErrorCode{};
             }
         }
 
@@ -214,7 +235,7 @@ sdk::ErrorCode SocketBase::receiveData(IoState& io_state) const
         io_state.on_rx_msg_payload(Payload{payload.buffer.get(), payload.size});
     }
 
-    return sdk::ErrorCode::Success;
+    return sdk::OptErrorCode{};
 }
 
 }  // namespace pipe

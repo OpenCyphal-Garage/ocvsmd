@@ -5,6 +5,7 @@
 
 #include "list_registers_client.hpp"
 
+#include "common_helpers.hpp"
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
 #include "logging.hpp"
@@ -80,22 +81,20 @@ private:
 
         for (const auto& request : requests_)
         {
-            const auto failure = channel_.send(request);
-            if (failure != ErrorCode::Success)
+            if (const auto error_code = channel_.send(request))
             {
                 CETL_DEBUG_ASSERT(receiver_, "");
 
-                receiver_(failure);
+                receiver_(Failure{*error_code});
                 return;
             }
         }
 
         // Let the server know that all requests have been sent.
         //
-        const auto failure = channel_.complete(ErrorCode::Success, true);
-        if (failure != ErrorCode::Success)
+        if (const auto error_code = channel_.complete(OptErrorCode{}, true))
         {
-            receiver_(failure);
+            receiver_(Failure{*error_code});
         }
     }
 
@@ -103,13 +102,13 @@ private:
     {
         logger_->trace("ListRegistersClient::handleEvent(Input).");
 
-        if (input.error_code != 0)
+        if (const auto error_code = common::rawIntToOptErrorCode(input.error_code))
         {
             logger_->warn("ListRegistersClient::handleEvent(Input) - Node {} has failed (err={}).",
                           input.node_id,
-                          input.error_code);
+                          *error_code);
 
-            node_id_to_registers_.emplace(input.node_id, static_cast<ErrorCode>(input.error_code));
+            node_id_to_registers_.emplace(input.node_id, NodeRegisters::Failure{*error_code});
             return;
         }
 
@@ -130,13 +129,8 @@ private:
         CETL_DEBUG_ASSERT(receiver_, "");
 
         logger_->debug("ListRegistersClient::handleEvent({}).", completed);
-
-        if (completed.error_code != ErrorCode::Success)
-        {
-            receiver_(Failure{completed.error_code});
-            return;
-        }
-        receiver_(std::move(node_id_to_registers_));
+        receiver_(completed.error_code ? Result{Failure{*completed.error_code}}
+                                       : Success{std::move(node_id_to_registers_)});
     }
 
     cetl::pmr::memory_resource&   memory_;

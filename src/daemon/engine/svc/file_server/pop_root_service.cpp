@@ -61,10 +61,9 @@ public:
         std::copy(request.item.path.cbegin(), request.item.path.cend(), std::back_inserter(path));
         file_provider_.popRoot(path, request.is_back);
 
-        const auto error_code = channel.complete();
-        if (error_code != sdk::ErrorCode::Success)
+        if (const auto error_code = channel.complete())
         {
-            logger_->warn("PopRootSvc: failed to send ipc completion (err={}).", error_code);
+            logger_->warn("PopRootSvc: failed to send ipc completion (err={}).", *error_code);
         }
     }
 

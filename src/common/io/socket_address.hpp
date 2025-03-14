@@ -62,8 +62,8 @@ public:
     };
     SocketResult::Var socket(const int socket_type) const;
 
-    sdk::ErrorCode        bind(const OwnFd& socket_fd) const;
-    sdk::ErrorCode        connect(const OwnFd& socket_fd) const;
+    sdk::OptErrorCode     bind(const OwnFd& socket_fd) const;
+    sdk::OptErrorCode     connect(const OwnFd& socket_fd) const;
     cetl::optional<OwnFd> accept(const OwnFd& server_fd);
 
 private:

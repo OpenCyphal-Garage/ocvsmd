@@ -29,7 +29,7 @@ CETL_NODISCARD static auto tryDeserializePayload(const cetl::span<const std::uin
 }
 
 template <typename Message, typename Action>
-CETL_NODISCARD static sdk::ErrorCode tryPerformOnSerialized(const Message& message, Action&& action)
+CETL_NODISCARD static sdk::OptErrorCode tryPerformOnSerialized(const Message& message, Action&& action)
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -50,7 +50,7 @@ CETL_NODISCARD static sdk::ErrorCode tryPerformOnSerialized(const Message& messa
 template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
 CETL_NODISCARD static auto tryPerformOnSerialized(  //
     const Message& message,
-    Action&&       action) -> std::enable_if_t<IsOnStack, sdk::ErrorCode>
+    Action&&       action) -> std::enable_if_t<IsOnStack, sdk::OptErrorCode>
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -69,8 +69,9 @@ CETL_NODISCARD static auto tryPerformOnSerialized(  //
 }
 
 template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
-CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
-                                                  Action&&       action) -> std::enable_if_t<!IsOnStack, sdk::ErrorCode>
+CETL_NODISCARD static auto tryPerformOnSerialized(  //
+    const Message& message,
+    Action&&       action) -> std::enable_if_t<!IsOnStack, sdk::OptErrorCode>
 {
     // Try to serialize the message to raw payload buffer.
     //

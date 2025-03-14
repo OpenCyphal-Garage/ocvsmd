@@ -5,6 +5,7 @@
 
 #include "socket_client.hpp"
 
+#include "common_helpers.hpp"
 #include "ipc/ipc_types.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
@@ -43,17 +44,16 @@ SocketClient::SocketClient(libcyphal::IExecutor& executor, const io::SocketAddre
     };
 }
 
-sdk::ErrorCode SocketClient::start(EventHandler event_handler)
+sdk::OptErrorCode SocketClient::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(event_handler, "");
     CETL_DEBUG_ASSERT(io_state_.fd.get() == -1, "");
 
     event_handler_ = std::move(event_handler);
 
-    const auto error_code = makeSocketHandle();
-    if (error_code != sdk::ErrorCode::Success)
+    if (const auto error_code = makeSocketHandle())
     {
-        logger().error("Failed to make client socket handle (err={}).", error_code);
+        logger().error("Failed to make client socket handle (err={}).", *error_code);
         return error_code;
     }
 
@@ -64,10 +64,10 @@ sdk::ErrorCode SocketClient::start(EventHandler event_handler)
         },
         platform::IPosixExecutorExtension::Trigger::Writable{io_state_.fd.get()});
 
-    return sdk::ErrorCode::Success;
+    return sdk::OptErrorCode{};
 }
 
-sdk::ErrorCode SocketClient::makeSocketHandle()
+sdk::OptErrorCode SocketClient::makeSocketHandle()
 {
     using SocketResult = io::SocketAddress::SocketResult;
 
@@ -75,28 +75,32 @@ sdk::ErrorCode SocketClient::makeSocketHandle()
     if (const auto* const failure = cetl::get_if<SocketResult::Failure>(&maybe_socket))
     {
         logger().error("Failed to create client socket (err={}).", *failure);
-        return *failure;
+        return sdk::OptErrorCode{*failure};
     }
     auto socket_fd = cetl::get<SocketResult::Success>(std::move(maybe_socket));
     CETL_DEBUG_ASSERT(socket_fd.get() != -1, "");
 
-    const sdk::ErrorCode error_code = socket_address_.connect(socket_fd);
-    if ((error_code != sdk::ErrorCode::Success) && (error_code != sdk::ErrorCode::OperationInProgress))
+    if (const auto error_code = socket_address_.connect(socket_fd))
     {
-        logger().error("Failed to connect to server (err={}).", error_code);
-        return error_code;
+        if (sdk::ErrorCode::OperationInProgress != *error_code)
+        {
+            logger().error("Failed to connect to server (err={}).", *error_code);
+            return error_code;
+        }
     }
 
     io_state_.fd = std::move(socket_fd);
-    return sdk::ErrorCode::Success;
+    return sdk::OptErrorCode{};
 }
 
-sdk::ErrorCode SocketClient::send(const Payloads payloads)
+sdk::OptErrorCode SocketClient::send(const Payloads payloads)
 {
     return SocketBase::send(io_state_, payloads);
 }
 
-sdk::ErrorCode SocketClient::connectSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const
+sdk::OptErrorCode SocketClient::connectSocket(const int         fd,
+                                              const void* const addr_ptr,
+                                              const std::size_t addr_size) const
 {
     if (const int err = platform::posixSyscallError([fd, addr_ptr, addr_size] {
             //
@@ -106,10 +110,11 @@ sdk::ErrorCode SocketClient::connectSocket(const int fd, const void* const addr_
         if (err != EINPROGRESS)
         {
             logger().error("Failed to connect to server: {}.", std::strerror(err));
-            return static_cast<sdk::ErrorCode>(err);
+            return errnoToErrorCode(err);
         }
     }
-    return sdk::ErrorCode::Success;
+
+    return sdk::OptErrorCode{};
 }
 
 void SocketClient::handle_connect()
@@ -145,16 +150,15 @@ void SocketClient::handle_connect()
 
 void SocketClient::handle_receive()
 {
-    const auto error_code = receiveData(io_state_);
-    if (error_code != sdk::ErrorCode::Success)
+    if (const auto error_code = receiveData(io_state_))
     {
-        if (error_code == sdk::ErrorCode::Disconnected)
+        if (sdk::ErrorCode::Disconnected == *error_code)
         {
             logger().debug("End of server stream - closing connection.");
         }
         else
         {
-            logger().warn("Failed to handle server response - closing connection (err={}).", error_code);
+            logger().warn("Failed to handle server response - closing connection (err={}).", *error_code);
         }
 
         handle_disconnect();

@@ -73,17 +73,15 @@ public:
 
             ipc_response.item.path.clear();
             std::copy(root.cbegin(), root.cend(), std::back_inserter(ipc_response.item.path));
-            const auto error_code = channel.send(ipc_response);
-            if (error_code != sdk::ErrorCode::Success)
+            if (const auto error_code = channel.send(ipc_response))
             {
-                logger_->warn("ListRootsSvc: failed to send ipc response (err={}).", error_code);
+                logger_->warn("ListRootsSvc: failed to send ipc response (err={}).", *error_code);
             }
         }
 
-        const auto error_code = channel.complete();
-        if (error_code != sdk::ErrorCode::Success)
+        if (const auto error_code = channel.complete())
         {
-            logger_->warn("ListRootsSvc: failed to send ipc completion (err={}).", error_code);
+            logger_->warn("ListRootsSvc: failed to send ipc completion (err={}).", *error_code);
         }
     }
 

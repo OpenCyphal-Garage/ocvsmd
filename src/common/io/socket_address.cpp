@@ -5,6 +5,7 @@
 
 #include "socket_address.hpp"
 
+#include "common_helpers.hpp"
 #include "io.hpp"
 #include "logging.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
@@ -93,7 +94,7 @@ std::string SocketAddress::toString() const
     {
     case AF_INET: {
         std::array<char, INET_ADDRSTRLEN> buf{};
-        if (const auto* addr = ::inet_ntop(AF_INET, &asInetAddr().sin_addr, buf.data(), buf.size()))
+        if (const auto* const addr = ::inet_ntop(AF_INET, &asInetAddr().sin_addr, buf.data(), buf.size()))
         {
             return fmt::format("{}:{}", addr, getPort());
         }
@@ -101,7 +102,7 @@ std::string SocketAddress::toString() const
     }
     case AF_INET6: {
         std::array<char, INET6_ADDRSTRLEN> buf{};
-        if (const auto* addr = ::inet_ntop(AF_INET6, &asInet6Addr().sin6_addr, buf.data(), buf.size()))
+        if (const auto* const addr = ::inet_ntop(AF_INET6, &asInet6Addr().sin6_addr, buf.data(), buf.size()))
         {
             return fmt::format("[{}]:{}", addr, getPort());
         }
@@ -134,7 +135,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) co
         }))
     {
         getLogger("io")->error("Failed to create socket: {}.", std::strerror(err));
-        return static_cast<sdk::ErrorCode>(err);
+        return errnoToErrorCode(err);
     }
 
     if (const int err = platform::posixSyscallError([&out_fd] {
@@ -144,7 +145,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) co
         }))
     {
         getLogger("io")->error("Failed to fcntl(O_NONBLOCK) socket: {}.", std::strerror(err));
-        return static_cast<sdk::ErrorCode>(err);
+        return errnoToErrorCode(err);
     }
 
     // Disable Nagle's algorithm for TCP sockets, so that our small IPC packets are sent immediately.
@@ -157,7 +158,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) co
     return out_fd;
 }
 
-sdk::ErrorCode SocketAddress::bind(const OwnFd& socket_fd) const
+sdk::OptErrorCode SocketAddress::bind(const OwnFd& socket_fd) const
 {
     const int raw_fd = socket_fd.get();
     CETL_DEBUG_ASSERT(raw_fd != -1, "");
@@ -172,7 +173,7 @@ sdk::ErrorCode SocketAddress::bind(const OwnFd& socket_fd) const
             }))
         {
             getLogger("io")->error("Failed to set IPV6_V6ONLY=0: {}.", std::strerror(err));
-            return static_cast<sdk::ErrorCode>(err);
+            return errnoToErrorCode(err);
         }
     }
 
@@ -183,11 +184,13 @@ sdk::ErrorCode SocketAddress::bind(const OwnFd& socket_fd) const
     if (err != 0)
     {
         getLogger("io")->error("Failed to bind socket: {}.", std::strerror(err));
+        return errnoToErrorCode(err);
     }
-    return static_cast<sdk::ErrorCode>(err);
+
+    return sdk::OptErrorCode{};
 }
 
-sdk::ErrorCode SocketAddress::connect(const OwnFd& socket_fd) const
+sdk::OptErrorCode SocketAddress::connect(const OwnFd& socket_fd) const
 {
     const int raw_fd = socket_fd.get();
     CETL_DEBUG_ASSERT(raw_fd != -1, "");
@@ -200,11 +203,11 @@ sdk::ErrorCode SocketAddress::connect(const OwnFd& socket_fd) const
     {
     case 0:
     case EINPROGRESS: {
-        return sdk::ErrorCode::Success;
+        return sdk::OptErrorCode{};
     }
     default: {
         getLogger("io")->error("Failed to connect to server: {}.", std::strerror(err));
-        return static_cast<sdk::ErrorCode>(err);
+        return errnoToErrorCode(err);
     }
     }
 }
@@ -376,7 +379,7 @@ cetl::optional<SocketAddress::ParseResult::Var> SocketAddress::tryParseAsTcpAddr
     default: {
         const int err = errno;
         getLogger("io")->error("Failed to parse address (addr='{}'): {}", host, std::strerror(err));
-        return static_cast<sdk::ErrorCode>(err);
+        return errnoToErrorCode(err);
     }
     }
 }

@@ -40,7 +40,7 @@ public:
     {
     }
 
-    CETL_NODISCARD ErrorCode start(const std::string& connection)
+    CETL_NODISCARD OptErrorCode start(const std::string& connection)
     {
         logger_->info("Starting with IPC connection '{}'...", connection);
 
@@ -52,7 +52,7 @@ public:
             if (const auto* const failure = cetl::get_if<ParseResult::Failure>(&maybe_socket_address))
             {
                 logger_->error("Failed to parse IPC connection string ('{}', err={}).", connection, *failure);
-                return *failure;
+                return OptErrorCode{*failure};
             }
             const auto socket_address = cetl::get<ParseResult::Success>(maybe_socket_address);
             client_pipe               = std::make_unique<common::ipc::pipe::SocketClient>(executor_, socket_address);
@@ -64,15 +64,14 @@ public:
         node_command_client_  = Factory::makeNodeCommandClient(memory_, ipc_router_);
         node_registry_client_ = Factory::makeNodeRegistryClient(memory_, ipc_router_);
 
-        const ErrorCode error_code = ipc_router_->start();
-        if (error_code != ErrorCode::Success)
+        if (const auto error_code = ipc_router_->start())
         {
-            logger_->error("Failed to start IPC router (err={}).", error_code);
+            logger_->error("Failed to start IPC router (err={}).", *error_code);
             return error_code;
         }
 
         logger_->debug("Started IPC connection.");
-        return ErrorCode::Success;
+        return OptErrorCode{};
     }
 
     // Daemon
@@ -110,8 +109,9 @@ CETL_NODISCARD Daemon::Ptr Daemon::make(cetl::pmr::memory_resource& memory,
                                         const std::string&          connection)
 {
     auto daemon = std::make_shared<DaemonImpl>(memory, executor);
-    if (ErrorCode::Success != daemon->start(connection))
+    if (const auto error_code = daemon->start(connection))
     {
+        (void) error_code;
         return nullptr;
     }
 

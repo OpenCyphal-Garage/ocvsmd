@@ -5,6 +5,7 @@
 
 #include "access_registers_client.hpp"
 
+#include "common_helpers.hpp"
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
 #include "ipc/ipc_types.hpp"
@@ -141,22 +142,20 @@ private:
 
         for (const auto& request : requests_)
         {
-            const auto failure = channel_.send(request);
-            if (failure != ErrorCode::Success)
+            if (const auto error_code = channel_.send(request))
             {
                 CETL_DEBUG_ASSERT(receiver_, "");
 
-                receiver_(failure);
+                receiver_(Failure{*error_code});
                 return;
             }
         }
 
         // Let the server know that all requests have been sent.
         //
-        const auto failure = channel_.complete(ErrorCode::Success, true);
-        if (failure != ErrorCode::Success)
+        if (const auto error_code = channel_.complete(OptErrorCode{}, true))
         {
-            receiver_(failure);
+            receiver_(Failure{*error_code});
         }
     }
 
@@ -164,13 +163,14 @@ private:
     {
         logger_->trace("AccessRegistersClient::handleEvent(Input).");
 
-        if ((input.error_code != 0) && input._register.key.name.empty())
+        const auto error_code = common::rawIntToOptErrorCode(input.error_code);
+        if (error_code && input._register.key.name.empty())
         {
             logger_->warn("AccessRegistersClient::handleEvent(Input) - Node {} has failed (err={}).",
                           input.node_id,
                           input.error_code);
 
-            node_id_to_reg_vals_.emplace(input.node_id, static_cast<ErrorCode>(input.error_code));
+            node_id_to_reg_vals_.emplace(input.node_id, NodeRegisters::Failure{*error_code});
             return;
         }
 
@@ -183,13 +183,13 @@ private:
         std::string reg_key{input._register.key.name.begin(), input._register.key.name.end()};
         if (auto* const regs = cetl::get_if<NodeRegisters::Success>(&it->second))
         {
-            if (input.error_code == 0)
+            if (error_code)
             {
-                regs->emplace_back(RegKeyValueOrErr{std::move(reg_key), input._register.value});
+                regs->emplace_back(RegKeyValueOrErr{std::move(reg_key), *error_code});
             }
             else
             {
-                regs->emplace_back(RegKeyValueOrErr{std::move(reg_key), static_cast<ErrorCode>(input.error_code)});
+                regs->emplace_back(RegKeyValueOrErr{std::move(reg_key), input._register.value});
             }
         }
     }
@@ -199,13 +199,8 @@ private:
         CETL_DEBUG_ASSERT(receiver_, "");
 
         logger_->debug("AccessRegistersClient::handleEvent({}).", completed);
-
-        if (completed.error_code != ErrorCode::Success)
-        {
-            receiver_(Failure{completed.error_code});
-            return;
-        }
-        receiver_(std::move(node_id_to_reg_vals_));
+        receiver_(completed.error_code ? Result{Failure{*completed.error_code}}
+                                       : Success{std::move(node_id_to_reg_vals_)});
     }
 
     cetl::pmr::memory_resource&   memory_;

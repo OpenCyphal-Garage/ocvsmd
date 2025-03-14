@@ -368,11 +368,11 @@ int main(const int argc, const char** const argv)
             ocvsmd::daemon::engine::Engine engine{config};
             if (const auto failure_str = engine.init())
             {
-                spdlog::critical("Failed to init engine: {}", failure_str.value());
+                spdlog::critical("Failed to init engine: {}", *failure_str);
 
                 // Report the failure to the parent process (if daemonized; otherwise goes to stderr).
                 writeString(pipe_write_fd, "Failed to init engine: ");
-                writeString(pipe_write_fd, failure_str.value().c_str());
+                writeString(pipe_write_fd, failure_str->c_str());
                 ::exit(EXIT_FAILURE);
             }
             if (should_daemonize)

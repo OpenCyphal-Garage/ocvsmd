@@ -39,7 +39,7 @@ public:
     struct Completed final
     {
         /// Channel completion error code.
-        sdk::ErrorCode error_code;
+        sdk::OptErrorCode error_code;
 
         /// If `true` then it marks that all incoming messages have been received,
         /// but the channel is still alive and could be used for sending outgoing messages.
@@ -97,7 +97,7 @@ public:
     Channel(const Channel&)            = delete;
     Channel& operator=(const Channel&) = delete;
 
-    CETL_NODISCARD sdk::ErrorCode send(const Output& output)
+    CETL_NODISCARD sdk::OptErrorCode send(const Output& output)
     {
         constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
@@ -110,8 +110,7 @@ public:
             });
     }
 
-    CETL_NODISCARD sdk::ErrorCode complete(const sdk::ErrorCode error_code = sdk::ErrorCode::Success,
-                                           const bool           keep_alive = false)
+    CETL_NODISCARD sdk::OptErrorCode complete(const sdk::OptErrorCode error_code = {}, const bool keep_alive = false)
     {
         return gateway_->complete(error_code, keep_alive);
     }
@@ -143,13 +142,13 @@ private:
         cetl::pmr::memory_resource& memory;            // NOLINT
         EventHandler                ch_event_handler;  // NOLINT
 
-        CETL_NODISCARD sdk::ErrorCode operator()(const GatewayEvent::Connected&) const
+        CETL_NODISCARD sdk::OptErrorCode operator()(const GatewayEvent::Connected&) const
         {
             ch_event_handler(Connected{});
-            return sdk::ErrorCode::Success;
+            return sdk::OptErrorCode{};
         }
 
-        CETL_NODISCARD sdk::ErrorCode operator()(const GatewayEvent::Message& gateway_msg) const
+        CETL_NODISCARD sdk::OptErrorCode operator()(const GatewayEvent::Message& gateway_msg) const
         {
             Input input{&memory};
             if (!tryDeserializePayload(gateway_msg.payload, input))
@@ -159,13 +158,13 @@ private:
             }
 
             ch_event_handler(input);
-            return sdk::ErrorCode::Success;
+            return sdk::OptErrorCode{};
         }
 
-        CETL_NODISCARD sdk::ErrorCode operator()(const GatewayEvent::Completed& completed) const
+        CETL_NODISCARD sdk::OptErrorCode operator()(const GatewayEvent::Completed& completed) const
         {
             ch_event_handler(Completed{completed.error_code, completed.keep_alive});
-            return sdk::ErrorCode::Success;
+            return sdk::OptErrorCode{};
         }
 
     };  // Adapter

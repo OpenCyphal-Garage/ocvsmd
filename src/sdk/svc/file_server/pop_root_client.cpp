@@ -63,12 +63,11 @@ private:
     {
         logger_->trace("PopRootClient::handleEvent({}).", connected);
 
-        const auto error_code = channel_.send(request_);
-        if (error_code != ErrorCode::Success)
+        if (const auto error_code = channel_.send(request_))
         {
             CETL_DEBUG_ASSERT(receiver_, "");
 
-            receiver_(Failure{error_code});
+            receiver_(Failure{*error_code});
         }
     }
 
@@ -81,12 +80,7 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        if (completed.error_code != ErrorCode::Success)
-        {
-            receiver_(Failure{completed.error_code});
-            return;
-        }
-        receiver_(Success{});
+        receiver_(completed.error_code ? Result{Failure{*completed.error_code}} : Success{});
     }
 
     cetl::pmr::memory_resource&   memory_;

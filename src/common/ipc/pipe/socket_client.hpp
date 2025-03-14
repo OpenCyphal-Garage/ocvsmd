@@ -40,16 +40,16 @@ public:
     ~SocketClient() override = default;
 
 private:
-    sdk::ErrorCode makeSocketHandle();
-    sdk::ErrorCode connectSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const;
-    void           handle_connect();
-    void           handle_receive();
-    void           handle_disconnect();
+    sdk::OptErrorCode makeSocketHandle();
+    sdk::OptErrorCode connectSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const;
+    void              handle_connect();
+    void              handle_receive();
+    void              handle_disconnect();
 
     // ClientPipe
     //
-    CETL_NODISCARD sdk::ErrorCode start(EventHandler event_handler) override;
-    CETL_NODISCARD sdk::ErrorCode send(const Payloads payloads) override;
+    CETL_NODISCARD sdk::OptErrorCode start(EventHandler event_handler) override;
+    CETL_NODISCARD sdk::OptErrorCode send(const Payloads payloads) override;
 
     io::SocketAddress                        socket_address_;
     platform::IPosixExecutorExtension* const posix_executor_ext_;

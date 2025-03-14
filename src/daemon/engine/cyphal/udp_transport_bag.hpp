@@ -78,10 +78,10 @@ public:
         }
 
         auto maybe_transport = makeTransport({memory}, executor, media_collection.span(), TxQueueCapacity);
-        if (const auto* failure = cetl::get_if<libcyphal::transport::FactoryFailure>(&maybe_transport))
+        if (const auto* const failure = cetl::get_if<libcyphal::transport::FactoryFailure>(&maybe_transport))
         {
-            (void) failure;
-            common::getLogger("io")->warn("Failed to create UDP transport.");
+            const auto error_code = failureToOptErrorCode(*failure);
+            common::getLogger("io")->warn("Failed to create UDP transport (err={}).", error_code);
             return nullptr;
         }
         transport_bag->transport_ = cetl::get<TransportPtr>(std::move(maybe_transport));

@@ -50,14 +50,9 @@ public:
 template <>
 struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
 {
-    auto format(const ocvsmd::sdk::ErrorCode error_code, format_context& ctx) const
+    static auto format(const ocvsmd::sdk::ErrorCode error_code, format_context& ctx)
     {
         using ocvsmd::sdk::ErrorCode;
-
-        if (error_code == ErrorCode::Success)
-        {
-            return format_to(ctx.out(), "Success");
-        }
 
         const char* error_name = "ErrorCode";
         switch (error_code)
@@ -100,6 +95,15 @@ struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
             break;
         }
         return format_to(ctx.out(), "{}({})", error_name, static_cast<std::underlying_type_t<ErrorCode>>(error_code));
+    }
+};
+template <>
+struct fmt::formatter<ocvsmd::sdk::OptErrorCode> : formatter<std::string>
+{
+    static auto format(const ocvsmd::sdk::OptErrorCode error_code, format_context& ctx)
+    {
+        return error_code.has_value() ? formatter<ocvsmd::sdk::ErrorCode>::format(*error_code, ctx)
+                                      : format_to(ctx.out(), "null");
     }
 };
 

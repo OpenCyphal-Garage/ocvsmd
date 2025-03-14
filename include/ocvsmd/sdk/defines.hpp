@@ -6,6 +6,7 @@
 #ifndef OCVSMD_SDK_DEFINES_HPP_INCLUDED
 #define OCVSMD_SDK_DEFINES_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <cerrno>
@@ -22,7 +23,6 @@ namespace sdk
 ///
 enum class ErrorCode : std::int32_t  // NOLINT
 {
-    Success             = 0,
     Busy                = EBUSY,
     NoEntry             = ENOENT,
     TimedOut            = ETIMEDOUT,
@@ -36,6 +36,10 @@ enum class ErrorCode : std::int32_t  // NOLINT
     OperationInProgress = EINPROGRESS,
 
 };  // ErrorCode
+
+/// Defines an optional error code. `nullopt` means no error (aka success).
+///
+using OptErrorCode = cetl::optional<ErrorCode>;
 
 /// Defines the type of the Cyphal node ID.
 ///

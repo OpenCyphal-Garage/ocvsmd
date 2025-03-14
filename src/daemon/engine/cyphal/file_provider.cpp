@@ -177,7 +177,7 @@ private:
         auto maybe_server = presentation.makeServer<Service>();
         if (const auto* const failure = cetl::get_if<Presentation::MakeFailure>(&maybe_server))
         {
-            const auto error_code = failureToErrorCode(*failure);
+            const auto error_code = failureToOptErrorCode(*failure);
             spdlog::error("Failed to make '{}' server (err={}).", role, error_code);
             return cetl::nullopt;
         }
