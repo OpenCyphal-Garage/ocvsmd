@@ -58,15 +58,15 @@ public:
         };
         struct Completed final
         {
-            sdk::OptErrorCode error_code;
-            bool              keep_alive;
+            sdk::OptError opt_error;
+            bool          keep_alive;
         };
 
         using Var = cetl::variant<Connected, Message, Completed>;
 
     };  // Event
 
-    using EventHandler = std::function<sdk::OptErrorCode(const Event::Var&)>;
+    using EventHandler = std::function<sdk::OptError(const Event::Var&)>;
 
     // No copying or moving.
     Gateway(const Gateway&)                = delete;
@@ -74,10 +74,10 @@ public:
     Gateway& operator=(const Gateway&)     = delete;
     Gateway& operator=(Gateway&&) noexcept = delete;
 
-    CETL_NODISCARD virtual sdk::OptErrorCode send(const ServiceDesc::Id service_id, const Payload payload)       = 0;
-    CETL_NODISCARD virtual sdk::OptErrorCode complete(const sdk::OptErrorCode error_code, const bool keep_alive) = 0;
-    CETL_NODISCARD virtual sdk::OptErrorCode event(const Event::Var& event)                                      = 0;
-    virtual void                             subscribe(EventHandler event_handler)                               = 0;
+    CETL_NODISCARD virtual sdk::OptError send(const ServiceDesc::Id service_id, const Payload payload)  = 0;
+    CETL_NODISCARD virtual sdk::OptError complete(const sdk::OptError opt_error, const bool keep_alive) = 0;
+    CETL_NODISCARD virtual sdk::OptError event(const Event::Var& event)                                 = 0;
+    virtual void                         subscribe(EventHandler event_handler)                          = 0;
 
 protected:
     Gateway()  = default;

@@ -1,4 +1,4 @@
 uavcan.node.Version.1.0 version
-int32 error_code
+ocvsmd.common.Error.0.1 error
 
 @extent 64 * 8

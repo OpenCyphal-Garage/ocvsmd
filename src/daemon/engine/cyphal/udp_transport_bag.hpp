@@ -80,8 +80,8 @@ public:
         auto maybe_transport = makeTransport({memory}, executor, media_collection.span(), TxQueueCapacity);
         if (const auto* const failure = cetl::get_if<libcyphal::transport::FactoryFailure>(&maybe_transport))
         {
-            const auto error_code = failureToOptErrorCode(*failure);
-            common::getLogger("io")->warn("Failed to create UDP transport (err={}).", error_code);
+            const auto opt_error = cyFailureToOptError(*failure);
+            common::getLogger("io")->warn("Failed to create UDP transport (err={}).", opt_error);
             return nullptr;
         }
         transport_bag->transport_ = cetl::get<TransportPtr>(std::move(maybe_transport));

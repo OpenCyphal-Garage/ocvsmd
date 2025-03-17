@@ -40,7 +40,7 @@ public:
 
     virtual ~ClientRouter() = default;
 
-    CETL_NODISCARD virtual sdk::OptErrorCode           start()  = 0;
+    CETL_NODISCARD virtual sdk::OptError               start()  = 0;
     CETL_NODISCARD virtual cetl::pmr::memory_resource& memory() = 0;
 
     template <typename Ch>

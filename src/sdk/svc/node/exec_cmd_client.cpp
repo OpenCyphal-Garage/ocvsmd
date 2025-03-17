@@ -87,20 +87,20 @@ private:
 
         for (const auto& request : requests_)
         {
-            if (const auto error_code = channel_.send(request))
+            if (const auto opt_error = channel_.send(request))
             {
                 CETL_DEBUG_ASSERT(receiver_, "");
 
-                receiver_(Failure{*error_code});
+                receiver_(Failure{*opt_error});
                 return;
             }
         }
 
         // Let the server know that all requests have been sent.
         //
-        if (const auto error_code = channel_.complete(OptErrorCode{}, true))
+        if (const auto opt_error = channel_.complete(OptError{}, true))
         {
-            receiver_(Failure{*error_code});
+            receiver_(Failure{*opt_error});
         }
     }
 
@@ -108,13 +108,13 @@ private:
     {
         logger_->trace("ExecCmdClient::handleEvent(Input).");
 
-        if (const auto error_code = common::rawIntToOptErrorCode(input.error_code))
+        if (const auto opt_error = dsdlErrorToOptError(input._error))
         {
             logger_->warn("ExecCmdClient::handleEvent(Input) - Node {} has failed (err={}).",
                           input.node_id,
-                          *error_code);
+                          *opt_error);
 
-            node_id_to_response_.emplace(input.node_id, NodeResponse::Failure{*error_code});
+            node_id_to_response_.emplace(input.node_id, NodeResponse::Failure{*opt_error});
             return;
         }
 
@@ -127,8 +127,8 @@ private:
         CETL_DEBUG_ASSERT(receiver_, "");
 
         logger_->debug("ExecCmdClient::handleEvent({}).", completed);
-        receiver_(completed.error_code ? Result{Failure{*completed.error_code}}
-                                       : Success{std::move(node_id_to_response_)});
+        receiver_(completed.opt_error ? Result{Failure{*completed.opt_error}}
+                                      : Success{std::move(node_id_to_response_)});
     }
 
     cetl::pmr::memory_resource&   memory_;

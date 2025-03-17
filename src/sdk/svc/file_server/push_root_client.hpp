@@ -35,7 +35,7 @@ public:
     using Spec = common::svc::file_server::PushRootSpec;
 
     using Success = cetl::monostate;
-    using Failure = ErrorCode;
+    using Failure = Error;
     using Result  = cetl::variant<Success, Failure>;
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,

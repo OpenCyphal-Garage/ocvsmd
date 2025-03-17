@@ -35,8 +35,8 @@ public:
 
     struct Completed final
     {
-        /// Channel completion error code.
-        sdk::OptErrorCode error_code;
+        /// Optional channel completion error.
+        sdk::OptError opt_error;
 
         /// If `true` then it marks that all incoming messages have been received,
         /// but the channel is still alive and could be used for sending outgoing messages.
@@ -94,7 +94,7 @@ public:
     Channel(const Channel&)            = delete;
     Channel& operator=(const Channel&) = delete;
 
-    CETL_NODISCARD sdk::OptErrorCode send(const Output& output)
+    CETL_NODISCARD sdk::OptError send(const Output& output)
     {
         constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
@@ -107,9 +107,9 @@ public:
             });
     }
 
-    CETL_NODISCARD sdk::OptErrorCode complete(const sdk::OptErrorCode error_code = {}, const bool keep_alive = false)
+    CETL_NODISCARD sdk::OptError complete(const sdk::OptError opt_error = {}, const bool keep_alive = false)
     {
-        return gateway_->complete(error_code, keep_alive);
+        return gateway_->complete(opt_error, keep_alive);
     }
 
     void subscribe(EventHandler event_handler)
@@ -139,29 +139,29 @@ private:
         cetl::pmr::memory_resource& memory;            // NOLINT
         EventHandler                ch_event_handler;  // NOLINT
 
-        CETL_NODISCARD sdk::OptErrorCode operator()(const GatewayEvent::Connected&) const
+        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Connected&) const
         {
             ch_event_handler(Connected{});
-            return sdk::OptErrorCode{};
+            return sdk::OptError{};
         }
 
-        CETL_NODISCARD sdk::OptErrorCode operator()(const GatewayEvent::Message& gateway_msg) const
+        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Message& gateway_msg) const
         {
             Input input{&memory};
             if (!tryDeserializePayload(gateway_msg.payload, input))
             {
                 // Invalid message payload.
-                return sdk::ErrorCode::InvalidArgument;
+                return sdk::OptError{sdk::Error::Code::InvalidArgument};
             }
 
             ch_event_handler(input);
-            return sdk::OptErrorCode{};
+            return sdk::OptError{};
         }
 
-        CETL_NODISCARD sdk::OptErrorCode operator()(const GatewayEvent::Completed& completed) const
+        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Completed& completed) const
         {
-            ch_event_handler(Completed{completed.error_code, completed.keep_alive});
-            return sdk::OptErrorCode{};
+            ch_event_handler(Completed{completed.opt_error, completed.keep_alive});
+            return sdk::OptError{};
         }
 
     };  // Adapter

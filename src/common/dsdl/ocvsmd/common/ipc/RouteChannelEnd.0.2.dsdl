@@ -1,5 +1,5 @@
 uint64 tag
-int32 error_code
 bool keep_alive
+ocvsmd.common.Error.0.1 error
 
 @extent 32 * 8

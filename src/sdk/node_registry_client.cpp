@@ -68,7 +68,7 @@ public:
             if (reg_key.size() > RegKey::_traits_::ArrayCapacity::name)
             {
                 logger_->error("Too long register key '{}'.", reg_key);
-                return just<Access::Result>(ErrorCode::InvalidArgument);
+                return just<Access::Result>(Access::Failure{Error::Code::InvalidArgument});
             }
         }
 
@@ -94,7 +94,7 @@ public:
             if (reg.key.size() > RegKey::_traits_::ArrayCapacity::name)
             {
                 logger_->error("Too long register key '{}'.", reg.key);
-                return just<Access::Result>(ErrorCode::InvalidArgument);
+                return just<Access::Result>(Access::Failure{Error::Code::InvalidArgument});
             }
         }
 

@@ -169,7 +169,7 @@ private:
             if (!completed.keep_alive)
             {
                 logger().warn("ListRegsSvc: canceling processing (fsm_id={}).", id_);
-                complete(sdk::ErrorCode::Canceled);
+                complete(sdk::Error{sdk::Error::Code::Canceled});
                 return;
             }
 
@@ -223,13 +223,13 @@ private:
             auto cy_make_result = service_.context_.presentation.makeClient<CyRegListSvc>(node_id);
             if (const auto* const cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
             {
-                const auto error_code = failureToOptErrorCode(*cy_failure);
+                const auto opt_error = cyFailureToOptError(*cy_failure);
                 logger().warn("ListRegsSvc: failed to make RPC client for node {} (err={}, fsm_id={}).",
                               node_id,
-                              error_code,
+                              opt_error,
                               id_);
 
-                sendResponse(node_id, ResponseItem{&memory()}, error_code);
+                sendResponse(node_id, ResponseItem{&memory()}, opt_error);
                 releaseNodeContext(node_id);
                 return;
             }
@@ -254,13 +254,13 @@ private:
             auto cy_req_result = node_cnxt.client->request(deadline, cy_request);
             if (const auto* const cy_failure = cetl::get_if<CySvcClient::Failure>(&cy_req_result))
             {
-                const auto error_code = failureToOptErrorCode(*cy_failure);
+                const auto opt_error = cyFailureToOptError(*cy_failure);
                 logger().error("ListRegsSvc: failed to send RPC request to node {} (err={}, fsm_id={})",
                                node_id,
-                               error_code,
+                               opt_error,
                                id_);
 
-                sendResponse(node_id, ResponseItem{&memory()}, error_code);
+                sendResponse(node_id, ResponseItem{&memory()}, opt_error);
                 releaseNodeContext(node_id);
                 return;
             }
@@ -303,12 +303,12 @@ private:
             }
             else if (const auto* const cy_failure = cetl::get_if<CyPromiseFailure>(&result))
             {
-                const auto error_code = failureToOptErrorCode(*cy_failure);
+                const auto opt_error = cyFailureToOptError(*cy_failure);
                 logger().warn("ListRegsSvc: RPC promise failure for node {} (err={}, fsm_id={}).",
                               node_id,
-                              error_code,
+                              opt_error,
                               id_);
-                sendResponse(node_id, ResponseItem{&memory()}, error_code);
+                sendResponse(node_id, ResponseItem{&memory()}, opt_error);
             }
 
             // We've got an empty response from the node (or there was an error).
@@ -316,20 +316,18 @@ private:
             releaseNodeContext(node_id);
         }
 
-        void sendResponse(const sdk::CyphalNodeId node_id,
-                          const ResponseItem&     item,
-                          const sdk::OptErrorCode error_code = {})
+        void sendResponse(const sdk::CyphalNodeId node_id, const ResponseItem& item, const sdk::OptError opt_error = {})
         {
             Spec::Response ipc_response{&memory()};
-            ipc_response.error_code = common::optErrorCodeToRawInt(error_code);
-            ipc_response.node_id    = node_id;
-            ipc_response.item       = item;
+            ipc_response.node_id = node_id;
+            ipc_response.item    = item;
+            optErrorToDsdlError(opt_error, ipc_response._error);
 
-            if (const auto send_error_code = channel_.send(ipc_response))
+            if (const auto send_opt_error = channel_.send(ipc_response))
             {
                 logger().warn("ListRegsSvc: failed to send ipc response for node {} (err={}, fsm_id={}).",
                               node_id,
-                              *send_error_code,
+                              *send_opt_error,
                               id_);
             }
         }
@@ -343,12 +341,12 @@ private:
             }
         }
 
-        void complete(const sdk::OptErrorCode error_code = {})
+        void complete(const sdk::OptError opt_error = {})
         {
             // Cancel anything that might be still pending.
             node_id_to_cnxt_.clear();
 
-            if (const auto failure = channel_.complete(error_code))
+            if (const auto failure = channel_.complete(opt_error))
             {
                 logger().warn("ListRegsSvc: failed to complete channel (err={}, fsm_id={}).", *failure, id_);
             }

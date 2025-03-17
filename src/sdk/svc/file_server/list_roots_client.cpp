@@ -64,11 +64,11 @@ private:
     {
         logger_->trace("ListRootsClient::handleEvent({}).", connected);
 
-        if (const auto error_code = channel_.send(request_))
+        if (const auto opt_error = channel_.send(request_))
         {
             CETL_DEBUG_ASSERT(receiver_, "");
 
-            receiver_(Failure{*error_code});
+            receiver_(Failure{*opt_error});
         }
     }
 
@@ -84,7 +84,7 @@ private:
         CETL_DEBUG_ASSERT(receiver_, "");
 
         logger_->debug("ListRootsClient::handleEvent({}).", completed);
-        receiver_(completed.error_code ? Result{Failure{*completed.error_code}} : Success{std::move(items_)});
+        receiver_(completed.opt_error ? Result{Failure{*completed.opt_error}} : Success{std::move(items_)});
     }
 
     cetl::pmr::memory_resource&   memory_;
