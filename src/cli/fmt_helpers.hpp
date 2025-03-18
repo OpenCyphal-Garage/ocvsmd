@@ -17,7 +17,6 @@
 #include <spdlog/fmt/ranges.h>
 
 #include <string>
-#include <type_traits>
 
 template <>
 struct fmt::formatter<uavcan::_register::Value_1_0> : formatter<std::string>
@@ -55,7 +54,7 @@ struct fmt::formatter<ocvsmd::sdk::Error> : formatter<std::string>
     {
         using ocvsmd::sdk::Error;
 
-        const char* error_name = "ErrorCode";
+        const auto* error_name = "ErrorCode";
         switch (error.getCode())
         {
         case Error::Code::Other:
@@ -96,15 +95,13 @@ struct fmt::formatter<ocvsmd::sdk::Error> : formatter<std::string>
             break;
         default:
             CETL_DEBUG_ASSERT(false, "Unknown error code.");
-            error_name = "ErrorCode";
-            break;
         }
 
         if (const auto opt_errno = error.getOptErrno())
         {
             return format_to(ctx.out(), "{}(errno={})", error_name, opt_errno.value_or(0));
         }
-        return format_to(ctx.out(), "{}()", error_name);
+        return format_to(ctx.out(), error_name);
     }
 };
 
