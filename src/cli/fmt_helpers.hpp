@@ -101,7 +101,7 @@ struct fmt::formatter<ocvsmd::sdk::Error> : formatter<std::string>
         {
             return format_to(ctx.out(), "{}(errno={})", error_name, opt_errno.value_or(0));
         }
-        return format_to(ctx.out(), error_name);
+        return format_to(ctx.out(), "{}", error_name);
     }
 };
 
