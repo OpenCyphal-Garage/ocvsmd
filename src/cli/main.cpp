@@ -35,8 +35,6 @@ namespace
 using Daemon   = ocvsmd::sdk::Daemon;
 using Executor = ocvsmd::platform::SingleThreadedExecutor;
 
-using std::chrono_literals::operator""s;
-
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 volatile sig_atomic_t g_running = 1;
 
