@@ -5,9 +5,6 @@
 
 #include "io.hpp"
 
-#include "logging.hpp"
-
-#include <cstring>
 #include <unistd.h>
 
 namespace ocvsmd
@@ -22,12 +19,7 @@ void OwnFd::reset() noexcept
     if (fd_ >= 0)
     {
         // Do not use `posixSyscallError` here b/c `close` should not be repeated on `EINTR`.
-        if (::close(fd_) < 0)
-        {
-            const int err = errno;
-            getLogger("io")->error("Failed to close file descriptor {}: {}.", fd_, std::strerror(err));
-        }
-
+        ::close(fd_);
         fd_ = -1;
     }
 }

@@ -43,10 +43,7 @@ public:
         io_state_.fd = std::move(fd);
     }
 
-    ~ClientContext()
-    {
-        logger_.trace("~ClientContext(fd={}, id={}).", io_state_.fd.get(), id_);
-    }
+    ~ClientContext() = default;
 
     ClientContext(const ClientContext&)                = delete;
     ClientContext(ClientContext&&) noexcept            = delete;
