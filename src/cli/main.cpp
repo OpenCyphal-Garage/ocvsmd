@@ -23,6 +23,7 @@
 #include <iostream>
 #include <signal.h>  // NOLINT
 #include <set>
+#include <unistd.h>
 #include <utility>
 #include <vector>
 
@@ -30,6 +31,9 @@
 
 namespace
 {
+
+using Daemon   = ocvsmd::sdk::Daemon;
+using Executor = ocvsmd::platform::SingleThreadedExecutor;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 volatile sig_atomic_t g_running = 1;
@@ -56,6 +60,14 @@ void setupSignalHandlers()
     ::sigaction(SIGTERM, &sigbreak, nullptr);
 }
 
+void setRegisterValue(ocvsmd::sdk::NodeRegistryClient::Access::RegValue& reg_val, const std::string& text)
+{
+    auto& reg_str = reg_val.set_string();
+    std::copy(text.begin(), text.end(), std::back_inserter(reg_str.value));
+}
+
+// MARK: - Logging helpers:
+
 void logCommandResult(const ocvsmd::sdk::NodeCommandClient::Command::Result& cmd_result)
 {
     using Command = ocvsmd::sdk::NodeCommandClient::Command;
@@ -77,12 +89,6 @@ void logCommandResult(const ocvsmd::sdk::NodeCommandClient::Command::Result& cmd
         const auto& response = cetl::get<0>(node_and_respond.second);
         spdlog::info("{:4} → status={}.", node_and_respond.first, response.status);
     }
-}
-
-void setRegisterValue(ocvsmd::sdk::NodeRegistryClient::Access::RegValue& reg_val, const std::string& text)
-{
-    auto& reg_str = reg_val.set_string();
-    std::copy(text.begin(), text.end(), std::back_inserter(reg_str.value));
 }
 
 void logRegistryListNodeResult(  //
@@ -143,13 +149,240 @@ void logRegistryAccessResult(ocvsmd::sdk::NodeRegistryClient::Access::Result&& r
     }
 }
 
+// MARK: - Test Scenarios:
+
+/// Demo of daemon's node command client - sending `COMMAND_RESTART` command to nodes: 42, 43, & 44.
+///
+void tryResetNodesScenario(Executor& executor, const Daemon::Ptr& daemon)
+{
+    using Command = ocvsmd::sdk::NodeCommandClient::Command;
+
+    spdlog::info("tryResetNodesScenario -----------------");
+
+    const auto node_cmd_client = daemon->getNodeCommandClient();
+
+    std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
+    auto                                     sender = node_cmd_client->restart(node_ids);
+    const auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
+    logCommandResult(cmd_result);
+
+    // Let child nodes time (100 ms) to restart.
+    ::usleep(100'000);  // TODO: Add `.delay(duration)` execution operator.
+}
+
+/// Demo of daemon's node command client - sending `COMMAND_BEGIN_SOFTWARE_UPDATE` command to nodes: 42, 43, & 44.
+///
+void tryBeginSoftwareUpdateScenario(Executor& executor, const Daemon::Ptr& daemon)
+{
+    using Command = ocvsmd::sdk::NodeCommandClient::Command;
+
+    spdlog::info("tryBeginSoftwareUpdateScenario -----------------");
+
+    const auto node_cmd_client = daemon->getNodeCommandClient();
+
+    std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
+    auto                                     sender = node_cmd_client->beginSoftwareUpdate(node_ids, "firmware.bin");
+    const auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
+    logCommandResult(cmd_result);
+}
+
+/// Demo of daemon's file server - push root.
+///
+void tryPushRootScenario(Executor& executor, const Daemon::Ptr& daemon)
+{
+    using PushRoot = ocvsmd::sdk::FileServer::PushRoot;
+
+    spdlog::info("tryPushRootScenario -----------------");
+
+    const auto file_server = daemon->getFileServer();
+
+    const std::string path{"key"};
+    auto              sender     = file_server->pushRoot(path, true);
+    auto              cmd_result = ocvsmd::sdk::sync_wait<PushRoot::Result>(executor, std::move(sender));
+    if (const auto* const failure = cetl::get_if<PushRoot::Failure>(&cmd_result))
+    {
+        spdlog::error("Failed to push FS root (path='{}', err={}).", path, *failure);
+    }
+    else
+    {
+        spdlog::info("File Server responded ok on 'PushRoot'.");
+    }
+}
+
+/// Demo of daemon's file server - pop root.
+///
+void tryPopRootScenario(Executor& executor, const Daemon::Ptr& daemon)
+{
+    using PopRoot = ocvsmd::sdk::FileServer::PopRoot;
+
+    spdlog::info("tryPopRootScenario -----------------");
+
+    const auto file_server = daemon->getFileServer();
+
+    const std::string path{"key"};
+    auto              sender     = file_server->popRoot(path, true);
+    auto              cmd_result = ocvsmd::sdk::sync_wait<PopRoot::Result>(executor, std::move(sender));
+    if (const auto* const failure = cetl::get_if<PopRoot::Failure>(&cmd_result))
+    {
+        spdlog::error("Failed to pop FS root (path='{}', err={}).", path, *failure);
+    }
+    else
+    {
+        spdlog::info("File Server responded ok on 'PopRoot'.");
+    }
+}
+
+/// Demo of daemon's file server - list roots.
+///
+void tryListRootsScenario(Executor& executor, const Daemon::Ptr& daemon)
+{
+    using ListRoots = ocvsmd::sdk::FileServer::ListRoots;
+
+    spdlog::info("tryListRootsScenario -----------------");
+
+    const auto file_server = daemon->getFileServer();
+
+    auto sender     = file_server->listRoots();
+    auto cmd_result = ocvsmd::sdk::sync_wait<ListRoots::Result>(executor, std::move(sender));
+    if (const auto* const failure = cetl::get_if<ListRoots::Failure>(&cmd_result))
+    {
+        spdlog::error("Failed to list FS roots (err={}).", *failure);
+    }
+    else
+    {
+        const auto roots = cetl::get<ListRoots::Success>(std::move(cmd_result));
+        spdlog::info("File Server responded with list of roots (cnt={}):", roots.size());
+        for (std::size_t i = 0; i < roots.size(); ++i)
+        {
+            spdlog::info("{:4} → '{}'", i, roots[i]);
+        }
+    }
+}
+
+/// Demo of daemon's file server - list, read and write registers of multiple nodes: 42, 43, & 44.
+///
+void tryListReadWriteRegsOfNodesScenario(Executor&                   executor,
+                                         cetl::pmr::memory_resource& memory,
+                                         const Daemon::Ptr&          daemon)
+{
+    using List   = ocvsmd::sdk::NodeRegistryClient::List;
+    using Access = ocvsmd::sdk::NodeRegistryClient::Access;
+
+    spdlog::info("tryListReadWriteRegsOfNodesScenario -----------------");
+
+    auto registry = daemon->getNodeRegistryClient();
+
+    // List ALL registers.
+    //
+    std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
+    //
+    auto sender      = registry->list(node_ids, std::chrono::seconds{1});
+    auto list_result = ocvsmd::sdk::sync_wait<List::Result>(executor, std::move(sender));
+    if (const auto* const list_failure = cetl::get_if<List::Failure>(&list_result))
+    {
+        spdlog::error("Failed to list registers (err={}).", *list_failure);
+    }
+    else
+    {
+        std::set<std::string> reg_names_set;
+        const auto            node_id_to_regs = cetl::get<List::Success>(std::move(list_result));
+        spdlog::info("Engine responded with list of nodes (cnt={}):", node_id_to_regs.size());
+        for (const auto& id_and_regs : node_id_to_regs)
+        {
+            logRegistryListNodeResult(reg_names_set, id_and_regs.first, id_and_regs.second);
+        }
+        const std::vector<cetl::string_view>      reg_names_vec{reg_names_set.begin(), reg_names_set.end()};
+        const cetl::span<const cetl::string_view> reg_names{reg_names_vec.data(), reg_names_vec.size()};
+
+        // Read ALL registers.
+        //
+        auto read_sender = registry->read(node_ids, reg_names, std::chrono::seconds{1});
+        auto read_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(read_sender));
+        if (const auto* const failure = cetl::get_if<Access::Failure>(&read_result))
+        {
+            spdlog::error("Failed to read registers (err={}).", *failure);
+        }
+        else
+        {
+            logRegistryAccessResult(std::move(read_result));
+        }
+
+        // Write 'uavcan.node.description' registers.
+        //
+        const cetl::string_view            reg_key_desc{"uavcan.node.description"};
+        std::array<Access::RegKeyValue, 1> reg_keys_and_values{
+            Access::RegKeyValue{reg_key_desc, Access::RegValue{&memory}}};
+        setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node3");
+        //
+        auto write_sender = registry->write(node_ids, reg_keys_and_values, std::chrono::seconds{1});
+        auto write_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(write_sender));
+        if (const auto* const failure = cetl::get_if<Access::Failure>(&write_result))
+        {
+            spdlog::error("Failed to write registers (err={}).", *failure);
+        }
+        else
+        {
+            logRegistryAccessResult(std::move(write_result));
+        }
+    }
+}
+
+/// Demo of daemon's file server - list, read and write registers of single node 42.
+///
+void tryListReadWriteRegsOfSingleNodeScenario(Executor&                   executor,
+                                              cetl::pmr::memory_resource& memory,
+                                              const Daemon::Ptr&          daemon)
+{
+    using List   = ocvsmd::sdk::NodeRegistryClient::List;
+    using Access = ocvsmd::sdk::NodeRegistryClient::Access;
+
+    spdlog::info("tryListReadWriteRegsOfSingleNodeScenario -----------------");
+
+    const auto registry = daemon->getNodeRegistryClient();
+
+    constexpr ocvsmd::sdk::CyphalNodeId node_id{42};
+    std::array<cetl::string_view, 1>    reg_keys{"uavcan.node.description"};
+
+    // List
+    {
+        auto list_node_sender = registry->list(node_id, std::chrono::seconds{1});
+        auto list_node_result = ocvsmd::sdk::sync_wait<List::NodeRegisters::Result>(  //
+            executor,
+            std::move(list_node_sender));
+
+        std::set<std::string> reg_names_set;
+        logRegistryListNodeResult(reg_names_set, node_id, list_node_result);
+    }
+
+    // Write
+    {
+        const cetl::string_view            reg_key_desc{"uavcan.node.description"};
+        std::array<Access::RegKeyValue, 1> reg_keys_and_values{
+            Access::RegKeyValue{reg_key_desc, Access::RegValue{&memory}}};
+        setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node42");
+
+        auto       write_node_sender = registry->write(node_id, reg_keys_and_values, std::chrono::seconds{1});
+        const auto write_node_result = ocvsmd::sdk::sync_wait<Access::NodeRegisters::Result>(  //
+            executor,
+            std::move(write_node_sender));
+
+        logRegistryAccessNodeResult(node_id, write_node_result);
+    }
+
+    // Read
+    {
+        auto       read_node_sender = registry->read(node_id, reg_keys, std::chrono::seconds{1});
+        const auto read_node_result = ocvsmd::sdk::sync_wait<Access::NodeRegisters::Result>(  //
+            executor,
+            std::move(read_node_sender));
+        logRegistryAccessNodeResult(node_id, read_node_result);
+    }
+}
+
 }  // namespace
 
 int main(const int argc, const char** const argv)
 {
-    using std::chrono_literals::operator""s;
-    using Executor = ocvsmd::platform::SingleThreadedExecutor;
-
     setupSignalHandlers();
     setupLogging(argc, argv);
 
@@ -166,7 +399,7 @@ int main(const int argc, const char** const argv)
             ipc_connection = env_connection_str;
         }
 
-        const auto daemon = ocvsmd::sdk::Daemon::make(memory, executor, ipc_connection);
+        const auto daemon = Daemon::make(memory, executor, ipc_connection);
         if (!daemon)
         {
             spdlog::critical("Failed to create daemon.");
@@ -174,193 +407,15 @@ int main(const int argc, const char** const argv)
             return EXIT_FAILURE;
         }
 
-#if 0  // NOLINT
-
-        // Demo of daemon's node command client - sending a command to node 42, 43 & 44.
-        {
-            using Command = ocvsmd::sdk::NodeCommandClient::Command;
-
-            auto node_cmd_client = daemon->getNodeCommandClient();
-
-            std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
-            // auto sender = node_cmd_client->restart(node_ids);
-            auto sender     = node_cmd_client->beginSoftwareUpdate(node_ids, "firmware.bin");
-            auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
-            logCommandResult(cmd_result);
-        }
-#endif
-#if 0  // NOLINT
-
-        // Demo of daemon's file server - push root.
-        {
-            using PushRoot = ocvsmd::sdk::FileServer::PushRoot;
-
-            auto file_server = daemon->getFileServer();
-
-            const std::string path{"key"};
-            auto              sender     = file_server->pushRoot(path, true);
-            auto              cmd_result = ocvsmd::sdk::sync_wait<PushRoot::Result>(executor, std::move(sender));
-            if (const auto* const failure = cetl::get_if<PushRoot::Failure>(&cmd_result))
-            {
-                spdlog::error("Failed to push FS root (path='{}', err={}).", path, *failure);
-            }
-            else
-            {
-                spdlog::info("File Server responded ok on 'PushRoot'.");
-            }
-        }
-#endif
-#if 0  // NOLINT
-
-        // Demo of daemon's file server - pop root.
-        {
-            using PopRoot = ocvsmd::sdk::FileServer::PopRoot;
-
-            auto file_server = daemon->getFileServer();
-
-            const std::string path{"key"};
-            auto              sender     = file_server->popRoot(path, true);
-            auto              cmd_result = ocvsmd::sdk::sync_wait<PopRoot::Result>(executor, std::move(sender));
-            if (const auto* const failure = cetl::get_if<PopRoot::Failure>(&cmd_result))
-            {
-                spdlog::error("Failed to pop FS root (path='{}', err={}).", path, *failure);
-            }
-            else
-            {
-                spdlog::info("File Server responded ok on 'PopRoot'.");
-            }
-        }
-#endif
-#if 0  // NOLINT
-
-        // Demo of daemon's file server - getting the list of roots.
-        {
-            using ListRoots = ocvsmd::sdk::FileServer::ListRoots;
-
-            auto file_server = daemon->getFileServer();
-
-            auto sender     = file_server->listRoots();
-            auto cmd_result = ocvsmd::sdk::sync_wait<ListRoots::Result>(executor, std::move(sender));
-            if (const auto* const failure = cetl::get_if<ListRoots::Failure>(&cmd_result))
-            {
-                spdlog::error("Failed to list FS roots (err={}).", *failure);
-            }
-            else
-            {
-                const auto roots = cetl::get<ListRoots::Success>(std::move(cmd_result));
-                spdlog::info("File Server responded with list of roots (cnt={}):", roots.size());
-                for (std::size_t i = 0; i < roots.size(); ++i)
-                {
-                    spdlog::info("{:4} → '{}'", i, roots[i]);
-                }
-            }
-        }
-#endif
-#if 1  // NOLINT
-
-        // Demo of daemon's registry client - getting the list of registers from nodes.
-        {
-            using List   = ocvsmd::sdk::NodeRegistryClient::List;
-            using Access = ocvsmd::sdk::NodeRegistryClient::Access;
-
-            auto registry = daemon->getNodeRegistryClient();
-
-            // List ALL registers.
-            //
-            std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
-            //
-            auto sender      = registry->list(node_ids, std::chrono::seconds{1});
-            auto list_result = ocvsmd::sdk::sync_wait<List::Result>(executor, std::move(sender));
-            if (const auto* const list_failure = cetl::get_if<List::Failure>(&list_result))
-            {
-                spdlog::error("Failed to list registers (err={}).", *list_failure);
-            }
-            else
-            {
-                std::set<std::string> reg_names_set;
-                const auto            node_id_to_regs = cetl::get<List::Success>(std::move(list_result));
-                spdlog::info("Engine responded with list of nodes (cnt={}):", node_id_to_regs.size());
-                for (const auto& id_and_regs : node_id_to_regs)
-                {
-                    logRegistryListNodeResult(reg_names_set, id_and_regs.first, id_and_regs.second);
-                }
-                const std::vector<cetl::string_view>      reg_names_vec{reg_names_set.begin(), reg_names_set.end()};
-                const cetl::span<const cetl::string_view> reg_names{reg_names_vec.data(), reg_names_vec.size()};
-
-                // Read ALL registers.
-                //
-                auto read_sender = registry->read(node_ids, reg_names, std::chrono::seconds{1});
-                auto read_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(read_sender));
-                if (const auto* const failure = cetl::get_if<Access::Failure>(&read_result))
-                {
-                    spdlog::error("Failed to read registers (err={}).", *failure);
-                }
-                else
-                {
-                    logRegistryAccessResult(std::move(read_result));
-                }
-
-                // Write 'uavcan.node.description' registers.
-                //
-                const cetl::string_view            reg_key_desc{"uavcan.node.description"};
-                std::array<Access::RegKeyValue, 1> reg_keys_and_values{
-                    Access::RegKeyValue{reg_key_desc, Access::RegValue{&memory}}};
-                setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node3");
-                //
-                auto write_sender = registry->write(node_ids, reg_keys_and_values, std::chrono::seconds{1});
-                auto write_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(write_sender));
-                if (const auto* const failure = cetl::get_if<Access::Failure>(&write_result))
-                {
-                    spdlog::error("Failed to write registers (err={}).", *failure);
-                }
-                else
-                {
-                    logRegistryAccessResult(std::move(write_result));
-                }
-            }
-
-            // Try single node id api.
-            {
-                constexpr ocvsmd::sdk::CyphalNodeId node_id{42};
-                std::array<cetl::string_view, 1>    reg_keys{"uavcan.node.description"};
-
-                // List
-                {
-                    auto list_node_sender = registry->list(node_id, std::chrono::seconds{1});
-                    auto list_node_result = ocvsmd::sdk::sync_wait<List::NodeRegisters::Result>(  //
-                        executor,
-                        std::move(list_node_sender));
-
-                    std::set<std::string> reg_names_set;
-                    logRegistryListNodeResult(reg_names_set, node_id, list_node_result);
-                }
-
-                // Write
-                {
-                    const cetl::string_view            reg_key_desc{"uavcan.node.description"};
-                    std::array<Access::RegKeyValue, 1> reg_keys_and_values{
-                        Access::RegKeyValue{reg_key_desc, Access::RegValue{&memory}}};
-                    setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node42");
-
-                    auto write_node_sender = registry->write(node_id, reg_keys_and_values, std::chrono::seconds{1});
-                    auto write_node_result = ocvsmd::sdk::sync_wait<Access::NodeRegisters::Result>(  //
-                        executor,
-                        std::move(write_node_sender));
-
-                    logRegistryAccessNodeResult(node_id, write_node_result);
-                }
-
-                // Read
-                {
-                    auto read_node_sender = registry->read(node_id, reg_keys, std::chrono::seconds{1});
-                    auto read_node_result = ocvsmd::sdk::sync_wait<Access::NodeRegisters::Result>(  //
-                        executor,
-                        std::move(read_node_sender));
-                    logRegistryAccessNodeResult(node_id, read_node_result);
-                }
-            }
-        }
-#endif
+        // Un/Comment needed scenario.
+        //
+        tryResetNodesScenario(executor, daemon);
+        tryBeginSoftwareUpdateScenario(executor, daemon);
+        tryPushRootScenario(executor, daemon);
+        tryPopRootScenario(executor, daemon);
+        tryListRootsScenario(executor, daemon);
+        tryListReadWriteRegsOfNodesScenario(executor, memory, daemon);
+        tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
 
         if (g_running == 0)
         {

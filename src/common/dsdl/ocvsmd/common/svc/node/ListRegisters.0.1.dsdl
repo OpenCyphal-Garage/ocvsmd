@@ -5,7 +5,7 @@ uint16[<=128] node_ids
 
 ---
 
-int32 error_code
+ocvsmd.common.Error.0.1 error
 uint16 node_id
 uavcan.register.Name.1.0 item
 

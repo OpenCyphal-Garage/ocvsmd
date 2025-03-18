@@ -41,7 +41,7 @@ public:
     /// Defines the result type of the command execution.
     ///
     /// On success, the result is a map of node IDs to their responses (`status` and `output` params).
-    /// On failure, the result is an error code.
+    /// On failure, the result is a SDK error.
     ///
     struct Command final
     {
@@ -49,14 +49,14 @@ public:
         struct NodeResponse final
         {
             using Success = uavcan::node::ExecuteCommand_1_3::Response;
-            using Failure = ErrorCode;
+            using Failure = Error;
             using Result  = cetl::variant<Success, Failure>;
 
             NodeResponse() = delete;
         };
 
         using Success = std::unordered_map<CyphalNodeId, NodeResponse::Result>;
-        using Failure = ErrorCode;
+        using Failure = Error;
         using Result  = cetl::variant<Success, Failure>;
 
         Command() = delete;

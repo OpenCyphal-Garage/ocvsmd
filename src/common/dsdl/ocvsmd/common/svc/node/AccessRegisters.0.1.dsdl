@@ -8,7 +8,7 @@ AccessRegistersKeyValue.0.1 register
 
 ---
 
-int32 error_code
+ocvsmd.common.Error.0.1 error
 uint16 node_id
 AccessRegistersKeyValue.0.1 register
 

@@ -87,7 +87,7 @@ cetl::optional<std::string> Engine::init()
     auto maybe_node = libcyphal::application::Node::make(*presentation_);
     if (const auto* const failure = cetl::get_if<libcyphal::application::Node::MakeFailure>(&maybe_node))
     {
-        const auto err_str = fmt::format("Failed to create cyphal node (err={}).", failureToOptErrorCode(*failure));
+        const auto err_str = fmt::format("Failed to create cyphal node (err={}).", cyFailureToOptError(*failure));
         logger_->error(err_str);
         return cetl::optional<std::string>{err_str};
     }
@@ -144,9 +144,9 @@ cetl::optional<std::string> Engine::init()
     svc::node::registerAllServices(svc_context);
     svc::file_server::registerAllServices(svc_context, *file_provider_);
     //
-    if (const auto error_code = ipc_router_->start())
+    if (const auto opt_error = ipc_router_->start())
     {
-        const auto err_str = fmt::format("Failed to start IPC router (err={}).", *error_code);
+        const auto err_str = fmt::format("Failed to start IPC router (err={}).", *opt_error);
         logger_->error(err_str);
         return cetl::optional<std::string>{err_str};
     }
@@ -174,7 +174,7 @@ void Engine::runWhile(const std::function<bool()>& loop_predicate)
 
         if (const auto poll_failure = executor_.pollAwaitableResourcesFor(cetl::make_optional(timeout)))
         {
-            spdlog::warn("Failed to poll awaitable resources (err={}).", failureToOptErrorCode(*poll_failure));
+            spdlog::warn("Failed to poll awaitable resources (err={}).", cyFailureToOptError(*poll_failure));
         }
     }
     spdlog::debug("Run loop predicate is fulfilled (worst_lateness={}us).",

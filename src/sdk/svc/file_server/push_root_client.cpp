@@ -63,11 +63,11 @@ private:
     {
         logger_->trace("PushRootClient::handleEvent({}).", connected);
 
-        if (const auto error_code = channel_.send(request_))
+        if (const auto opt_error = channel_.send(request_))
         {
             CETL_DEBUG_ASSERT(receiver_, "");
 
-            receiver_(Failure{*error_code});
+            receiver_(Failure{*opt_error});
         }
     }
 
@@ -80,7 +80,7 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        receiver_(completed.error_code ? Result{Failure{*completed.error_code}} : Success{});
+        receiver_(completed.opt_error ? Result{Failure{*completed.opt_error}} : Success{});
     }
 
     cetl::pmr::memory_resource&   memory_;

@@ -51,7 +51,7 @@ constexpr std::size_t   MsgPayloadMaxSize  = 1ULL << 20ULL;  // 1 MB
 
 }  // namespace
 
-sdk::OptErrorCode SocketBase::send(const IoState& io_state, const Payloads payloads) const
+sdk::OptError SocketBase::send(const IoState& io_state, const Payloads payloads) const
 {
     // 1. Write the message header (signature and total size of the following fragments).
     //
@@ -70,7 +70,7 @@ sdk::OptErrorCode SocketBase::send(const IoState& io_state, const Payloads paylo
         }))
     {
         logger_->error("SocketBase: Failed to send msg header (fd={}): {}.", io_state.fd.get(), std::strerror(err));
-        return errnoToErrorCode(err);
+        return errnoToError(err);
     }
 
     // 2. Write the message payload fragments.
@@ -85,13 +85,13 @@ sdk::OptErrorCode SocketBase::send(const IoState& io_state, const Payloads paylo
             logger_->error("SocketBase: Failed to send msg payload (fd={}): {}.",
                            io_state.fd.get(),
                            std::strerror(err));
-            return errnoToErrorCode(err);
+            return errnoToError(err);
         }
     }
-    return sdk::OptErrorCode{};
+    return sdk::OptError{};
 }
 
-sdk::OptErrorCode SocketBase::receiveData(IoState& io_state) const
+sdk::OptError SocketBase::receiveData(IoState& io_state) const
 {
     // 1. Receive and validate the message header.
     //
@@ -120,20 +120,20 @@ sdk::OptErrorCode SocketBase::receiveData(IoState& io_state) const
                     // No data available yet - that's ok, the next attempt will try to read again.
                     //
                     logger_->trace("Msg header read is not ready (fd={}).", io_state.fd.get());
-                    return sdk::OptErrorCode{};
+                    return sdk::OptError{};
                 }
 
                 if (err == ECONNRESET)
                 {
                     logger_->debug("Connection reset by peer (fd={}).", io_state.fd.get());
-                    return sdk::ErrorCode::Disconnected;  // EOF
+                    return sdk::Error{sdk::Error::Code::Disconnected, err};  // EOF
                 }
 
                 logger_->error("Failed to read msg header (fd={}, err={}): {}.",
                                io_state.fd.get(),
                                err,
                                std::strerror(err));
-                return errnoToErrorCode(err);
+                return errnoToError(err);
             }
 
             // Progress the partial read state.
@@ -143,12 +143,12 @@ sdk::OptErrorCode SocketBase::receiveData(IoState& io_state) const
             if (bytes_read == 0)
             {
                 logger_->debug("Zero bytes of msg header read - end of stream (fd={}).", io_state.fd.get());
-                return sdk::ErrorCode::Disconnected;  // EOF
+                return sdk::Error{sdk::Error::Code::Disconnected};  // EOF
             }
             if (io_state.rx_partial_size < sizeof(msg_header))
             {
                 // Not enough data yet - that's ok, the next attempt will try to read the rest.
-                return sdk::OptErrorCode{};
+                return sdk::OptError{};
             }
 
             // Validate the message header.
@@ -161,7 +161,7 @@ sdk::OptErrorCode SocketBase::receiveData(IoState& io_state) const
                 logger_->error("Invalid msg header read - closing invalid stream (fd={}, payload_size={}).",
                                io_state.fd.get(),
                                msg_header.payload_size);
-                return sdk::ErrorCode::InvalidArgument;
+                return sdk::Error{sdk::Error::Code::InvalidArgument};
             }
         }
 
@@ -197,11 +197,11 @@ sdk::OptErrorCode SocketBase::receiveData(IoState& io_state) const
                     // No data available yet - that's ok, the next attempt will try to read again.
                     //
                     logger_->trace("Msg payload read is not ready (fd={}).", io_state.fd.get());
-                    return sdk::OptErrorCode{};
+                    return sdk::OptError{};
                 }
 
                 logger_->error("Failed to read msg payload (fd={}): {}.", io_state.fd.get(), std::strerror(err));
-                return errnoToErrorCode(err);
+                return errnoToError(err);
             }
 
             // Progress the partial read state.
@@ -211,12 +211,12 @@ sdk::OptErrorCode SocketBase::receiveData(IoState& io_state) const
             if (bytes_read == 0)
             {
                 logger_->debug("Zero bytes of msg payload read - end of stream (fd={}).", io_state.fd.get());
-                return sdk::ErrorCode::Disconnected;  // EOF
+                return sdk::Error{sdk::Error::Code::Disconnected};  // EOF
             }
             if (io_state.rx_partial_size < msg_payload.size)
             {
                 // Not enough data yet - that's ok, the next attempt will try to read the rest.
-                return sdk::OptErrorCode{};
+                return sdk::OptError{};
             }
         }
 
@@ -230,7 +230,7 @@ sdk::OptErrorCode SocketBase::receiveData(IoState& io_state) const
         io_state.on_rx_msg_payload(Payload{payload.buffer.get(), payload.size});
     }
 
-    return sdk::OptErrorCode{};
+    return sdk::OptError{};
 }
 
 }  // namespace pipe

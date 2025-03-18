@@ -44,17 +44,17 @@ SocketClient::SocketClient(libcyphal::IExecutor& executor, const io::SocketAddre
     };
 }
 
-sdk::OptErrorCode SocketClient::start(EventHandler event_handler)
+sdk::OptError SocketClient::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(event_handler, "");
     CETL_DEBUG_ASSERT(io_state_.fd.get() == -1, "");
 
     event_handler_ = std::move(event_handler);
 
-    if (const auto error_code = makeSocketHandle())
+    if (const auto opt_error = makeSocketHandle())
     {
-        logger().error("Failed to make client socket handle (err={}).", *error_code);
-        return error_code;
+        logger().error("Failed to make client socket handle (err={}).", *opt_error);
+        return opt_error;
     }
 
     socket_callback_ = posix_executor_ext_->registerAwaitableCallback(  //
@@ -64,10 +64,10 @@ sdk::OptErrorCode SocketClient::start(EventHandler event_handler)
         },
         platform::IPosixExecutorExtension::Trigger::Writable{io_state_.fd.get()});
 
-    return sdk::OptErrorCode{};
+    return sdk::OptError{};
 }
 
-sdk::OptErrorCode SocketClient::makeSocketHandle()
+sdk::OptError SocketClient::makeSocketHandle()
 {
     using SocketResult = io::SocketAddress::SocketResult;
 
@@ -75,32 +75,30 @@ sdk::OptErrorCode SocketClient::makeSocketHandle()
     if (const auto* const failure = cetl::get_if<SocketResult::Failure>(&maybe_socket))
     {
         logger().error("Failed to create client socket (err={}).", *failure);
-        return sdk::OptErrorCode{*failure};
+        return sdk::OptError{*failure};
     }
     auto socket_fd = cetl::get<SocketResult::Success>(std::move(maybe_socket));
     CETL_DEBUG_ASSERT(socket_fd.get() != -1, "");
 
-    if (const auto error_code = socket_address_.connect(socket_fd))
+    if (const auto opt_error = socket_address_.connect(socket_fd))
     {
-        if (sdk::ErrorCode::OperationInProgress != *error_code)
+        if (sdk::Error::Code::OperationInProgress != opt_error->getCode())
         {
-            logger().error("Failed to connect to server (err={}).", *error_code);
-            return error_code;
+            logger().error("Failed to connect to server (err={}).", *opt_error);
+            return opt_error;
         }
     }
 
     io_state_.fd = std::move(socket_fd);
-    return sdk::OptErrorCode{};
+    return sdk::OptError{};
 }
 
-sdk::OptErrorCode SocketClient::send(const Payloads payloads)
+sdk::OptError SocketClient::send(const Payloads payloads)
 {
     return SocketBase::send(io_state_, payloads);
 }
 
-sdk::OptErrorCode SocketClient::connectSocket(const int         fd,
-                                              const void* const addr_ptr,
-                                              const std::size_t addr_size) const
+sdk::OptError SocketClient::connectSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const
 {
     if (const int err = platform::posixSyscallError([fd, addr_ptr, addr_size] {
             //
@@ -110,11 +108,11 @@ sdk::OptErrorCode SocketClient::connectSocket(const int         fd,
         if (err != EINPROGRESS)
         {
             logger().error("Failed to connect to server: {}.", std::strerror(err));
-            return errnoToErrorCode(err);
+            return errnoToError(err);
         }
     }
 
-    return sdk::OptErrorCode{};
+    return sdk::OptError{};
 }
 
 void SocketClient::handle_connect()
@@ -150,15 +148,15 @@ void SocketClient::handle_connect()
 
 void SocketClient::handle_receive()
 {
-    if (const auto error_code = receiveData(io_state_))
+    if (const auto opt_error = receiveData(io_state_))
     {
-        if (sdk::ErrorCode::Disconnected == *error_code)
+        if (sdk::Error::Code::Disconnected == opt_error->getCode())
         {
             logger().debug("End of server stream - closing connection.");
         }
         else
         {
-            logger().warn("Failed to handle server response - closing connection (err={}).", *error_code);
+            logger().warn("Failed to handle server response - closing connection (err={}).", *opt_error);
         }
 
         handle_disconnect();

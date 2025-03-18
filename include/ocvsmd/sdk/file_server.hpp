@@ -47,7 +47,7 @@ public:
     struct ListRoots final
     {
         using Success = std::vector<std::string>;
-        using Failure = ErrorCode;
+        using Failure = Error;
         using Result  = cetl::variant<Success, Failure>;
     };
     virtual SenderOf<ListRoots::Result>::Ptr listRoots() = 0;
@@ -62,7 +62,7 @@ public:
     struct PopRoot final
     {
         using Success = cetl::monostate;  // like `void`
-        using Failure = ErrorCode;
+        using Failure = Error;
         using Result  = cetl::variant<Success, Failure>;
     };
     /// Removes a root directory from the list of directories that the file server will serve.
@@ -86,7 +86,7 @@ public:
     struct PushRoot final
     {
         using Success = cetl::monostate;  // like `void`
-        using Failure = ErrorCode;
+        using Failure = Error;
         using Result  = cetl::variant<Success, Failure>;
     };
     /// Adds a new root directory to the list of directories that the file server will serve.

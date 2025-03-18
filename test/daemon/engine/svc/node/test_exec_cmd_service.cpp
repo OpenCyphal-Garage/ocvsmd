@@ -5,6 +5,7 @@
 
 #include "svc/node/exec_cmd_service.hpp"
 
+#include "common/common_gtest_helpers.hpp"
 #include "common/ipc/gateway_mock.hpp"
 #include "common/ipc/ipc_gtest_helpers.hpp"
 #include "common/ipc/server_router_mock.hpp"
@@ -33,7 +34,8 @@ namespace
 
 using namespace ocvsmd::common;               // NOLINT This our main concern here in the unit tests.
 using namespace ocvsmd::daemon::engine::svc;  // NOLINT This our main concern here in the unit tests.
-using ocvsmd::sdk::OptErrorCode;
+using ocvsmd::sdk::Error;
+using ocvsmd::sdk::OptError;
 
 using testing::_;
 using testing::Invoke;
@@ -168,13 +170,13 @@ TEST_F(TestExecCmdService, empty_request)
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::move(gateway), payload);
-            return OptErrorCode{};
+            return OptError{};
         });
-        EXPECT_THAT(result, OptErrorCode{});
+        EXPECT_THAT(result, OptError{});
 
-        EXPECT_CALL(gateway_mock, complete(OptErrorCode{}, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(OptError{}, false)).Times(1);
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
-        gateway_mock.event_handler_(GatewayEvent::Completed{OptErrorCode{}, true});
+        gateway_mock.event_handler_(GatewayEvent::Completed{OptError{}, true});
     }
 }
 
@@ -209,32 +211,31 @@ TEST_F(TestExecCmdService, two_nodes_request)
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::make_shared<GatewayMock::Wrapper>(gateway_mock), payload);
-            return OptErrorCode{};
+            return OptError{};
         });
-        EXPECT_THAT(result, OptErrorCode{});
+        EXPECT_THAT(result, OptError{});
 
         expectCySvcSessions(cy_sess_42, 42);
         expectCySvcSessions(cy_sess_43, 43);
-        gateway_mock.event_handler_(GatewayEvent::Completed{OptErrorCode{}, true});
+        gateway_mock.event_handler_(GatewayEvent::Completed{OptError{}, true});
     });
     scheduler_.scheduleAt(1s + 100ms, [&](const auto&) {
         //
         // Emulate that node 42 has responded in time (after 100ms).
         ExecCmdSpec::Response expected_response{&mr_};
-        expected_response.error_code = 0;
-        expected_response.node_id    = 42;
+        expected_response.node_id = 42;
         EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
         CyServiceRxTransfer transfer{{{{0, libcyphal::transport::Priority::Nominal}, now()}, 42}, {}};
         cy_sess_42.res_rx_cb_fn({transfer});
 
         // Node 43 never responded, so timeout is expected.
-        expected_response.error_code = ETIMEDOUT;
-        expected_response.node_id    = 43;
+        expected_response.node_id = 43;
+        optErrorToDsdlError(Error{Error::Code::TimedOut}, expected_response._error);
         EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        EXPECT_CALL(gateway_mock, complete(OptErrorCode{}, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(OptError{}, false)).Times(1);
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
     });
     scheduler_.scheduleAt(2s + 1ms, [&](const auto&) {
@@ -275,21 +276,20 @@ TEST_F(TestExecCmdService, out_of_memory)
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::move(gateway), payload);
-            return OptErrorCode{};
+            return OptError{};
         });
-        EXPECT_THAT(result, OptErrorCode{});
+        EXPECT_THAT(result, OptError{});
 
         ExecCmdSpec::Response expected_response{&mr_};
-        expected_response.error_code = ENOMEM;
-        expected_response.node_id    = 13;
+        expected_response.node_id = 13;
+        optErrorToDsdlError(Error{Error::Code::OutOfMemory}, expected_response._error);
         EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
-        expected_response.error_code = ENOMEM;
-        expected_response.node_id    = 31;
+        expected_response.node_id = 31;
         EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
 
-        EXPECT_CALL(gateway_mock, complete(OptErrorCode{}, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(OptError{}, false)).Times(1);
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
-        gateway_mock.event_handler_(GatewayEvent::Completed{OptErrorCode{}, true});
+        gateway_mock.event_handler_(GatewayEvent::Completed{OptError{}, true});
     }
 }
 
@@ -309,11 +309,13 @@ namespace ExecCmd
 {
 static void PrintTo(const Response_0_2& res, std::ostream* os)  // NOLINT
 {
-    *os << "ExecCmd::Response_0_2{err=" << res.error_code << ", node_id=" << res.node_id << "}";
+    *os << "ExecCmd::Response_0_2{node_id=" << res.node_id << ", err=";
+    PrintTo(res._error, os);
+    *os << "}";
 }
 static bool operator==(const Response_0_2& lhs, const Response_0_2& rhs)  // NOLINT
 {
-    return (lhs.error_code == rhs.error_code) && (lhs.node_id == rhs.node_id);
+    return (lhs._error == rhs._error) && (lhs.node_id == rhs.node_id);
 }
 }  // namespace ExecCmd
 }  // namespace node
