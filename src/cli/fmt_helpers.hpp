@@ -8,6 +8,7 @@
 
 #include "ocvsmd/sdk/defines.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <uavcan/_register/Value_1_0.hpp>
@@ -94,6 +95,7 @@ struct fmt::formatter<ocvsmd::sdk::Error> : formatter<std::string>
             error_name = "OperationInProgress";
             break;
         default:
+            CETL_DEBUG_ASSERT(false, "Unknown error code.");
             error_name = "ErrorCode";
             break;
         }

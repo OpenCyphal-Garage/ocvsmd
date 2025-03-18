@@ -182,6 +182,7 @@ struct fmt::formatter<ocvsmd::sdk::Error> : formatter<std::string>
             error_name = "OperationInProgress";
             break;
         default:
+            CETL_DEBUG_ASSERT(false, "Unknown error code.");
             error_name = "ErrorCode";
             break;
         }
