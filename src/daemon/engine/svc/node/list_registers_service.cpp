@@ -341,14 +341,14 @@ private:
             }
         }
 
-        void complete(const sdk::OptError opt_error = {})
+        void complete(const sdk::OptError completion_opt_error = {})
         {
             // Cancel anything that might be still pending.
             node_id_to_cnxt_.clear();
 
-            if (const auto failure = channel_.complete(opt_error))
+            if (const auto opt_error = channel_.complete(completion_opt_error))
             {
-                logger().warn("ListRegsSvc: failed to complete channel (err={}, fsm_id={}).", *failure, id_);
+                logger().warn("ListRegsSvc: failed to complete channel (err={}, fsm_id={}).", *opt_error, id_);
             }
 
             service_.releaseFsmBy(id_);

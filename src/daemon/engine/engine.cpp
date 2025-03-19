@@ -16,6 +16,7 @@
 #include "ipc/server_router.hpp"
 #include "svc/file_server/services.hpp"
 #include "svc/node/services.hpp"
+#include "svc/relay/services.hpp"
 #include "svc/svc_helpers.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -142,6 +143,7 @@ cetl::optional<std::string> Engine::init()
     //
     const svc::ScvContext svc_context{memory_, executor_, *ipc_router_, *presentation_};
     svc::node::registerAllServices(svc_context);
+    svc::relay::registerAllServices(svc_context);
     svc::file_server::registerAllServices(svc_context, *file_provider_);
     //
     if (const auto opt_error = ipc_router_->start())
