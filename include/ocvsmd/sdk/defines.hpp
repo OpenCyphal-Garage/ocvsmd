@@ -98,6 +98,10 @@ using CyphalNodeId = std::uint16_t;
 ///
 using CyphalNodeIds = cetl::span<CyphalNodeId>;
 
+/// Defines the type of the Cyphal port ID.
+///
+using CyphalPortId = std::uint16_t;
+
 }  // namespace sdk
 }  // namespace ocvsmd
 

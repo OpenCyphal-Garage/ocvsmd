@@ -5,10 +5,13 @@
 
 #include "create_raw_sub_service.hpp"
 
+#include "engine_helpers.hpp"
 #include "logging.hpp"
 #include "svc/relay/create_raw_sub_spec.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/presentation/subscriber.hpp>
+#include <libcyphal/presentation/presentation.hpp>
 
 namespace ocvsmd
 {
@@ -86,10 +89,12 @@ private:
 
         void start(const Spec::Request& request)
         {
-            handleEvent(request);
+            makeCySubscriber(request.subject_id, request.extent_size);
         }
 
     private:
+        using CyRawSubscriber = libcyphal::presentation::Subscriber<void>;
+
         common::Logger& logger() const
         {
             return *service_.logger_;
@@ -100,10 +105,9 @@ private:
             return service_.context_.memory;
         }
 
-        // We are not interested in handling this event.
+        // We are not interested in handling these events.
         static void handleEvent(const Channel::Connected&) {}
-
-        void handleEvent(const Channel::Input& input) {}
+        static void handleEvent(const Channel::Input&) {}
 
         void handleEvent(const Channel::Completed& completed)
         {
@@ -117,8 +121,29 @@ private:
             }
         }
 
+        void makeCySubscriber(const sdk::CyphalPortId port_id, const std::size_t extent_bytes)
+        {
+            using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
+
+            auto cy_make_result = service_.context_.presentation.makeSubscriber(port_id, extent_bytes);
+            if (const auto* const cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
+            {
+                const auto opt_error = cyFailureToOptError(*cy_failure);
+                logger().warn("CreateRawSubSvc: failed to make subscriber (port_id={}, err={}, fsm_id={}).",
+                              port_id,
+                              opt_error,
+                              id_);
+
+                complete(opt_error);
+                return;
+            }
+            cy_raw_subscriber_.emplace(cetl::get<CyRawSubscriber>(std::move(cy_make_result)));
+        }
+
         void complete(const sdk::OptError completion_opt_error = {})
         {
+            cy_raw_subscriber_.reset();
+
             if (const auto opt_error = channel_.complete(completion_opt_error))
             {
                 logger().warn("CreateRawSubSvc: failed to complete channel (err={}, fsm_id={}).", *opt_error, id_);
@@ -127,9 +152,10 @@ private:
             service_.releaseFsmBy(id_);
         }
 
-        const Id                 id_;
-        Channel                  channel_;
-        CreateRawSubServiceImpl& service_;
+        const Id                        id_;
+        Channel                         channel_;
+        CreateRawSubServiceImpl&        service_;
+        cetl::optional<CyRawSubscriber> cy_raw_subscriber_;
 
     };  // Fsm
 
