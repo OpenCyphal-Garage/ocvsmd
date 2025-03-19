@@ -5,6 +5,7 @@
 
 #include "access_registers_service.hpp"
 
+#include "common_helpers.hpp"
 #include "engine_helpers.hpp"
 #include "ipc/channel.hpp"
 #include "ipc/server_router.hpp"
@@ -181,7 +182,7 @@ private:
             if (!completed.keep_alive)
             {
                 logger().warn("AccessRegsSvc: canceling processing (fsm_id={}).", id_);
-                complete(sdk::ErrorCode::Canceled);
+                complete(sdk::Error{sdk::Error::Code::Canceled});
                 return;
             }
 
@@ -199,7 +200,7 @@ private:
                                id_,
                                node_id_to_cnxt_.size(),
                                registers_.size());
-                complete(sdk::ErrorCode::Success);
+                complete();
                 return;
             }
 
@@ -236,15 +237,15 @@ private:
             auto& node_cnxt = it->second;
 
             auto cy_make_result = service_.context_.presentation.makeClient<CyRegAccessSvc>(node_id);
-            if (const auto* cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
+            if (const auto* const cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
             {
-                const auto error_code = failureToErrorCode(*cy_failure);
+                const auto opt_error = cyFailureToOptError(*cy_failure);
                 logger().warn("AccessRegsSvc: failed to make RPC client for node {} (err={}, fsm_id={}).",
                               node_id,
-                              error_code,
+                              opt_error,
                               id_);
 
-                sendResponse(node_id, RegKeyValue{&memory()}, error_code);
+                sendResponse(node_id, RegKeyValue{&memory()}, opt_error);
                 releaseNodeContext(node_id);
                 return;
             }
@@ -277,13 +278,13 @@ private:
                 }
 
                 const auto cy_failure = cetl::get<CySvcClient::Failure>(std::move(cy_req_result));
-                const auto err        = failureToErrorCode(cy_failure);
+                const auto opt_error  = cyFailureToOptError(cy_failure);
                 logger().warn("AccessRegsSvc: failed to send RPC request to node {} (err={}, fsm_id={})",
                               node_id,
-                              err,
+                              opt_error,
                               id_);
 
-                sendResponse(node_id, RegKeyValue{reg.key, RegValue{&memory()}, &memory()}, err);
+                sendResponse(node_id, RegKeyValue{reg.key, RegValue{&memory()}, &memory()}, opt_error);
 
                 node_cnxt.reg_index++;
 
@@ -304,43 +305,40 @@ private:
             CETL_DEBUG_ASSERT(processing_, "");
             CETL_DEBUG_ASSERT(node_cnxt.reg_index < registers_.size(), "");
 
-            sdk::ErrorCode error_code = sdk::ErrorCode::Success;
-            const auto&    reg        = registers_[node_cnxt.reg_index];
-            RegKeyValue    reg_key_value{reg.key, RegValue{&memory()}, &memory()};
+            sdk::OptError opt_error{};
+            const auto&   reg = registers_[node_cnxt.reg_index];
+            RegKeyValue   reg_key_value{reg.key, RegValue{&memory()}, &memory()};
             //
-            if (const auto* success = cetl::get_if<CyPromise::Success>(&result))
+            if (const auto* const success = cetl::get_if<CyPromise::Success>(&result))
             {
                 reg_key_value.value = success->response.value;
             }
-            else if (const auto* cy_failure = cetl::get_if<CyPromiseFailure>(&result))
+            else if (const auto* const cy_failure = cetl::get_if<CyPromiseFailure>(&result))
             {
-                error_code = failureToErrorCode(*cy_failure);
+                opt_error = cyFailureToOptError(*cy_failure);
                 logger().warn("ListRegsSvc: RPC promise failure for node {} (err={}, fsm_id={}).",
                               node_id,
-                              error_code,
+                              opt_error,
                               id_);
             }
-            sendResponse(node_id, reg_key_value, error_code);
+            sendResponse(node_id, reg_key_value, opt_error);
 
             node_cnxt.reg_index++;
             startCyRegAccessRpcCallFor(node_id, node_cnxt);
         }
 
-        void sendResponse(const sdk::CyphalNodeId node_id,
-                          const RegKeyValue&      reg,
-                          const sdk::ErrorCode    error_code = sdk::ErrorCode::Success)
+        void sendResponse(const sdk::CyphalNodeId node_id, const RegKeyValue& reg, const sdk::OptError opt_error = {})
         {
             Spec::Response ipc_response{&memory()};
-            ipc_response.error_code = static_cast<std::int32_t>(error_code);
-            ipc_response.node_id    = node_id;
-            ipc_response._register  = reg;
+            ipc_response.node_id   = node_id;
+            ipc_response._register = reg;
+            optErrorToDsdlError(opt_error, ipc_response._error);
 
-            const auto failure = channel_.send(ipc_response);
-            if (failure != sdk::ErrorCode::Success)
+            if (const auto send_opt_error = channel_.send(ipc_response))
             {
                 logger().warn("AccessRegsSvc: failed to send ipc response for node {} (err={}, fsm_id={}).",
                               node_id,
-                              failure,
+                              *send_opt_error,
                               id_);
             }
         }
@@ -350,19 +348,18 @@ private:
             node_id_to_cnxt_.erase(node_id);
             if (node_id_to_cnxt_.empty())
             {
-                complete(sdk::ErrorCode::Success);
+                complete();
             }
         }
 
-        void complete(const sdk::ErrorCode error_code)
+        void complete(const sdk::OptError opt_error = {})
         {
             // Cancel anything that might be still pending.
             node_id_to_cnxt_.clear();
 
-            const auto failure = channel_.complete(error_code);
-            if (failure != sdk::ErrorCode::Success)
+            if (const auto failure = channel_.complete(opt_error))
             {
-                logger().warn("AccessRegsSvc: failed to complete channel (err={}, fsm_id={}).", failure, id_);
+                logger().warn("AccessRegsSvc: failed to complete channel (err={}, fsm_id={}).", *failure, id_);
             }
 
             service_.releaseFsmBy(id_);

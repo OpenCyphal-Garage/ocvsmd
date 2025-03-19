@@ -6,6 +6,7 @@
 #include "socket_server.hpp"
 
 #include "client_context.hpp"
+#include "common_helpers.hpp"
 #include "io/io.hpp"
 #include "io/socket_address.hpp"
 #include "ipc/ipc_types.hpp"
@@ -48,18 +49,17 @@ SocketServer::SocketServer(libcyphal::IExecutor& executor, const io::SocketAddre
     CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
 }
 
-sdk::ErrorCode SocketServer::start(EventHandler event_handler)
+sdk::OptError SocketServer::start(EventHandler event_handler)
 {
     CETL_DEBUG_ASSERT(event_handler, "");
     CETL_DEBUG_ASSERT(server_fd_.get() == -1, "");
 
     event_handler_ = std::move(event_handler);
 
-    const auto error_code = makeSocketHandle();
-    if (error_code != sdk::ErrorCode::Success)
+    if (const auto opt_error = makeSocketHandle())
     {
-        logger().error("Failed to make server socket handle (err={}).", error_code);
-        return error_code;
+        logger().error("Failed to make server socket handle (err={}).", *opt_error);
+        return opt_error;
     }
 
     if (const int err = platform::posixSyscallError([this] {
@@ -68,7 +68,7 @@ sdk::ErrorCode SocketServer::start(EventHandler event_handler)
         }))
     {
         logger().error("Failed to listen on server socket: {}.", std::strerror(err));
-        return static_cast<sdk::ErrorCode>(err);
+        return errnoToError(err);
     }
 
     accept_callback_ = posix_executor_ext_->registerAwaitableCallback(  //
@@ -78,10 +78,10 @@ sdk::ErrorCode SocketServer::start(EventHandler event_handler)
         },
         platform::IPosixExecutorExtension::Trigger::Readable{server_fd_.get()});
 
-    return sdk::ErrorCode::Success;
+    return sdk::OptError{};
 }
 
-sdk::ErrorCode SocketServer::makeSocketHandle()
+sdk::OptError SocketServer::makeSocketHandle()
 {
     using SocketResult = io::SocketAddress::SocketResult;
 
@@ -89,7 +89,7 @@ sdk::ErrorCode SocketServer::makeSocketHandle()
     if (auto* const failure = cetl::get_if<SocketResult::Failure>(&maybe_socket))
     {
         logger().error("Failed to create server socket (err={}).", *failure);
-        return *failure;
+        return sdk::OptError{*failure};
     }
     auto socket_fd = cetl::get<SocketResult::Success>(std::move(maybe_socket));
     CETL_DEBUG_ASSERT(socket_fd.get() != -1, "");
@@ -103,21 +103,20 @@ sdk::ErrorCode SocketServer::makeSocketHandle()
         }))
     {
         logger().error("Failed to set server socket SO_REUSEADDR=1: {}.", std::strerror(err));
-        return static_cast<sdk::ErrorCode>(err);
+        return errnoToError(err);
     }
 
-    const auto error_code = socket_address_.bind(socket_fd);
-    if (error_code != sdk::ErrorCode::Success)
+    if (const auto opt_error = socket_address_.bind(socket_fd))
     {
-        logger().error("Failed to bind server socket (err={}).", error_code);
-        return error_code;
+        logger().error("Failed to bind server socket (err={}).", *opt_error);
+        return opt_error;
     }
 
     server_fd_ = std::move(socket_fd);
-    return sdk::ErrorCode::Success;
+    return sdk::OptError{};
 }
 
-sdk::ErrorCode SocketServer::send(const ClientId client_id, const Payloads payloads)
+sdk::OptError SocketServer::send(const ClientId client_id, const Payloads payloads)
 {
     if (auto* const client_context = tryFindClientContext(client_id))
     {
@@ -125,7 +124,7 @@ sdk::ErrorCode SocketServer::send(const ClientId client_id, const Payloads paylo
     }
 
     logger().warn("Client context is not found (id={}).", client_id);
-    return sdk::ErrorCode::InvalidArgument;
+    return sdk::Error{sdk::Error::Code::InvalidArgument};
 }
 
 void SocketServer::handleAccept()
@@ -169,10 +168,9 @@ void SocketServer::handleClientRequest(const ClientId client_id)
     CETL_DEBUG_ASSERT(client_context, "");
     auto& state = client_context->state();
 
-    const auto error_code = receiveData(state);
-    if (error_code != sdk::ErrorCode::Success)
+    if (const auto opt_error = receiveData(state))
     {
-        if (error_code == sdk::ErrorCode::Disconnected)
+        if (sdk::Error::Code::Disconnected == opt_error->getCode())
         {
             logger().debug("End of client stream - closing connection (id={}, fd={}).", client_id, state.fd.get());
         }
@@ -181,7 +179,7 @@ void SocketServer::handleClientRequest(const ClientId client_id)
             logger().warn("Failed to handle client request - closing connection (id={}, fd={}, err={}).",
                           client_id,
                           state.fd.get(),
-                          error_code);
+                          *opt_error);
         }
 
         client_id_to_context_.erase(client_id);

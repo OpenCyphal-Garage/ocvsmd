@@ -53,7 +53,7 @@ public:
 
     };  // Event
 
-    using EventHandler = std::function<sdk::ErrorCode(const Event::Var&)>;
+    using EventHandler = std::function<sdk::OptError(const Event::Var&)>;
 
     ServerPipe(const ServerPipe&)                = delete;
     ServerPipe(ServerPipe&&) noexcept            = delete;
@@ -62,8 +62,8 @@ public:
 
     virtual ~ServerPipe() = default;
 
-    CETL_NODISCARD virtual sdk::ErrorCode start(EventHandler event_handler)                       = 0;
-    CETL_NODISCARD virtual sdk::ErrorCode send(const ClientId client_id, const Payloads payloads) = 0;
+    CETL_NODISCARD virtual sdk::OptError start(EventHandler event_handler)                       = 0;
+    CETL_NODISCARD virtual sdk::OptError send(const ClientId client_id, const Payloads payloads) = 0;
 
 protected:
     ServerPipe() = default;

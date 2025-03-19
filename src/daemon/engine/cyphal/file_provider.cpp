@@ -119,15 +119,12 @@ public:
         });
     }
 
+    ~FileProviderImpl() override = default;
+
     FileProviderImpl(const FileProviderImpl&)                = delete;
     FileProviderImpl(FileProviderImpl&&) noexcept            = delete;
     FileProviderImpl& operator=(const FileProviderImpl&)     = delete;
     FileProviderImpl& operator=(FileProviderImpl&&) noexcept = delete;
-
-    ~FileProviderImpl() override
-    {
-        logger_->trace("~FileProviderImpl.");
-    }
 
     // FileProvider
 
@@ -177,8 +174,8 @@ private:
         auto maybe_server = presentation.makeServer<Service>();
         if (const auto* const failure = cetl::get_if<Presentation::MakeFailure>(&maybe_server))
         {
-            const auto error_code = failureToErrorCode(*failure);
-            spdlog::error("Failed to make '{}' server (err={}).", role, error_code);
+            const auto opt_error = cyFailureToOptError(*failure);
+            spdlog::error("Failed to make '{}' server (err={}).", role, opt_error);
             return cetl::nullopt;
         }
         return cetl::get<typename Service::Server>(std::move(maybe_server));

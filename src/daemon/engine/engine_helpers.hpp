@@ -6,6 +6,7 @@
 #ifndef OCVSMD_DAEMON_ENGINE_HELPERS_HPP_INCLUDED
 #define OCVSMD_DAEMON_ENGINE_HELPERS_HPP_INCLUDED
 
+#include "common_helpers.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <nunavut/support/serialization.hpp>
@@ -23,53 +24,53 @@ namespace daemon
 namespace engine
 {
 
-inline sdk::ErrorCode errorToCode(const libcyphal::MemoryError) noexcept
+inline sdk::Error cyErrorToSdkError(const libcyphal::MemoryError) noexcept
 {
-    return sdk::ErrorCode::OutOfMemory;
+    return sdk::Error{sdk::Error::Code::OutOfMemory};
 }
-inline sdk::ErrorCode errorToCode(const libcyphal::transport::CapacityError) noexcept
+inline sdk::Error cyErrorToSdkError(const libcyphal::transport::CapacityError) noexcept
 {
-    return sdk::ErrorCode::OutOfMemory;
-}
-
-inline sdk::ErrorCode errorToCode(const libcyphal::ArgumentError) noexcept
-{
-    return sdk::ErrorCode::InvalidArgument;
-}
-inline sdk::ErrorCode errorToCode(const libcyphal::transport::AnonymousError) noexcept
-{
-    return sdk::ErrorCode::InvalidArgument;
-}
-inline sdk::ErrorCode errorToCode(const nunavut::support::Error) noexcept
-{
-    return sdk::ErrorCode::InvalidArgument;
+    return sdk::Error{sdk::Error::Code::OutOfMemory};
 }
 
-inline sdk::ErrorCode errorToCode(const libcyphal::transport::AlreadyExistsError) noexcept
+inline sdk::Error cyErrorToSdkError(const libcyphal::ArgumentError) noexcept
 {
-    return sdk::ErrorCode::AlreadyExists;
+    return sdk::Error{sdk::Error::Code::InvalidArgument};
+}
+inline sdk::Error cyErrorToSdkError(const libcyphal::transport::AnonymousError) noexcept
+{
+    return sdk::Error{sdk::Error::Code::InvalidArgument};
+}
+inline sdk::Error cyErrorToSdkError(const nunavut::support::Error) noexcept
+{
+    return sdk::Error{sdk::Error::Code::InvalidArgument};
 }
 
-inline sdk::ErrorCode errorToCode(const libcyphal::transport::PlatformError& platform_error) noexcept
+inline sdk::Error cyErrorToSdkError(const libcyphal::transport::AlreadyExistsError) noexcept
 {
-    return static_cast<sdk::ErrorCode>(platform_error->code());
+    return sdk::Error{sdk::Error::Code::AlreadyExists};
 }
 
-inline sdk::ErrorCode errorToCode(const libcyphal::presentation::ResponsePromiseExpired) noexcept
+inline sdk::Error cyErrorToSdkError(const libcyphal::transport::PlatformError& platform_error) noexcept
 {
-    return sdk::ErrorCode::TimedOut;
+    return common::errnoToError(platform_error->code());
 }
 
-inline sdk::ErrorCode errorToCode(
+inline sdk::Error cyErrorToSdkError(const libcyphal::presentation::ResponsePromiseExpired) noexcept
+{
+    return sdk::Error{sdk::Error::Code::TimedOut};
+}
+
+inline sdk::Error cyErrorToSdkError(
     const libcyphal::presentation::detail::ClientBase::TooManyPendingRequestsError) noexcept
 {
-    return sdk::ErrorCode::Busy;
+    return sdk::Error{sdk::Error::Code::Busy};
 }
 
 template <typename Variant>
-sdk::ErrorCode failureToErrorCode(const Variant& failure)
+sdk::OptError cyFailureToOptError(const Variant& cy_failure)
 {
-    return cetl::visit([](const auto& error) { return errorToCode(error); }, failure);
+    return sdk::OptError{cetl::visit([](const auto& cy_error) { return cyErrorToSdkError(cy_error); }, cy_failure)};
 }
 
 }  // namespace engine

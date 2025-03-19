@@ -30,17 +30,17 @@ public:
 
         // MARK: Gateway
 
-        CETL_NODISCARD sdk::ErrorCode send(const ServiceDesc::Id service_id, const Payload payload) override
+        CETL_NODISCARD sdk::OptError send(const ServiceDesc::Id service_id, const Payload payload) override
         {
             return reference().send(service_id, payload);
         }
 
-        CETL_NODISCARD sdk::ErrorCode complete(const sdk::ErrorCode error_code, const bool keep_alive) override
+        CETL_NODISCARD sdk::OptError complete(const sdk::OptError opt_error, const bool keep_alive) override
         {
-            return reference().complete(error_code, keep_alive);
+            return reference().complete(opt_error, keep_alive);
         }
 
-        CETL_NODISCARD sdk::ErrorCode event(const Event::Var& event) override
+        CETL_NODISCARD sdk::OptError event(const Event::Var& event) override
         {
             return reference().event(event);
         }
@@ -54,9 +54,9 @@ public:
     };  // Wrapper
 
     MOCK_METHOD(void, deinit, (), (const));
-    MOCK_METHOD(sdk::ErrorCode, send, (const ServiceDesc::Id service_id, const Payload payload), (override));
-    MOCK_METHOD(sdk::ErrorCode, complete, (const sdk::ErrorCode error_code, const bool keep_alive), (override));
-    MOCK_METHOD(sdk::ErrorCode, event, (const Event::Var& event), (override));
+    MOCK_METHOD(sdk::OptError, send, (const ServiceDesc::Id service_id, const Payload payload), (override));
+    MOCK_METHOD(sdk::OptError, complete, (const sdk::OptError opt_error, const bool keep_alive), (override));
+    MOCK_METHOD(sdk::OptError, event, (const Event::Var& event), (override));
     MOCK_METHOD(void, subscribe, (EventHandler event_handler), (override));
 
     // NOLINTBEGIN

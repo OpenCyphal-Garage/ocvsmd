@@ -37,7 +37,7 @@ public:
     using Spec = common::svc::file_server::ListRootsSpec;
 
     using Success = std::vector<std::string>;
-    using Failure = ErrorCode;
+    using Failure = Error;
     using Result  = cetl::variant<Success, Failure>;
 
     CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,

@@ -8,6 +8,7 @@
 
 #include "ocvsmd/sdk/defines.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <uavcan/_register/Value_1_0.hpp>
@@ -16,7 +17,6 @@
 #include <spdlog/fmt/ranges.h>
 
 #include <string>
-#include <type_traits>
 
 template <>
 struct fmt::formatter<uavcan::_register::Value_1_0> : formatter<std::string>
@@ -48,58 +48,60 @@ public:
 };
 
 template <>
-struct fmt::formatter<ocvsmd::sdk::ErrorCode> : formatter<std::string>
+struct fmt::formatter<ocvsmd::sdk::Error> : formatter<std::string>
 {
-    auto format(const ocvsmd::sdk::ErrorCode error_code, format_context& ctx) const
+    static auto format(const ocvsmd::sdk::Error error, format_context& ctx)
     {
-        using ocvsmd::sdk::ErrorCode;
+        using ocvsmd::sdk::Error;
 
-        if (error_code == ErrorCode::Success)
+        const auto* error_name = "ErrorCode";
+        switch (error.getCode())
         {
-            return format_to(ctx.out(), "Success");
-        }
-
-        const char* error_name = "ErrorCode";
-        switch (error_code)
-        {
-        case ErrorCode::Busy:
+        case Error::Code::Other:
+            error_name = "Other";
+            break;
+        case Error::Code::Busy:
             error_name = "Busy";
             break;
-        case ErrorCode::NoEntry:
+        case Error::Code::NoEntry:
             error_name = "NoEntry";
             break;
-        case ErrorCode::TimedOut:
+        case Error::Code::TimedOut:
             error_name = "TimedOut";
             break;
-        case ErrorCode::OutOfMemory:
+        case Error::Code::OutOfMemory:
             error_name = "OutOfMemory";
             break;
-        case ErrorCode::AlreadyExists:
+        case Error::Code::AlreadyExists:
             error_name = "AlreadyExists";
             break;
-        case ErrorCode::InvalidArgument:
+        case Error::Code::InvalidArgument:
             error_name = "InvalidArgument";
             break;
-        case ErrorCode::Canceled:
+        case Error::Code::Canceled:
             error_name = "Canceled";
             break;
-        case ErrorCode::NotConnected:
+        case Error::Code::NotConnected:
             error_name = "NotConnected";
             break;
-        case ErrorCode::Disconnected:
+        case Error::Code::Disconnected:
             error_name = "Disconnected";
             break;
-        case ErrorCode::Shutdown:
+        case Error::Code::Shutdown:
             error_name = "Shutdown";
             break;
-        case ErrorCode::OperationInProgress:
+        case Error::Code::OperationInProgress:
             error_name = "OperationInProgress";
             break;
         default:
-            error_name = "ErrorCode";
-            break;
+            CETL_DEBUG_ASSERT(false, "Unknown error code.");
         }
-        return format_to(ctx.out(), "{}({})", error_name, static_cast<std::underlying_type_t<ErrorCode>>(error_code));
+
+        if (const auto opt_errno = error.getOptErrno())
+        {
+            return format_to(ctx.out(), "{}(errno={})", error_name, opt_errno.value_or(0));
+        }
+        return format_to(ctx.out(), "{}", error_name);
     }
 };
 

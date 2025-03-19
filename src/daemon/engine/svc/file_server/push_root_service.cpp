@@ -61,10 +61,9 @@ public:
         std::copy(request.item.path.cbegin(), request.item.path.cend(), std::back_inserter(path));
         file_provider_.pushRoot(path, request.is_back);
 
-        const auto error_code = channel.complete();
-        if (error_code != sdk::ErrorCode::Success)
+        if (const auto opt_error = channel.complete())
         {
-            logger_->warn("PushRootSvc: failed to send ipc completion (err={}).", error_code);
+            logger_->warn("PushRootSvc: failed to send ipc completion (err={}).", *opt_error);
         }
     }
 

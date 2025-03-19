@@ -6,7 +6,6 @@
 #ifndef OCVSMD_COMMON_IPC_CHANNEL_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_CHANNEL_HPP_INCLUDED
 
-#include "common_helpers.hpp"
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
 #include "ocvsmd/sdk/defines.hpp"
@@ -14,8 +13,6 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/common/crc.hpp>
-
-#include <spdlog/fmt/fmt.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -38,8 +35,8 @@ public:
 
     struct Completed final
     {
-        /// Channel completion error code.
-        sdk::ErrorCode error_code;
+        /// Optional channel completion error.
+        sdk::OptError opt_error;
 
         /// If `true` then it marks that all incoming messages have been received,
         /// but the channel is still alive and could be used for sending outgoing messages.
@@ -97,7 +94,7 @@ public:
     Channel(const Channel&)            = delete;
     Channel& operator=(const Channel&) = delete;
 
-    CETL_NODISCARD sdk::ErrorCode send(const Output& output)
+    CETL_NODISCARD sdk::OptError send(const Output& output)
     {
         constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
@@ -110,10 +107,9 @@ public:
             });
     }
 
-    CETL_NODISCARD sdk::ErrorCode complete(const sdk::ErrorCode error_code = sdk::ErrorCode::Success,
-                                           const bool           keep_alive = false)
+    CETL_NODISCARD sdk::OptError complete(const sdk::OptError opt_error = {}, const bool keep_alive = false)
     {
-        return gateway_->complete(error_code, keep_alive);
+        return gateway_->complete(opt_error, keep_alive);
     }
 
     void subscribe(EventHandler event_handler)
@@ -143,29 +139,29 @@ private:
         cetl::pmr::memory_resource& memory;            // NOLINT
         EventHandler                ch_event_handler;  // NOLINT
 
-        CETL_NODISCARD sdk::ErrorCode operator()(const GatewayEvent::Connected&) const
+        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Connected&) const
         {
             ch_event_handler(Connected{});
-            return sdk::ErrorCode::Success;
+            return sdk::OptError{};
         }
 
-        CETL_NODISCARD sdk::ErrorCode operator()(const GatewayEvent::Message& gateway_msg) const
+        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Message& gateway_msg) const
         {
             Input input{&memory};
             if (!tryDeserializePayload(gateway_msg.payload, input))
             {
                 // Invalid message payload.
-                return sdk::ErrorCode::InvalidArgument;
+                return sdk::OptError{sdk::Error::Code::InvalidArgument};
             }
 
             ch_event_handler(input);
-            return sdk::ErrorCode::Success;
+            return sdk::OptError{};
         }
 
-        CETL_NODISCARD sdk::ErrorCode operator()(const GatewayEvent::Completed& completed) const
+        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Completed& completed) const
         {
-            ch_event_handler(Completed{completed.error_code, completed.keep_alive});
-            return sdk::ErrorCode::Success;
+            ch_event_handler(Completed{completed.opt_error, completed.keep_alive});
+            return sdk::OptError{};
         }
 
     };  // Adapter
@@ -189,27 +185,5 @@ private:
 }  // namespace ipc
 }  // namespace common
 }  // namespace ocvsmd
-
-// MARK: - Formatting
-
-// NOLINTBEGIN
-template <>
-struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Connected> : formatter<string_view>
-{
-    auto format(ocvsmd::common::ipc::AnyChannel::Connected, format_context& ctx) const
-    {
-        return formatter<string_view>::format("Connected", ctx);
-    }
-};
-
-template <>
-struct fmt::formatter<ocvsmd::common::ipc::AnyChannel::Completed> : formatter<std::string>
-{
-    auto format(ocvsmd::common::ipc::AnyChannel::Completed completed, format_context& ctx) const
-    {
-        return format_to(ctx.out(), "Completed(alive={}, err={})", completed.keep_alive, completed.error_code);
-    }
-};
-// NOLINTEND
 
 #endif  // OCVSMD_COMMON_IPC_CHANNEL_HPP_INCLUDED

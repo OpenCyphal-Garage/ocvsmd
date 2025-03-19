@@ -6,6 +6,8 @@
 #ifndef OCVSMD_COMMON_IPC_GTEST_HELPERS_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_GTEST_HELPERS_HPP_INCLUDED
 
+#include "common/common_gtest_helpers.hpp"
+#include "common_helpers.hpp"
 #include "dsdl_helpers.hpp"
 #include "ipc/ipc_types.hpp"
 
@@ -65,8 +67,9 @@ inline void PrintTo(const RouteChannelMsg_0_1& msg, std::ostream* os)
 
 inline void PrintTo(const RouteChannelEnd_0_2& msg, std::ostream* os)
 {
-    *os << "RouteChannelEnd_0_2{tag=" << msg.tag << ", err=" << msg.error_code << ", keep_alive=" << msg.keep_alive
-        << "}";
+    *os << "RouteChannelEnd_0_2{tag=" << msg.tag << ", keep_alive=" << msg.keep_alive << ", err=";
+    PrintTo(msg._error, os);
+    *os << "}";
 }
 
 inline void PrintTo(const Route_0_2& route, std::ostream* os)
@@ -91,7 +94,7 @@ inline bool operator==(const RouteChannelMsg_0_1& lhs, const RouteChannelMsg_0_1
 
 inline bool operator==(const RouteChannelEnd_0_2& lhs, const RouteChannelEnd_0_2& rhs)
 {
-    return (lhs.tag == rhs.tag) && (lhs.error_code == rhs.error_code) && (lhs.keep_alive == rhs.keep_alive);
+    return (lhs.tag == rhs.tag) && (lhs._error == rhs._error) && (lhs.keep_alive == rhs.keep_alive);
 }
 
 // MARK: - GTest Matchers:
@@ -233,11 +236,13 @@ testing::PolymorphicMatcher<PayloadVariantMatcher<Msg>> PayloadVariantWith(
 }
 
 inline auto PayloadOfRouteConnect(cetl::pmr::memory_resource& mr,
-                                  const std::uint8_t          ver_major  = VERSION_MAJOR,
-                                  const std::uint8_t          ver_minor  = VERSION_MINOR,
-                                  const sdk::ErrorCode        error_code = sdk::ErrorCode::Success)
+                                  const std::uint8_t          ver_major = VERSION_MAJOR,
+                                  const std::uint8_t          ver_minor = VERSION_MINOR,
+                                  const sdk::OptError         opt_error = {})
 {
-    const RouteConnect_0_1 route_conn{{ver_major, ver_minor, &mr}, static_cast<std::int32_t>(error_code), &mr};
+    RouteConnect_0_1 route_conn{&mr};
+    route_conn.version = {ver_major, ver_minor, &mr};
+    optErrorToDsdlError(opt_error, route_conn._error);
     return PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteConnect_0_1>(route_conn));
 }
 
@@ -254,18 +259,21 @@ auto PayloadOfRouteChannelMsg(const Msg&                  msg,
                     [&route_ch_msg](const auto payload) {
                         //
                         route_ch_msg.payload_size = payload.size();
-                        return ocvsmd::sdk::ErrorCode::Success;
+                        return ocvsmd::sdk::OptError{};
                     }),
-                ocvsmd::sdk::ErrorCode::Success);
+                ocvsmd::sdk::OptError{});
     return PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteChannelMsg_0_1>(route_ch_msg));
 }
 
 inline auto PayloadOfRouteChannelEnd(cetl::pmr::memory_resource& mr,  //
                                      const std::uint64_t         tag,
-                                     const sdk::ErrorCode        error_code,
+                                     const sdk::OptError         opt_error  = {},
                                      const bool                  keep_alive = false)
 {
-    const RouteChannelEnd_0_2 ch_end{{tag, static_cast<std::int32_t>(error_code), keep_alive, &mr}, &mr};
+    RouteChannelEnd_0_2 ch_end{&mr};
+    ch_end.tag        = tag;
+    ch_end.keep_alive = keep_alive;
+    optErrorToDsdlError(opt_error, ch_end._error);
     return PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteChannelEnd_0_2>(ch_end));
 }
 

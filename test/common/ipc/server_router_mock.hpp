@@ -38,7 +38,7 @@ public:
 
     // ServerRouter
 
-    MOCK_METHOD(sdk::ErrorCode, start, (), (override));
+    MOCK_METHOD(sdk::OptError, start, (), (override));
 
     cetl::pmr::memory_resource& memory() override
     {

@@ -5,6 +5,7 @@
 
 #include "ipc/server_router.hpp"
 
+#include "common_helpers.hpp"
 #include "ipc/channel.hpp"
 #include "ipc/ipc_types.hpp"
 #include "ipc/pipe/server_pipe.hpp"
@@ -31,7 +32,8 @@ namespace
 {
 
 using namespace ocvsmd::common::ipc;  // NOLINT This our main concern here in the unit tests.
-using ocvsmd::sdk::ErrorCode;
+using ocvsmd::sdk::Error;
+using ocvsmd::sdk::OptError;
 
 using testing::_;
 using testing::IsTrue;
@@ -39,6 +41,7 @@ using testing::Return;
 using testing::IsEmpty;
 using testing::IsFalse;
 using testing::NotNull;
+using testing::Optional;
 using testing::StrictMock;
 using testing::VariantWith;
 using testing::MockFunction;
@@ -61,9 +64,9 @@ protected:
 
     void emulateRouteConnect(const pipe::ServerPipe::ClientId client_id,
                              pipe::ServerPipeMock&            server_pipe_mock,
-                             const std::uint8_t               ver_major  = VERSION_MAJOR,  // NOLINT
-                             const std::uint8_t               ver_minor  = VERSION_MINOR,
-                             const ErrorCode                  error_code = ErrorCode::Success)
+                             const std::uint8_t               ver_major = VERSION_MAJOR,  // NOLINT
+                             const std::uint8_t               ver_minor = VERSION_MINOR,
+                             const OptError                   opt_error = {})
     {
         using ocvsmd::common::tryPerformOnSerialized;
 
@@ -73,15 +76,15 @@ protected:
         auto&     rt_conn     = route.set_connect();
         rt_conn.version.major = ver_major;
         rt_conn.version.minor = ver_minor;
-        rt_conn.error_code    = static_cast<std::int32_t>(error_code);
+        optErrorToDsdlError(opt_error, rt_conn._error);
         //
         EXPECT_CALL(server_pipe_mock, send(client_id, PayloadOfRouteConnect(mr_)))  //
-            .WillOnce(Return(ErrorCode::Success));
+            .WillOnce(Return(OptError{}));
         const auto result = tryPerformOnSerialized(route, [&](const auto payload) {
             //
             return server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{client_id, payload});
         });
-        EXPECT_THAT(result, ErrorCode::Success);
+        EXPECT_THAT(result, OptError{});
     }
 
     template <typename Msg>
@@ -111,13 +114,13 @@ protected:
                 return server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{client_id, payload});
             });
         });
-        EXPECT_THAT(result, ErrorCode::Success);
+        EXPECT_THAT(result, OptError{});
     }
 
     void emulateRouteChannelEnd(const pipe::ServerPipe::ClientId client_id,
                                 pipe::ServerPipeMock&            server_pipe_mock,
                                 const std::uint64_t              tag,
-                                const ErrorCode                  error_code = ErrorCode::Success,
+                                const OptError                   opt_error  = {},
                                 const bool                       keep_alive = false)
     {
         using ocvsmd::common::tryPerformOnSerialized;
@@ -125,14 +128,14 @@ protected:
         Route_0_2 route{&mr_};
         auto&     channel_end  = route.set_channel_end();
         channel_end.tag        = tag;
-        channel_end.error_code = static_cast<std::int32_t>(error_code);
         channel_end.keep_alive = keep_alive;
+        optErrorToDsdlError(opt_error, channel_end._error);
 
         const auto result = tryPerformOnSerialized(route, [&](const auto payload) {
             //
             return server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Message{client_id, payload});
         });
-        EXPECT_THAT(result, ErrorCode::Success);
+        EXPECT_THAT(result, OptError{});
     }
 
     // MARK: Data members:
@@ -168,7 +171,7 @@ TEST_F(TestServerRouter, start)
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(server_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(server_router->start(), ErrorCode::Success);
+    EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 }
 
@@ -187,7 +190,7 @@ TEST_F(TestServerRouter, registerChannel)
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(server_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(server_router->start(), ErrorCode::Success);
+    EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
     server_router->registerChannel<Channel>("", [](auto&&, const auto&) {});
@@ -208,7 +211,7 @@ TEST_F(TestServerRouter, channel_send)
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(server_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(server_router->start(), ErrorCode::Success);
+    EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
@@ -235,8 +238,8 @@ TEST_F(TestServerRouter, channel_send)
     EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
     emulateRouteChannelMsg(cl_id, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
     ASSERT_THAT(maybe_channel.has_value(), IsTrue());
-    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelEnd(mr_, tag, ErrorCode::Success)))
-        .WillOnce(Return(ErrorCode::Success));
+    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelEnd(mr_, tag, OptError{})))
+        .WillOnce(Return(OptError{}));
 
     // Emulate that client posted one more `RouteChannelMsg` on the same 42/7 client/tag pair.
     //
@@ -246,17 +249,17 @@ TEST_F(TestServerRouter, channel_send)
     // Emulate that client posted final `RouteChannelEnd` on the same 42/7 client/tag pair.
     //
     EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
-    emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, ErrorCode::Success, true);
+    emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, OptError{}, true);
 
     seq = 0;
     const Channel::Output msg{&mr_};
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
-        .WillOnce(Return(ErrorCode::Success));
-    EXPECT_THAT(maybe_channel->send(msg), ErrorCode::Success);
+        .WillOnce(Return(OptError{}));
+    EXPECT_THAT(maybe_channel->send(msg), OptError{});
 
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
-        .WillOnce(Return(ErrorCode::Success));
-    EXPECT_THAT(maybe_channel->send(msg), ErrorCode::Success);
+        .WillOnce(Return(OptError{}));
+    EXPECT_THAT(maybe_channel->send(msg), OptError{});
 }
 
 TEST_F(TestServerRouter, channel_send_after_end)
@@ -274,7 +277,7 @@ TEST_F(TestServerRouter, channel_send_after_end)
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(server_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(server_router->start(), ErrorCode::Success);
+    EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
@@ -305,36 +308,36 @@ TEST_F(TestServerRouter, channel_send_after_end)
     // Emulate that client posted final `RouteChannelEnd(keep-alive)` on the same 43/8 client/tag pair.
     //
     EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
-    emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, ErrorCode::Success, true);
+    emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, OptError{}, true);
 
     seq = 0;
     const Channel::Output msg{&mr_};
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
-        .WillOnce(Return(ErrorCode::Success));
-    EXPECT_THAT(maybe_channel->send(msg), ErrorCode::Success);
+        .WillOnce(Return(OptError{}));
+    EXPECT_THAT(maybe_channel->send(msg), OptError{});
 
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
-        .WillOnce(Return(ErrorCode::Success));
-    EXPECT_THAT(maybe_channel->send(msg), ErrorCode::Success);
+        .WillOnce(Return(OptError{}));
+    EXPECT_THAT(maybe_channel->send(msg), OptError{});
 
-    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelEnd(mr_, tag, ErrorCode::Success, true)))
-        .WillOnce(Return(ErrorCode::Success));
-    EXPECT_THAT(maybe_channel->complete(ErrorCode::Success, true), ErrorCode::Success);
+    EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelEnd(mr_, tag, OptError{}, true)))
+        .WillOnce(Return(OptError{}));
+    EXPECT_THAT(maybe_channel->complete(OptError{}, true), OptError{});
 
     // Emulate that client posted terminal `RouteChannelEnd` on the same 43/8 client/tag pair.
     //
     EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
-    emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, ErrorCode::Success);
+    emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, OptError{});
     //
-    EXPECT_THAT(maybe_channel->send(msg), ErrorCode::Shutdown);
-    EXPECT_THAT(maybe_channel->complete(), ErrorCode::Shutdown);
+    EXPECT_THAT(maybe_channel->send(msg), Optional(Error{Error::Code::Shutdown}));
+    EXPECT_THAT(maybe_channel->complete(), Optional(Error{Error::Code::Shutdown}));
 
     // Emulate that the whole client has been disconnected.
     //
     server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Disconnected{cl_id});
     //
-    EXPECT_THAT(maybe_channel->send(msg), ErrorCode::NotConnected);
-    EXPECT_THAT(maybe_channel->complete(), ErrorCode::NotConnected);
+    EXPECT_THAT(maybe_channel->send(msg), Optional(Error{Error::Code::NotConnected}));
+    EXPECT_THAT(maybe_channel->complete(), Optional(Error{Error::Code::NotConnected}));
 }
 
 TEST_F(TestServerRouter, channel_disconnected)
@@ -352,7 +355,7 @@ TEST_F(TestServerRouter, channel_disconnected)
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(server_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(server_router->start(), ErrorCode::Success);
+    EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
@@ -382,11 +385,11 @@ TEST_F(TestServerRouter, channel_disconnected)
 
     // Emulate that client posted terminal `RouteChannelEnd` on unknown tag.
     //
-    emulateRouteChannelEnd(cl_id, server_pipe_mock, tag + 1, ErrorCode::Success);
+    emulateRouteChannelEnd(cl_id, server_pipe_mock, tag + 1, OptError{});
 
     // Emulate that unknown client posted terminal `RouteChannelEnd`.
     //
-    emulateRouteChannelEnd(cl_id + 1, server_pipe_mock, tag, ErrorCode::Success);
+    emulateRouteChannelEnd(cl_id + 1, server_pipe_mock, tag, OptError{});
 
     // Emulate that the whole client has been disconnected.
     //
@@ -410,7 +413,7 @@ TEST_F(TestServerRouter, channel_unsolicited)
     EXPECT_THAT(server_pipe_mock.event_handler_, IsFalse());
 
     EXPECT_CALL(server_pipe_mock, start(_)).Times(1);
-    EXPECT_THAT(server_router->start(), ErrorCode::Success);
+    EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
     StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;

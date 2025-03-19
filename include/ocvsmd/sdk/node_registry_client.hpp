@@ -43,28 +43,28 @@ public:
 
     /// Defines the result type of the list command execution.
     ///
-    /// On success, the result is a map of node ID to its register names (or error code from the node).
+    /// On success, the result is a map of node ID to its register names (or SDK error for the node).
     /// Missing Cyphal nodes (or failed to respond in a given timeout) are included in the map with ETIMEDOUT code.
-    /// On failure, the result is an error code of some failure to communicate with the OCVSMD engine.
+    /// On failure, the result is a SDK error of some failure to communicate with the OCVSMD engine.
     ///
     struct List final
     {
         /// Defines the result type of the list of a node registers.
         ///
         /// On success, the result is a vector of register names.
-        /// On failure, the result is an error code.
+        /// On failure, the result is a SDK error.
         ///
         struct NodeRegisters final
         {
             using Success = std::vector<std::string>;
-            using Failure = ErrorCode;
+            using Failure = Error;
             using Result  = cetl::variant<Success, Failure>;
 
             NodeRegisters() = delete;
         };
 
         using Success = std::unordered_map<CyphalNodeId, NodeRegisters::Result>;
-        using Failure = ErrorCode;
+        using Failure = Error;
         using Result  = cetl::variant<Success, Failure>;
 
         List() = delete;
@@ -85,7 +85,7 @@ public:
     ///
     /// Internally it calls the above `list` method - just provides more simple API:
     /// - input is just one node ID (instead of a span of ids);
-    /// - output is just a vector of register names (or error code).
+    /// - output is just a vector of register names (or SDK error).
     ///
     SenderOf<List::NodeRegisters::Result>::Ptr list(const CyphalNodeId node_id, const std::chrono::microseconds timeout)
     {
@@ -100,15 +100,16 @@ public:
             auto list = cetl::get<List::Success>(std::move(result));
 
             const auto node_it = list.find(node_id);
-            return (node_it != list.end()) ? std::move(node_it->second) : ErrorCode::NoEntry;
+            return (node_it != list.end()) ? std::move(node_it->second)
+                                           : List::NodeRegisters::Failure{Error::Code::NoEntry};
         });
     }
 
     /// Defines the result type of the access (read/write) commands execution.
     ///
-    /// On success, the result is a map of node ID to its register names and values (or error code from the node).
+    /// On success, the result is a map of node ID to its register names and values (or SDK error for the node).
     /// Missing Cyphal nodes (or failed to respond in a given timeout) are included in the map with ETIMEDOUT code.
-    /// On failure, the result is an error code of some failure to communicate with the OCVSMD engine.
+    /// On failure, the result is a SDK error of some failure to communicate with the OCVSMD engine.
     ///
     struct Access final
     {
@@ -122,30 +123,30 @@ public:
             RegValue          value;
         };
 
-        /// Defines an output pair of a register name and its value (or error code).
+        /// Defines an output pair of a register name and its value (or SDK error).
         ///
         struct RegKeyValueOrErr final
         {
-            std::string                        key;
-            cetl::variant<RegValue, ErrorCode> value_or_err;
+            std::string                    key;
+            cetl::variant<RegValue, Error> value_or_err;
         };
 
         /// Defines the result type of the list of a node registers.
         ///
         /// On success, the result is a vector of register names and values (or errors).
-        /// On failure, the result is an error code.
+        /// On failure, the result is a SDK error.
         ///
         struct NodeRegisters final
         {
             using Success = std::vector<RegKeyValueOrErr>;
-            using Failure = ErrorCode;
+            using Failure = Error;
             using Result  = cetl::variant<Success, Failure>;
 
             NodeRegisters() = delete;
         };
 
         using Success = std::unordered_map<CyphalNodeId, NodeRegisters::Result>;
-        using Failure = ErrorCode;
+        using Failure = Error;
         using Result  = cetl::variant<Success, Failure>;
 
         Access() = delete;
@@ -170,7 +171,7 @@ public:
     ///
     /// Internally it calls the above `read` method - just provides more simple API:
     /// - input is just one node ID (instead of a span of ids);
-    /// - output is just a vector of the node register names and their values (or error code).
+    /// - output is just a vector of the node register names and their values (or SDK error).
     ///
     SenderOf<Access::NodeRegisters::Result>::Ptr read(const CyphalNodeId                        node_id,
                                                       const cetl::span<const cetl::string_view> registers,
@@ -189,7 +190,8 @@ public:
                 auto list = cetl::get<Access::Success>(std::move(access_result));
 
                 const auto node_it = list.find(node_id);
-                return (node_it != list.end()) ? std::move(node_it->second) : ErrorCode::NoEntry;
+                return (node_it != list.end()) ? std::move(node_it->second)
+                                               : Access::NodeRegisters::Failure{Error::Code::NoEntry};
             });
     }
 
@@ -212,7 +214,7 @@ public:
     ///
     /// Internally it calls the above `write` method - just provides more simple API:
     /// - input is just one node ID (instead of a span of ids);
-    /// - output is just a vector of the node register names and their values (or error code).
+    /// - output is just a vector of the node register names and their values (or SDK error).
     ///
     SenderOf<Access::NodeRegisters::Result>::Ptr write(const CyphalNodeId                          node_id,
                                                        const cetl::span<const Access::RegKeyValue> registers,
@@ -231,7 +233,8 @@ public:
                 auto list = cetl::get<Access::Success>(std::move(access_result));
 
                 const auto node_it = list.find(node_id);
-                return (node_it != list.end()) ? std::move(node_it->second) : ErrorCode::NoEntry;
+                return (node_it != list.end()) ? std::move(node_it->second)
+                                               : Access::NodeRegisters::Failure{Error::Code::NoEntry};
             });
     }
 

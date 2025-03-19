@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 3.25)
 
 set(dsdl_ocvsmd_dir ${CMAKE_CURRENT_SOURCE_DIR}/dsdl/ocvsmd)
 set(dsdl_ocvsmd_files
+        ${dsdl_ocvsmd_dir}/common/Error.0.1.dsdl
         ${dsdl_ocvsmd_dir}/common/ipc/Route.0.2.dsdl
         ${dsdl_ocvsmd_dir}/common/svc/file_server/ListRoots.0.1.dsdl
         ${dsdl_ocvsmd_dir}/common/svc/file_server/PopRoot.0.1.dsdl

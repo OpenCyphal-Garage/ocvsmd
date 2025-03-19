@@ -13,5 +13,8 @@ target_link_libraries(engine_tests
         ocvsmd_engine
         GTest::gmock
 )
+target_include_directories(engine_tests
+        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 gtest_discover_tests(engine_tests)

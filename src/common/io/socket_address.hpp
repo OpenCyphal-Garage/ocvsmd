@@ -30,7 +30,7 @@ class SocketAddress final
 public:
     struct ParseResult
     {
-        using Failure = sdk::ErrorCode;
+        using Failure = sdk::Error;
         using Success = SocketAddress;
         using Var     = cetl::variant<Success, Failure>;
     };
@@ -56,14 +56,14 @@ public:
 
     struct SocketResult
     {
-        using Failure = sdk::ErrorCode;
+        using Failure = sdk::Error;
         using Success = OwnFd;
         using Var     = cetl::variant<Success, Failure>;
     };
     SocketResult::Var socket(const int socket_type) const;
 
-    sdk::ErrorCode        bind(const OwnFd& socket_fd) const;
-    sdk::ErrorCode        connect(const OwnFd& socket_fd) const;
+    sdk::OptError         bind(const OwnFd& socket_fd) const;
+    sdk::OptError         connect(const OwnFd& socket_fd) const;
     cetl::optional<OwnFd> accept(const OwnFd& server_fd);
 
 private:

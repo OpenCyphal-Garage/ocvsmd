@@ -32,13 +32,13 @@ public:
 
         // MARK: ServerPipe
 
-        sdk::ErrorCode start(EventHandler event_handler) override
+        sdk::OptError start(EventHandler event_handler) override
         {
             reference().event_handler_ = event_handler;
             return reference().start(event_handler);
         }
 
-        sdk::ErrorCode send(const ClientId client_id, const Payloads payloads) override
+        sdk::OptError send(const ClientId client_id, const Payloads payloads) override
         {
             return reference().send(client_id, payloads);
         }
@@ -46,8 +46,8 @@ public:
     };  // Wrapper
 
     MOCK_METHOD(void, deinit, (), (const));
-    MOCK_METHOD(sdk::ErrorCode, start, (EventHandler event_handler), (override));
-    MOCK_METHOD(sdk::ErrorCode, send, (const ClientId client_id, const Payloads payloads), (override));
+    MOCK_METHOD(sdk::OptError, start, (EventHandler event_handler), (override));
+    MOCK_METHOD(sdk::OptError, send, (const ClientId client_id, const Payloads payloads), (override));
 
     // MARK: Data members:
 

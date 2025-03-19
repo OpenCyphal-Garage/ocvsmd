@@ -29,7 +29,7 @@ CETL_NODISCARD static auto tryDeserializePayload(const cetl::span<const std::uin
 }
 
 template <typename Message, typename Action>
-CETL_NODISCARD static sdk::ErrorCode tryPerformOnSerialized(const Message& message, Action&& action)
+CETL_NODISCARD static sdk::OptError tryPerformOnSerialized(const Message& message, Action&& action)
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -40,7 +40,7 @@ CETL_NODISCARD static sdk::ErrorCode tryPerformOnSerialized(const Message& messa
     const auto result_size = serialize(message, {buffer.data(), buffer.size()});
     if (!result_size)
     {
-        return sdk::ErrorCode::InvalidArgument;
+        return sdk::OptError{sdk::Error::Code::InvalidArgument};
     }
 
     const cetl::span<const std::uint8_t> bytes{buffer.data(), result_size.value()};
@@ -50,7 +50,7 @@ CETL_NODISCARD static sdk::ErrorCode tryPerformOnSerialized(const Message& messa
 template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
 CETL_NODISCARD static auto tryPerformOnSerialized(  //
     const Message& message,
-    Action&&       action) -> std::enable_if_t<IsOnStack, sdk::ErrorCode>
+    Action&&       action) -> std::enable_if_t<IsOnStack, sdk::OptError>
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -61,7 +61,7 @@ CETL_NODISCARD static auto tryPerformOnSerialized(  //
     const auto result_size = serialize(message, {buffer.data(), buffer.size()});
     if (!result_size)
     {
-        return sdk::ErrorCode::InvalidArgument;
+        return sdk::OptError{sdk::Error::Code::InvalidArgument};
     }
 
     const cetl::span<const std::uint8_t> bytes{buffer.data(), result_size.value()};
@@ -69,8 +69,9 @@ CETL_NODISCARD static auto tryPerformOnSerialized(  //
 }
 
 template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
-CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
-                                                  Action&&       action) -> std::enable_if_t<!IsOnStack, sdk::ErrorCode>
+CETL_NODISCARD static auto tryPerformOnSerialized(  //
+    const Message& message,
+    Action&&       action) -> std::enable_if_t<!IsOnStack, sdk::OptError>
 {
     // Try to serialize the message to raw payload buffer.
     //
@@ -80,7 +81,7 @@ CETL_NODISCARD static auto tryPerformOnSerialized(const Message& message,
     const auto result_size = serialize(message, {buffer->data(), buffer->size()});
     if (!result_size)
     {
-        return sdk::ErrorCode::InvalidArgument;
+        return sdk::OptError{sdk::Error::Code::InvalidArgument};
     }
 
     const cetl::span<const std::uint8_t> bytes{buffer->data(), result_size.value()};

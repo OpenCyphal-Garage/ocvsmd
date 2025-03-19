@@ -63,7 +63,7 @@ public:
         return memory_;
     }
 
-    CETL_NODISCARD sdk::ErrorCode start() override
+    CETL_NODISCARD sdk::OptError start() override
     {
         return client_pipe_->start([this](const auto& pipe_event_var) {
             //
@@ -115,7 +115,6 @@ private:
             : router_{router}
             , endpoint_{endpoint}
             , next_sequence_{0}
-            , completion_error_code_{sdk::ErrorCode::Success}
         {
             router_.logger_->trace("Gateway(tag={}).", endpoint.tag);
         }
@@ -129,25 +128,25 @@ private:
         {
             performWithoutThrowing([this] {
                 //
-                router_.logger_->trace("~Gateway(tag={}, err={}).", endpoint_.tag, completion_error_code_);
+                router_.logger_->trace("~Gateway(tag={}, err={}).", endpoint_.tag, completion_opt_error_);
 
                 // `next_sequence_ == 0` means that this gateway was never used for sending messages,
                 // and so remote router never knew about it (its tag) - no need to post "ChEnd" event.
-                router_.onGatewayDisposal(endpoint_, next_sequence_ > 0, completion_error_code_);
+                router_.onGatewayDisposal(endpoint_, next_sequence_ > 0, completion_opt_error_);
             });
         }
 
         // detail::Gateway
 
-        CETL_NODISCARD sdk::ErrorCode send(const detail::ServiceDesc::Id service_id, const Payload payload) override
+        CETL_NODISCARD sdk::OptError send(const detail::ServiceDesc::Id service_id, const Payload payload) override
         {
             if (!router_.isConnected(endpoint_))
             {
-                return sdk::ErrorCode::NotConnected;
+                return sdk::Error{sdk::Error::Code::NotConnected};
             }
             if (!router_.isRegisteredGateway(endpoint_))
             {
-                return sdk::ErrorCode::Shutdown;
+                return sdk::Error{sdk::Error::Code::Shutdown};
             }
 
             Route_0_2 route{&router_.memory_};
@@ -164,31 +163,31 @@ private:
             });
         }
 
-        CETL_NODISCARD sdk::ErrorCode complete(const sdk::ErrorCode error_code, const bool keep_alive) override
+        CETL_NODISCARD sdk::OptError complete(const sdk::OptError opt_error, const bool keep_alive) override
         {
             if (!router_.isConnected(endpoint_))
             {
-                return sdk::ErrorCode::NotConnected;
+                return sdk::Error{sdk::Error::Code::NotConnected};
             }
             if (!router_.isRegisteredGateway(endpoint_))
             {
-                return sdk::ErrorCode::Shutdown;
+                return sdk::Error{sdk::Error::Code::Shutdown};
             }
 
-            completion_error_code_ = error_code;
+            completion_opt_error_ = opt_error;
 
             // Zero `next_sequence_` means that this gateway was never used for sending messages,
             // and so remote router never knew about it (its tag) - no need to post "ChEnd" event.
             if (next_sequence_ == 0)
             {
-                return sdk::ErrorCode::Success;
+                return sdk::OptError{};
             }
 
             Route_0_2 route{&router_.memory_};
             auto&     channel_end  = route.set_channel_end();
             channel_end.tag        = endpoint_.tag;
-            channel_end.error_code = static_cast<std::int32_t>(error_code);
             channel_end.keep_alive = keep_alive;
+            optErrorToDsdlError(opt_error, channel_end._error);
 
             return tryPerformOnSerialized(route, [this](const auto payload) {
                 //
@@ -196,10 +195,10 @@ private:
             });
         }
 
-        CETL_NODISCARD sdk::ErrorCode event(const Event::Var& event) override
+        CETL_NODISCARD sdk::OptError event(const Event::Var& event) override
         {
             // It's fine to be not subscribed to events.
-            return (event_handler_) ? event_handler_(event) : sdk::ErrorCode::Success;
+            return (event_handler_) ? event_handler_(event) : sdk::OptError{};
         }
 
         void subscribe(EventHandler event_handler) override
@@ -213,7 +212,7 @@ private:
         const Endpoint    endpoint_;
         std::uint64_t     next_sequence_;
         EventHandler      event_handler_;
-        sdk::ErrorCode    completion_error_code_;
+        sdk::OptError     completion_opt_error_;
 
     };  // GatewayImpl
 
@@ -231,7 +230,7 @@ private:
     }
 
     template <typename Action>
-    CETL_NODISCARD sdk::ErrorCode findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action) const
+    CETL_NODISCARD sdk::OptError findAndActOnRegisteredGateway(const Endpoint endpoint, Action&& action) const
     {
         const auto tag_to_gw = map_of_gateways_.find(endpoint.tag);
         if (tag_to_gw != map_of_gateways_.end())
@@ -243,7 +242,7 @@ private:
         }
 
         // It's fine and expected to have no gateway registered for the given endpoint.
-        return sdk::ErrorCode::Success;
+        return sdk::OptError{};
     }
 
     template <typename Action>
@@ -272,11 +271,11 @@ private:
     {
         if (is_connected_)
         {
-            const auto error_code = findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
+            const auto opt_error = findAndActOnRegisteredGateway(endpoint, [](auto& gateway, auto) {
                 //
                 return gateway.event(detail::Gateway::Event::Connected{});
             });
-            (void) error_code;  // Best efforts strategy.
+            (void) opt_error;  // Best efforts strategy.
         }
     }
 
@@ -286,7 +285,7 @@ private:
     /// The "dying" gateway might wish to notify the remote router about its disposal.
     /// This local router fulfills the wish if the gateway was registered and the router is connected.
     ///
-    void onGatewayDisposal(const Endpoint& endpoint, const bool send_ch_end, const sdk::ErrorCode completion_err)
+    void onGatewayDisposal(const Endpoint& endpoint, const bool send_ch_end, const sdk::OptError completion_opt_error)
     {
         const bool was_registered = (map_of_gateways_.erase(endpoint.tag) > 0);
 
@@ -298,19 +297,19 @@ private:
             Route_0_2 route{&memory_};
             auto&     channel_end  = route.set_channel_end();
             channel_end.tag        = endpoint.tag;
-            channel_end.error_code = static_cast<std::int32_t>(completion_err);
             channel_end.keep_alive = false;
+            optErrorToDsdlError(completion_opt_error, channel_end._error);
 
-            const auto error_code = tryPerformOnSerialized(route, [this](const auto payload) {
+            const auto opt_error = tryPerformOnSerialized(route, [this](const auto payload) {
                 //
                 return client_pipe_->send({{payload}});
             });
             // Best efforts strategy - gateway anyway is gone, so nowhere to report.
-            (void) error_code;
+            (void) opt_error;
         }
     }
 
-    CETL_NODISCARD sdk::ErrorCode handlePipeEvent(const pipe::ClientPipe::Event::Connected) const
+    CETL_NODISCARD sdk::OptError handlePipeEvent(const pipe::ClientPipe::Event::Connected) const
     {
         logger_->debug("Pipe is connected.");
 
@@ -328,14 +327,14 @@ private:
         });
     }
 
-    CETL_NODISCARD sdk::ErrorCode handlePipeEvent(const pipe::ClientPipe::Event::Message& msg)
+    CETL_NODISCARD sdk::OptError handlePipeEvent(const pipe::ClientPipe::Event::Message& msg)
     {
         Route_0_2  route_msg{&memory_};
         const auto result_size = tryDeserializePayload(msg.payload, route_msg);
         if (!result_size.has_value())
         {
             // Invalid message payload.
-            return sdk::ErrorCode::InvalidArgument;
+            return sdk::Error{sdk::Error::Code::InvalidArgument};
         }
 
         return cetl::visit(         //
@@ -344,7 +343,7 @@ private:
                     //
                     // Unexpected message, but we can't remove it
                     // b/c Nunavut generated code needs a default case.
-                    return sdk::ErrorCode::InvalidArgument;
+                    return sdk::OptError{sdk::Error{sdk::Error::Code::InvalidArgument}};
                 },
                 [this](const RouteConnect_0_1& route_conn) {
                     //
@@ -361,13 +360,16 @@ private:
             route_msg.union_value);
     }
 
-    CETL_NODISCARD sdk::ErrorCode handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
+    CETL_NODISCARD sdk::OptError handlePipeEvent(const pipe::ClientPipe::Event::Disconnected)
     {
         logger_->debug("Pipe is disconnected.");
 
         if (is_connected_)
         {
             is_connected_ = false;
+
+            const sdk::OptError                     disconnected_error{sdk::Error{sdk::Error::Code::Disconnected}};
+            const detail::Gateway::Event::Completed completed{disconnected_error, false};
 
             // The whole router is disconnected, so we need to unregister and notify all gateways.
             //
@@ -377,24 +379,23 @@ private:
             {
                 if (const auto gateway = tag_to_gw.second.lock())
                 {
-                    constexpr detail::Gateway::Event::Completed completed{sdk::ErrorCode::Disconnected, false};
-
-                    const auto error_code = gateway->event(completed);
-                    (void) error_code;  // Best efforts strategy.
+                    const auto opt_error = gateway->event(completed);
+                    (void) opt_error;  // Best efforts strategy.
                 }
             }
         }
 
         // It's fine to be already disconnected.
-        return sdk::ErrorCode::Success;
+        return sdk::OptError{};
     }
 
-    CETL_NODISCARD sdk::ErrorCode handleRouteConnect(const RouteConnect_0_1& rt_conn)
+    CETL_NODISCARD sdk::OptError handleRouteConnect(const RouteConnect_0_1& rt_conn)
     {
-        logger_->debug("Route connect response (ver='{}.{}', err={}).",
+        logger_->debug("Route connect response (ver='{}.{}', err_code={}, errno={}).",
                        static_cast<int>(rt_conn.version.major),
                        static_cast<int>(rt_conn.version.minor),
-                       rt_conn.error_code);
+                       rt_conn._error.error_code,
+                       rt_conn._error.raw_errno);
 
         if (!is_connected_)
         {
@@ -404,16 +405,16 @@ private:
             //
             forEachRegisteredGateway([](auto& gateway) {
                 //
-                const auto error_code = gateway.event(detail::Gateway::Event::Connected{});
-                (void) error_code;  // Best efforts strategy.
+                const auto opt_error = gateway.event(detail::Gateway::Event::Connected{});
+                (void) opt_error;  // Best efforts strategy.
             });
         }
 
         // It's fine to be already connected.
-        return sdk::ErrorCode::Success;
+        return sdk::OptError{};
     }
 
-    CETL_NODISCARD sdk::ErrorCode handleRouteChannelMsg(const RouteChannelMsg_0_1& route_ch_msg, const Payload payload)
+    CETL_NODISCARD sdk::OptError handleRouteChannelMsg(const RouteChannelMsg_0_1& route_ch_msg, const Payload payload)
     {
         // Cut routing stuff from the payload - remaining is the real message payload.
         const auto msg_real_payload = payload.subspan(payload.size() - route_ch_msg.payload_size);
@@ -437,27 +438,25 @@ private:
                        route_ch_msg.tag,
                        route_ch_msg.sequence,
                        route_ch_msg.service_id);
-        return sdk::ErrorCode::Success;
+        return sdk::OptError{};
     }
 
-    CETL_NODISCARD sdk::ErrorCode handleRouteChannelEnd(const RouteChannelEnd_0_2& route_ch_end)
+    CETL_NODISCARD sdk::OptError handleRouteChannelEnd(const RouteChannelEnd_0_2& route_ch_end)
     {
-        logger_->debug("Route Ch End (tag={}, err={}, keep_alive={}).",
-                       route_ch_end.tag,
-                       route_ch_end.error_code,
-                       route_ch_end.keep_alive);
+        const auto keep_alive = route_ch_end.keep_alive;
+        const auto opt_error  = dsdlErrorToOptError(route_ch_end._error);
+
+        logger_->debug("Route Ch End (tag={}, keep_alive={}, err={}).", route_ch_end.tag, keep_alive, opt_error);
 
         const Endpoint endpoint{route_ch_end.tag};
-        const auto     error_code = static_cast<sdk::ErrorCode>(route_ch_end.error_code);
-        const bool     keep_alive = route_ch_end.keep_alive;
-
-        return findAndActOnRegisteredGateway(endpoint, [this, error_code, keep_alive](auto& gateway, auto found_it) {
+        return findAndActOnRegisteredGateway(endpoint, [this, &opt_error, keep_alive](auto& gateway, auto found_it) {
             //
             if (!keep_alive)
             {
                 map_of_gateways_.erase(found_it);
             }
-            const detail::Gateway::Event::Completed completed{error_code, keep_alive};
+
+            const detail::Gateway::Event::Completed completed{opt_error, keep_alive};
             return gateway.event(completed);
         });
     }

@@ -8,6 +8,7 @@
 
 #include "any_transport_bag.hpp"
 #include "config.hpp"
+#include "engine_helpers.hpp"
 #include "platform/can/can_media.hpp"
 #include "transport_helpers.hpp"
 
@@ -76,10 +77,10 @@ public:
         }
 
         auto maybe_transport = makeTransport({memory}, executor, media_collection.span(), TxQueueCapacity);
-        if (const auto* failure = cetl::get_if<libcyphal::transport::FactoryFailure>(&maybe_transport))
+        if (const auto* const failure = cetl::get_if<libcyphal::transport::FactoryFailure>(&maybe_transport))
         {
-            (void) failure;
-            common::getLogger("io")->warn("Failed to create CAN transport.");
+            const auto opt_error = cyFailureToOptError(*failure);
+            common::getLogger("io")->warn("Failed to create CAN transport (err={}).", opt_error);
             return nullptr;
         }
         transport_bag->transport_ = cetl::get<TransportPtr>(std::move(maybe_transport));
