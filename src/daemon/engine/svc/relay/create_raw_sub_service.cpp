@@ -93,6 +93,8 @@ private:
         }
 
     private:
+        using CyScatteredBuff = libcyphal::transport::ScatteredBuffer;
+        using CyMsgRxMetadata = libcyphal::transport::MessageRxMetadata;
         using CyRawSubscriber = libcyphal::presentation::Subscriber<void>;
 
         common::Logger& logger() const
@@ -125,7 +127,13 @@ private:
         {
             using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
 
-            auto cy_make_result = service_.context_.presentation.makeSubscriber(port_id, extent_bytes);
+            auto cy_make_result = service_.context_.presentation.makeSubscriber(  //
+                port_id,
+                extent_bytes,
+                [this](const auto& arg) {
+                    //
+                    handleNodeMessage(arg.raw_message, arg.metadata);
+                });
             if (const auto* const cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
             {
                 const auto opt_error = cyFailureToOptError(*cy_failure);
@@ -138,6 +146,22 @@ private:
                 return;
             }
             cy_raw_subscriber_.emplace(cetl::get<CyRawSubscriber>(std::move(cy_make_result)));
+        }
+
+        void handleNodeMessage(const CyScatteredBuff& raw_msg, const CyMsgRxMetadata& metadata)
+        {
+            Spec::Response ipc_response{&memory()};
+            ipc_response.priority     = static_cast<std::uint8_t>(metadata.rx_meta.base.priority);
+            ipc_response.payload_size = raw_msg.size();
+            if (const auto opt_node_id = metadata.publisher_node_id)
+            {
+                ipc_response.remote_node_id.push_back(*opt_node_id);
+            }
+
+            if (const auto opt_error = channel_.send(ipc_response))
+            {
+                logger().warn("CreateRawSubSvc: failed to send ipc response (err={}, fsm_id={}).", *opt_error, id_);
+            }
         }
 
         void complete(const sdk::OptError completion_opt_error = {})

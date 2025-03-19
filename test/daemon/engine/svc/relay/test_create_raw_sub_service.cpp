@@ -5,22 +5,23 @@
 
 #include "svc/relay/create_raw_sub_service.hpp"
 
-#include "common/common_gtest_helpers.hpp"
 #include "common/ipc/gateway_mock.hpp"
 #include "common/ipc/ipc_gtest_helpers.hpp"
 #include "common/ipc/server_router_mock.hpp"
 #include "daemon/engine/cyphal/msg_sessions_mock.hpp"
+#include "daemon/engine/cyphal/scattered_buffer_storage_mock.hpp"
 #include "daemon/engine/cyphal/transport_gtest_helpers.hpp"
 #include "daemon/engine/cyphal/transport_mock.hpp"
 #include "ipc/channel.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 #include "svc/relay/create_raw_sub_spec.hpp"
-#include "svc/relay/services.hpp"
 #include "svc/svc_helpers.hpp"
 #include "tracking_memory_resource.hpp"
 #include "virtual_time_scheduler.hpp"
 
 #include <uavcan/node/Version_1_0.hpp>
+
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -42,6 +43,7 @@ using testing::IsNull;
 using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
+using testing::NiceMock;
 using testing::StrictMock;
 
 // https://github.com/llvm/llvm-project/issues/53444
@@ -61,12 +63,15 @@ protected:
 
     using CyTestMessage = uavcan::node::Version_1_0;
 
-    using CyPortId             = libcyphal::transport::PortId;
-    using CyPresentation       = libcyphal::presentation::Presentation;
-    using CyProtocolParams     = libcyphal::transport::ProtocolParams;
-    using CyMsgRxTransfer      = libcyphal::transport::MessageRxTransfer;
-    using CyMsgRxSessionMock   = StrictMock<libcyphal::transport::MessageRxSessionMock>;
-    using CyUniquePtrMsgRxSpec = CyMsgRxSessionMock::RefWrapper::Spec;
+    using CyPortId                     = libcyphal::transport::PortId;
+    using CyPresentation               = libcyphal::presentation::Presentation;
+    using CyMsgRxTransfer              = libcyphal::transport::MessageRxTransfer;
+    using CyProtocolParams             = libcyphal::transport::ProtocolParams;
+    using CyMsgRxSessionMock           = StrictMock<libcyphal::transport::MessageRxSessionMock>;
+    using CyUniquePtrMsgRxSpec         = CyMsgRxSessionMock::RefWrapper::Spec;
+    using CyScatteredBuffer            = libcyphal::transport::ScatteredBuffer;
+    using CyScatteredBufferStorageMock = libcyphal::transport::ScatteredBufferStorageMock;
+
     struct CySessCntx
     {
         CyMsgRxSessionMock                              msg_rx_mock;
@@ -171,12 +176,30 @@ TEST_F(TestCreateRawSubService, request)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        // Emulate that node 42 has published a raw message.
-        // Spec::Response expected_response{&mr_};
-        // expected_response.priority = 4;
-        // expected_response.remote_node_id.push_back(42);
-        // EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<Spec::Response>(mr_, expected_response))).Times(1);
+        // Emulate that node 42 has published an empty raw message.
+        //
+        Spec::Response expected_response{&mr_};
+        expected_response.priority = 4;
+        expected_response.remote_node_id.push_back(42);
+        EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<Spec::Response>(mr_, expected_response))).Times(1);
+        //
         CyMsgRxTransfer transfer{{{{0, libcyphal::transport::Priority::Nominal}, now()}, 42}, {}};
+        cy_sess_cntx.msg_rx_cb_fn({transfer});
+    });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        // Emulate that anonymous node has published a raw message (3 bytes).
+        //
+        Spec::Response expected_response{&mr_};
+        expected_response.priority     = 5;
+        expected_response.payload_size = 3;
+        EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<Spec::Response>(mr_, expected_response))).Times(1);
+        //
+        NiceMock<CyScatteredBufferStorageMock> storage_mock;
+        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(3));
+        CyScatteredBufferStorageMock::Wrapper storage{&storage_mock};
+        CyMsgRxTransfer transfer{{{{147, libcyphal::transport::Priority::Low}, now()}, cetl::nullopt},
+                                 CyScatteredBuffer{std::move(storage)}};
         cy_sess_cntx.msg_rx_cb_fn({transfer});
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
@@ -210,7 +233,7 @@ namespace CreateRawSub
 static void PrintTo(const Response_0_1& res, std::ostream* os)  // NOLINT
 {
     const auto node_id = res.remote_node_id.empty() ? 65535 : res.remote_node_id.front();
-    *os << "CreateRawSub::Response_0_1{priority=" << res.priority << ", node_id=" << node_id
+    *os << "CreateRawSub::Response_0_1{priority=" << static_cast<int>(res.priority) << ", node_id=" << node_id
         << ", payload_size=" << res.payload_size << "}";
 }
 static bool operator==(const Response_0_1& lhs, const Response_0_1& rhs)  // NOLINT
