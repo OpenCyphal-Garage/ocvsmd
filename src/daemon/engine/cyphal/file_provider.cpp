@@ -119,15 +119,12 @@ public:
         });
     }
 
+    ~FileProviderImpl() override = default;
+
     FileProviderImpl(const FileProviderImpl&)                = delete;
     FileProviderImpl(FileProviderImpl&&) noexcept            = delete;
     FileProviderImpl& operator=(const FileProviderImpl&)     = delete;
     FileProviderImpl& operator=(FileProviderImpl&&) noexcept = delete;
-
-    ~FileProviderImpl() override
-    {
-        logger_->trace("~FileProviderImpl.");
-    }
 
     // FileProvider
 
