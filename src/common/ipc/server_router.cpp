@@ -135,7 +135,7 @@ private:
 
         // detail::Gateway
 
-        CETL_NODISCARD sdk::OptError send(const detail::ServiceDesc::Id service_id, const Payload payload) override
+        CETL_NODISCARD sdk::OptError send(const detail::ServiceDesc::Id service_id, ListOfPayloads&& payloads) override
         {
             if (!router_.isConnected(endpoint_))
             {
@@ -152,11 +152,12 @@ private:
             channel_msg.tag          = endpoint_.tag;
             channel_msg.sequence     = next_sequence_++;
             channel_msg.service_id   = service_id;
-            channel_msg.payload_size = payload.size();
+            channel_msg.payload_size = payloads.size();  // FIX: should be total size of all spans
 
-            return tryPerformOnSerialized(route, [this, payload](const auto prefix) {
+            return tryPerformOnSerialized(route, [this, pays = std::move(payloads)](const auto prefix) mutable {
                 //
-                return router_.server_pipe_->send(endpoint_.client_id, {{prefix, payload}});
+                pays.push_front(prefix);
+                return router_.server_pipe_->send(endpoint_.client_id, std::move(pays));
             });
         }
 

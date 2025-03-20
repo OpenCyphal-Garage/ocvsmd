@@ -9,6 +9,7 @@
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <cstdint>
+#include <list>
 
 namespace ocvsmd
 {
@@ -17,8 +18,9 @@ namespace common
 namespace ipc
 {
 
-using Payload  = cetl::span<const std::uint8_t>;
-using Payloads = cetl::span<const Payload>;
+using Payload        = cetl::span<const std::uint8_t>;
+//using Payloads       = cetl::span<const Payload>;
+using ListOfPayloads = std::list<Payload>;
 
 }  // namespace ipc
 }  // namespace common

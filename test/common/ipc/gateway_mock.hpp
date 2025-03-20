@@ -30,9 +30,9 @@ public:
 
         // MARK: Gateway
 
-        CETL_NODISCARD sdk::OptError send(const ServiceDesc::Id service_id, const Payload payload) override
+        CETL_NODISCARD sdk::OptError send(const ServiceDesc::Id service_id, ListOfPayloads&& payloads) override
         {
-            return reference().send(service_id, payload);
+            return reference().send(service_id, std::move(payloads));
         }
 
         CETL_NODISCARD sdk::OptError complete(const sdk::OptError opt_error, const bool keep_alive) override
@@ -54,7 +54,7 @@ public:
     };  // Wrapper
 
     MOCK_METHOD(void, deinit, (), (const));
-    MOCK_METHOD(sdk::OptError, send, (const ServiceDesc::Id service_id, const Payload payload), (override));
+    MOCK_METHOD(sdk::OptError, send, (const ServiceDesc::Id service_id, ListOfPayloads&& payloads), (override));
     MOCK_METHOD(sdk::OptError, complete, (const sdk::OptError opt_error, const bool keep_alive), (override));
     MOCK_METHOD(sdk::OptError, event, (const Event::Var& event), (override));
     MOCK_METHOD(void, subscribe, (EventHandler event_handler), (override));

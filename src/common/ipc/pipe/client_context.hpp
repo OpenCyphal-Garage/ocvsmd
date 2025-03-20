@@ -16,7 +16,6 @@
 #include <libcyphal/executor.hpp>
 
 #include <memory>
-#include <unistd.h>
 #include <utility>
 
 namespace ocvsmd

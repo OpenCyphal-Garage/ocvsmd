@@ -8,10 +8,11 @@
 #include "engine_helpers.hpp"
 #include "logging.hpp"
 #include "svc/relay/create_raw_sub_spec.hpp"
+#include "svc/svc_helpers.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/presentation/presentation.hpp>
+#include <libcyphal/presentation/subscriber.hpp>
 
 namespace ocvsmd
 {
@@ -74,7 +75,7 @@ private:
         {
             logger().trace("CreateRawSubSvc::Fsm (id={}).", id_);
 
-            channel_.subscribe([this](const auto& event_var) {
+            channel_.subscribe([this](const auto& event_var, const auto&) {
                 //
                 cetl::visit([this](const auto& event) { handleEvent(event); }, event_var);
             });
@@ -158,7 +159,7 @@ private:
                 ipc_response.remote_node_id.push_back(*opt_node_id);
             }
 
-            if (const auto opt_error = channel_.send(ipc_response))
+            if (const auto opt_error = channel_.send(ipc_response, {}))  // FIX: make list of payloads of `raw_msg`
             {
                 logger().warn("CreateRawSubSvc: failed to send ipc response (err={}, fsm_id={}).", *opt_error, id_);
             }

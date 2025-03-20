@@ -20,7 +20,6 @@
 #include <cstddef>
 #include <cstring>
 #include <sys/socket.h>
-#include <unistd.h>
 #include <utility>
 
 namespace ocvsmd
@@ -93,7 +92,7 @@ sdk::OptError SocketClient::makeSocketHandle()
     return sdk::OptError{};
 }
 
-sdk::OptError SocketClient::send(const Payloads payloads)
+sdk::OptError SocketClient::send(const ListOfPayloads& payloads)
 {
     return SocketBase::send(io_state_, payloads);
 }

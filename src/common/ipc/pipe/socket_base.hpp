@@ -66,7 +66,7 @@ protected:
         return *logger_;
     }
 
-    CETL_NODISCARD sdk::OptError send(const IoState& io_state, const Payloads payloads) const;
+    CETL_NODISCARD sdk::OptError send(const IoState& io_state, const ListOfPayloads& payloads) const;
     CETL_NODISCARD sdk::OptError receiveData(IoState& io_state) const;
 
 private:

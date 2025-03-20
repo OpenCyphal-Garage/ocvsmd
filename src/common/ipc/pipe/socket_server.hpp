@@ -18,7 +18,6 @@
 #include <cetl/cetl.hpp>
 #include <libcyphal/executor.hpp>
 
-#include <cstddef>
 #include <unordered_map>
 
 namespace ocvsmd
@@ -51,7 +50,7 @@ private:
     // ServerPipe
     //
     CETL_NODISCARD sdk::OptError start(EventHandler event_handler) override;
-    CETL_NODISCARD sdk::OptError send(const ClientId client_id, const Payloads payloads) override;
+    CETL_NODISCARD sdk::OptError send(const ClientId client_id, const ListOfPayloads& payloads) override;
 
     io::OwnFd                                        server_fd_;
     io::SocketAddress                                socket_address_;

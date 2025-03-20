@@ -97,7 +97,7 @@ private:
         {
             logger().trace("AccessRegsSvc::Fsm (id={}).", id_);
 
-            channel_.subscribe([this](const auto& event_var) {
+            channel_.subscribe([this](const auto& event_var, const auto&) {
                 //
                 cetl::visit([this](const auto& event) { handleEvent(event); }, event_var);
             });
@@ -334,7 +334,7 @@ private:
             ipc_response._register = reg;
             optErrorToDsdlError(opt_error, ipc_response._error);
 
-            if (const auto send_opt_error = channel_.send(ipc_response))
+            if (const auto send_opt_error = channel_.send(ipc_response, {}))
             {
                 logger().warn("AccessRegsSvc: failed to send ipc response for node {} (err={}, fsm_id={}).",
                               node_id,

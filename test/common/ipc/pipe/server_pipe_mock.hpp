@@ -38,7 +38,7 @@ public:
             return reference().start(event_handler);
         }
 
-        sdk::OptError send(const ClientId client_id, const Payloads payloads) override
+        sdk::OptError send(const ClientId client_id, const ListOfPayloads& payloads) override
         {
             return reference().send(client_id, payloads);
         }
@@ -47,7 +47,7 @@ public:
 
     MOCK_METHOD(void, deinit, (), (const));
     MOCK_METHOD(sdk::OptError, start, (EventHandler event_handler), (override));
-    MOCK_METHOD(sdk::OptError, send, (const ClientId client_id, const Payloads payloads), (override));
+    MOCK_METHOD(sdk::OptError, send, (const ClientId client_id, const ListOfPayloads& payloads), (override));
 
     // MARK: Data members:
 

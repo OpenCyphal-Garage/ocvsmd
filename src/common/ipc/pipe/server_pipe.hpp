@@ -62,8 +62,8 @@ public:
 
     virtual ~ServerPipe() = default;
 
-    CETL_NODISCARD virtual sdk::OptError start(EventHandler event_handler)                       = 0;
-    CETL_NODISCARD virtual sdk::OptError send(const ClientId client_id, const Payloads payloads) = 0;
+    CETL_NODISCARD virtual sdk::OptError start(EventHandler event_handler)                              = 0;
+    CETL_NODISCARD virtual sdk::OptError send(const ClientId client_id, const ListOfPayloads& payloads) = 0;
 
 protected:
     ServerPipe() = default;

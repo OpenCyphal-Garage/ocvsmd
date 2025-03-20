@@ -83,7 +83,7 @@ public:
     using Output = Output_;
 
     using EventVar     = cetl::variant<Connected, Input, Completed>;
-    using EventHandler = std::function<void(const EventVar&)>;
+    using EventHandler = std::function<void(const EventVar& event, const Payload payload)>;
 
     // Move-only.
     ~Channel()                                   = default;
@@ -94,16 +94,17 @@ public:
     Channel(const Channel&)            = delete;
     Channel& operator=(const Channel&) = delete;
 
-    CETL_NODISCARD sdk::OptError send(const Output& output)
+    CETL_NODISCARD sdk::OptError send(const Output& output, ListOfPayloads&& payloads)
     {
         constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
 
         return tryPerformOnSerialized<Output, BufferSize, IsOnStack>(  //
             output,
-            [this](const auto payload) {
+            [this, pays = std::move(payloads)](const auto payload) mutable {
                 //
-                return gateway_->send(service_id_, payload);
+                pays.push_front(payload);
+                return gateway_->send(service_id_, std::move(pays));
             });
     }
 
@@ -139,9 +140,9 @@ private:
         cetl::pmr::memory_resource& memory;            // NOLINT
         EventHandler                ch_event_handler;  // NOLINT
 
-        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Connected&) const
+        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Connected& connected) const
         {
-            ch_event_handler(Connected{});
+            ch_event_handler(Connected{}, connected.payload);
             return sdk::OptError{};
         }
 
@@ -154,13 +155,13 @@ private:
                 return sdk::OptError{sdk::Error::Code::InvalidArgument};
             }
 
-            ch_event_handler(input);
+            ch_event_handler(input, gateway_msg.payload);
             return sdk::OptError{};
         }
 
         CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Completed& completed) const
         {
-            ch_event_handler(Completed{completed.opt_error, completed.keep_alive});
+            ch_event_handler(Completed{completed.opt_error, completed.keep_alive}, completed.payload);
             return sdk::OptError{};
         }
 

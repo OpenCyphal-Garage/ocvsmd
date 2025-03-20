@@ -19,7 +19,6 @@
 #include <numeric>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <utility>
 
 namespace ocvsmd
@@ -51,7 +50,7 @@ constexpr std::size_t   MsgPayloadMaxSize  = 1ULL << 20ULL;  // 1 MB
 
 }  // namespace
 
-sdk::OptError SocketBase::send(const IoState& io_state, const Payloads payloads) const
+sdk::OptError SocketBase::send(const IoState& io_state, const ListOfPayloads& payloads) const
 {
     // 1. Write the message header (signature and total size of the following fragments).
     //
@@ -77,6 +76,11 @@ sdk::OptError SocketBase::send(const IoState& io_state, const Payloads payloads)
     //
     for (const auto payload : payloads)
     {
+        if (payload.empty())
+        {
+            continue;
+        }
+
         if (const int err = platform::posixSyscallError([payload, &io_state] {
                 //
                 return ::send(io_state.fd.get(), payload.data(), payload.size(), MSG_DONTWAIT);

@@ -50,7 +50,9 @@ public:
     struct Event final
     {
         struct Connected final
-        {};
+        {
+            Payload payload;
+        };
         struct Message final
         {
             std::uint64_t sequence;
@@ -60,6 +62,7 @@ public:
         {
             sdk::OptError opt_error;
             bool          keep_alive;
+            Payload       payload;
         };
 
         using Var = cetl::variant<Connected, Message, Completed>;
@@ -74,10 +77,10 @@ public:
     Gateway& operator=(const Gateway&)     = delete;
     Gateway& operator=(Gateway&&) noexcept = delete;
 
-    CETL_NODISCARD virtual sdk::OptError send(const ServiceDesc::Id service_id, const Payload payload)  = 0;
-    CETL_NODISCARD virtual sdk::OptError complete(const sdk::OptError opt_error, const bool keep_alive) = 0;
-    CETL_NODISCARD virtual sdk::OptError event(const Event::Var& event)                                 = 0;
-    virtual void                         subscribe(EventHandler event_handler)                          = 0;
+    CETL_NODISCARD virtual sdk::OptError send(const ServiceDesc::Id service_id, ListOfPayloads&& payloads) = 0;
+    CETL_NODISCARD virtual sdk::OptError complete(const sdk::OptError opt_error, const bool keep_alive)    = 0;
+    CETL_NODISCARD virtual sdk::OptError event(const Event::Var& event)                                    = 0;
+    virtual void                         subscribe(EventHandler event_handler)                             = 0;
 
 protected:
     Gateway()  = default;

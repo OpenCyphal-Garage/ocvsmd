@@ -23,7 +23,6 @@
 #include <cstring>
 #include <memory>
 #include <sys/socket.h>
-#include <unistd.h>
 #include <utility>
 
 namespace ocvsmd
@@ -116,7 +115,7 @@ sdk::OptError SocketServer::makeSocketHandle()
     return sdk::OptError{};
 }
 
-sdk::OptError SocketServer::send(const ClientId client_id, const Payloads payloads)
+sdk::OptError SocketServer::send(const ClientId client_id, const ListOfPayloads& payloads)
 {
     if (auto* const client_context = tryFindClientContext(client_id))
     {

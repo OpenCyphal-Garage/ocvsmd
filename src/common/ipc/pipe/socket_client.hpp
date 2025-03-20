@@ -49,7 +49,7 @@ private:
     // ClientPipe
     //
     CETL_NODISCARD sdk::OptError start(EventHandler event_handler) override;
-    CETL_NODISCARD sdk::OptError send(const Payloads payloads) override;
+    CETL_NODISCARD sdk::OptError send(const ListOfPayloads& payloads) override;
 
     io::SocketAddress                        socket_address_;
     platform::IPosixExecutorExtension* const posix_executor_ext_;

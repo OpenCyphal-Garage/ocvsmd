@@ -45,6 +45,7 @@ using testing::IsEmpty;
 using testing::NotNull;
 using testing::NiceMock;
 using testing::StrictMock;
+using testing::ElementsAre;
 
 // https://github.com/llvm/llvm-project/issues/53444
 // NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
@@ -181,7 +182,10 @@ TEST_F(TestCreateRawSubService, request)
         Spec::Response expected_response{&mr_};
         expected_response.priority = 4;
         expected_response.remote_node_id.push_back(42);
-        EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<Spec::Response>(mr_, expected_response))).Times(1);
+        EXPECT_CALL(  //
+            gateway_mock,
+            send(_, ElementsAre(ipc::PayloadWith<Spec::Response>(mr_, expected_response))))
+            .Times(1);
         //
         CyMsgRxTransfer transfer{{{{0, libcyphal::transport::Priority::Nominal}, now()}, 42}, {}};
         cy_sess_cntx.msg_rx_cb_fn({transfer});
@@ -193,7 +197,7 @@ TEST_F(TestCreateRawSubService, request)
         Spec::Response expected_response{&mr_};
         expected_response.priority     = 5;
         expected_response.payload_size = 3;
-        EXPECT_CALL(gateway_mock, send(_, ipc::PayloadWith<Spec::Response>(mr_, expected_response))).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, ElementsAre(ipc::PayloadWith<Spec::Response>(mr_, expected_response)))).Times(1);
         //
         NiceMock<CyScatteredBufferStorageMock> storage_mock;
         EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(3));

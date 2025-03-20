@@ -131,7 +131,7 @@ public:
         return match;
     }
 
-    bool MatchAndExplain(const Payloads& payloads, testing::MatchResultListener* listener) const
+    bool MatchAndExplain(const ListOfPayloads& payloads, testing::MatchResultListener* listener) const
     {
         std::vector<std::uint8_t> flatten;
         for (const auto& payload : payloads)
@@ -192,7 +192,7 @@ public:
         return match;
     }
 
-    bool MatchAndExplain(const Payloads& payloads, testing::MatchResultListener* listener) const
+    bool MatchAndExplain(const ListOfPayloads& payloads, testing::MatchResultListener* listener) const
     {
         std::vector<std::uint8_t> flatten;
         for (const auto& payload : payloads)
@@ -222,9 +222,9 @@ private:
 
 template <typename Msg>
 testing::PolymorphicMatcher<PayloadMatcher<Msg>> PayloadWith(cetl::pmr::memory_resource&         mr,
-                                                             const testing::Matcher<const Msg&>& matcher)
+                                                             const testing::Matcher<const Msg&>& payload_matcher)
 {
-    return testing::MakePolymorphicMatcher(PayloadMatcher<Msg>(mr, matcher));
+    return testing::MakePolymorphicMatcher(PayloadMatcher<Msg>(mr, payload_matcher));
 }
 
 template <typename Msg>

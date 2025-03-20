@@ -221,11 +221,11 @@ TEST_F(TestClientRouter, channel_send)
     const Msg               msg{&mr_};
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(OptError{}));
-    EXPECT_THAT(channel.send(msg), OptError{});
+    EXPECT_THAT(channel.send(msg, {}), OptError{});
 
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(OptError{}));
-    EXPECT_THAT(channel.send(msg), OptError{});
+    EXPECT_THAT(channel.send(msg, {}), OptError{});
 
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelEnd(mr_, tag, OptError{})))  //
         .WillOnce(Return(OptError{}));
@@ -247,28 +247,28 @@ TEST_F(TestClientRouter, channel_send_after_end)
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
     EXPECT_THAT(client_router->start(), OptError{});
 
-    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
+    StrictMock<MockFunction<void(const Channel::EventVar&, const Payload payload)>> ch_event_mock;
 
     auto channel = client_router->makeChannel<Channel>();
     channel.subscribe(ch_event_mock.AsStdFunction());
 
     const Msg msg{&mr_};
-    EXPECT_THAT(channel.send(msg), Optional(Error{Error::Code::NotConnected}));
+    EXPECT_THAT(channel.send(msg, {}), Optional(Error{Error::Code::NotConnected}));
     EXPECT_THAT(channel.complete(), Optional(Error{Error::Code::NotConnected}));
 
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_), _)).Times(1);
     emulateRouteConnect(client_pipe_mock);
 
     // Emulate that server posted final `RouteChannelEnd(keep-alive)`.
     //
     constexpr std::uint64_t tag = 0;
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_), _)).Times(1);
     emulateRouteChannelEnd(client_pipe_mock, tag, OptError{}, true);
 
     std::uint64_t seq = 0;
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(OptError{}));
-    EXPECT_THAT(channel.send(msg), OptError{});
+    EXPECT_THAT(channel.send(msg, {}), OptError{});
     //
     EXPECT_CALL(client_pipe_mock, send(PayloadOfRouteChannelEnd(mr_, tag, OptError{}, true)))  //
         .WillOnce(Return(OptError{}));
@@ -276,10 +276,10 @@ TEST_F(TestClientRouter, channel_send_after_end)
 
     // Emulate that server posted final `RouteChannelEnd(keep-alive)`.
     //
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_), _)).Times(1);
     emulateRouteChannelEnd(client_pipe_mock, tag, OptError{}, false);
 
-    EXPECT_THAT(channel.send(msg), Optional(Error{Error::Code::Shutdown}));
+    EXPECT_THAT(channel.send(msg, {}), Optional(Error{Error::Code::Shutdown}));
     EXPECT_THAT(channel.complete(), Optional(Error{Error::Code::Shutdown}));
 }
 
@@ -299,38 +299,38 @@ TEST_F(TestClientRouter, channel_receive_events)
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
     EXPECT_THAT(client_router->start(), OptError{});
 
-    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch1_event_mock;
-    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch2_event_mock;
+    StrictMock<MockFunction<void(const Channel::EventVar&, const Payload)>> ch1_event_mock;
+    StrictMock<MockFunction<void(const Channel::EventVar&, const Payload)>> ch2_event_mock;
 
     auto channel1 = client_router->makeChannel<Channel>();
     channel1.subscribe(ch1_event_mock.AsStdFunction());
 
     auto channel2 = client_router->makeChannel<Channel>();
 
-    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Connected>(_), _)).Times(1);
     emulateRouteConnect(client_pipe_mock);
 
-    EXPECT_CALL(ch2_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    EXPECT_CALL(ch2_event_mock, Call(VariantWith<Channel::Connected>(_), _)).Times(1);
     channel2.subscribe(ch2_event_mock.AsStdFunction());
 
     // Emulate that server posted `RouteChannelMsg` on tag #0.
     //
     std::uint64_t tag = 0;
     std::uint64_t seq = 0;
-    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_))).Times(2);
+    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Input>(_), _)).Times(2);
     emulateRouteChannelMsg(client_pipe_mock, tag, Channel::Input{&mr_}, seq);
     emulateRouteChannelMsg(client_pipe_mock, tag, Channel::Input{&mr_}, seq);
 
     // Emulate that server posted `RouteChannelMsg` on tag #1.
     //
     tag = 1, seq = 0;
-    EXPECT_CALL(ch2_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
+    EXPECT_CALL(ch2_event_mock, Call(VariantWith<Channel::Input>(_), _)).Times(1);
     emulateRouteChannelMsg(client_pipe_mock, tag, Channel::Input{&mr_}, seq);
 
     // Emulate that the pipe is disconnected - all channels should be notified.
     //
-    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
-    EXPECT_CALL(ch2_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
+    EXPECT_CALL(ch1_event_mock, Call(VariantWith<Channel::Completed>(_), _)).Times(1);
+    EXPECT_CALL(ch2_event_mock, Call(VariantWith<Channel::Completed>(_), _)).Times(1);
     client_pipe_mock.event_handler_(pipe::ClientPipe::Event::Disconnected{});
 }
 
@@ -350,12 +350,12 @@ TEST_F(TestClientRouter, channel_unsolicited)
     EXPECT_CALL(client_pipe_mock, start(_)).Times(1);
     EXPECT_THAT(client_router->start(), OptError{});
 
-    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
+    StrictMock<MockFunction<void(const Channel::EventVar&, const Payload)>> ch_event_mock;
 
     auto channel = client_router->makeChannel<Channel>();
     channel.subscribe(ch_event_mock.AsStdFunction());
 
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_), _)).Times(1);
     emulateRouteConnect(client_pipe_mock);
 
     // Emulate that server posted `RouteChannelMsg` on unknown tag.
