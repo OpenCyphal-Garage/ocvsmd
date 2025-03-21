@@ -6,7 +6,7 @@
 #include "socket_client.hpp"
 
 #include "common_helpers.hpp"
-#include "ipc/ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
 #include "ocvsmd/sdk/defines.hpp"
@@ -37,7 +37,7 @@ SocketClient::SocketClient(libcyphal::IExecutor& executor, const io::SocketAddre
 {
     CETL_DEBUG_ASSERT(posix_executor_ext_ != nullptr, "");
 
-    io_state_.on_rx_msg_payload = [this](const Payload payload) {
+    io_state_.on_rx_msg_payload = [this](const io::Payload payload) {
         //
         return event_handler_(Event::Message{payload});
     };
@@ -92,9 +92,9 @@ sdk::OptError SocketClient::makeSocketHandle()
     return sdk::OptError{};
 }
 
-sdk::OptError SocketClient::send(const ListOfPayloads& payloads)
+sdk::OptError SocketClient::send(io::SocketBuffer& sock_buff)
 {
-    return SocketBase::send(io_state_, payloads);
+    return SocketBase::send(io_state_, sock_buff);
 }
 
 sdk::OptError SocketClient::connectSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const

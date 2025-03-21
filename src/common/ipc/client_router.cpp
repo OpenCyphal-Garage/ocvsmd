@@ -8,7 +8,7 @@
 #include "common_helpers.hpp"
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
-#include "ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 #include "pipe/client_pipe.hpp"
@@ -138,7 +138,8 @@ private:
 
         // detail::Gateway
 
-        CETL_NODISCARD sdk::OptError send(const detail::ServiceDesc::Id service_id, ListOfPayloads&& payloads) override
+        CETL_NODISCARD sdk::OptError send(const detail::ServiceDesc::Id service_id,
+                                          io::SocketBuffer&             sock_buff) override
         {
             if (!router_.isConnected(endpoint_))
             {
@@ -155,12 +156,12 @@ private:
             channel_msg.tag          = endpoint_.tag;
             channel_msg.sequence     = next_sequence_++;
             channel_msg.service_id   = service_id;
-            channel_msg.payload_size = payloads.size();  // FIX: should be total size of all spans
+            channel_msg.payload_size = sock_buff.size();
 
-            return tryPerformOnSerialized(route, [this, pays = std::move(payloads)](const auto prefix) mutable {
+            return tryPerformOnSerialized(route, [this, &sock_buff](const auto prefix) mutable {
                 //
-                pays.push_front(prefix);
-                return router_.client_pipe_->send(pays);
+                sock_buff.prepend(prefix);
+                return router_.client_pipe_->send(sock_buff);
             });
         }
 
@@ -192,7 +193,8 @@ private:
 
             return tryPerformOnSerialized(route, [this](const auto payload) {
                 //
-                return router_.client_pipe_->send({{payload}});
+                io::SocketBuffer sock_buff{payload};
+                return router_.client_pipe_->send(sock_buff);
             });
         }
 
@@ -303,7 +305,8 @@ private:
 
             const auto opt_error = tryPerformOnSerialized(route, [this](const auto payload) {
                 //
-                return client_pipe_->send({{payload}});
+                io::SocketBuffer sock_buff{payload};
+                return client_pipe_->send(sock_buff);
             });
             // Best efforts strategy - gateway anyway is gone, so nowhere to report.
             (void) opt_error;
@@ -324,7 +327,8 @@ private:
         //
         return tryPerformOnSerialized(route, [this](const auto payload) {
             //
-            return client_pipe_->send({{payload}});
+            io::SocketBuffer sock_buff{payload};
+            return client_pipe_->send(sock_buff);
         });
     }
 
@@ -415,7 +419,8 @@ private:
         return sdk::OptError{};
     }
 
-    CETL_NODISCARD sdk::OptError handleRouteChannelMsg(const RouteChannelMsg_0_1& route_ch_msg, const Payload payload)
+    CETL_NODISCARD sdk::OptError handleRouteChannelMsg(const RouteChannelMsg_0_1& route_ch_msg,
+                                                       const io::Payload          payload)
     {
         // Cut routing stuff from the payload - remaining is the real message payload.
         const auto msg_real_payload = payload.subspan(payload.size() - route_ch_msg.payload_size);

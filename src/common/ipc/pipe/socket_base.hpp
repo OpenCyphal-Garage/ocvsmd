@@ -7,7 +7,7 @@
 #define OCVSMD_COMMON_IPC_PIPE_SOCKET_BASE_HPP_INCLUDED
 
 #include "io/io.hpp"
-#include "ipc/ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 
@@ -45,10 +45,10 @@ public:
         };
         using MsgPart = cetl::variant<MsgHeader, MsgPayload>;
 
-        io::OwnFd                             fd;
-        std::size_t                           rx_partial_size{0};
-        MsgPart                               rx_msg_part{MsgHeader{}};
-        std::function<sdk::OptError(Payload)> on_rx_msg_payload;
+        io::OwnFd                                 fd;
+        std::size_t                               rx_partial_size{0};
+        MsgPart                                   rx_msg_part{MsgHeader{}};
+        std::function<sdk::OptError(io::Payload)> on_rx_msg_payload;
 
     };  // IoState
 
@@ -66,7 +66,7 @@ protected:
         return *logger_;
     }
 
-    CETL_NODISCARD sdk::OptError send(const IoState& io_state, const ListOfPayloads& payloads) const;
+    CETL_NODISCARD sdk::OptError send(const IoState& io_state, io::SocketBuffer& sock_buff) const;
     CETL_NODISCARD sdk::OptError receiveData(IoState& io_state) const;
 
 private:

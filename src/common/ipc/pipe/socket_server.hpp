@@ -9,7 +9,7 @@
 #include "client_context.hpp"
 #include "io/io.hpp"
 #include "io/socket_address.hpp"
-#include "ipc/ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 #include "server_pipe.hpp"
@@ -50,7 +50,7 @@ private:
     // ServerPipe
     //
     CETL_NODISCARD sdk::OptError start(EventHandler event_handler) override;
-    CETL_NODISCARD sdk::OptError send(const ClientId client_id, const ListOfPayloads& payloads) override;
+    CETL_NODISCARD sdk::OptError send(const ClientId client_id, io::SocketBuffer& sock_buff) override;
 
     io::OwnFd                                        server_fd_;
     io::SocketAddress                                socket_address_;

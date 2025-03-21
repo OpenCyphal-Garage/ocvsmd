@@ -6,8 +6,8 @@
 #include "svc/node/exec_cmd_service.hpp"
 
 #include "common/common_gtest_helpers.hpp"
+#include "common/io/io_gtest_helpers.hpp"
 #include "common/ipc/gateway_mock.hpp"
-#include "common/ipc/ipc_gtest_helpers.hpp"
 #include "common/ipc/server_router_mock.hpp"
 #include "daemon/engine/cyphal/svc_sessions_mock.hpp"
 #include "daemon/engine/cyphal/transport_gtest_helpers.hpp"
@@ -15,7 +15,6 @@
 #include "ipc/channel.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
-#include "svc/node/services.hpp"
 #include "svc/svc_helpers.hpp"
 #include "tracking_memory_resource.hpp"
 #include "virtual_time_scheduler.hpp"
@@ -44,7 +43,6 @@ using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::StrictMock;
-using testing::ElementsAre;
 
 // https://github.com/llvm/llvm-project/issues/53444
 // NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
@@ -225,14 +223,14 @@ TEST_F(TestExecCmdService, two_nodes_request)
         // Emulate that node 42 has responded in time (after 100ms).
         ExecCmdSpec::Response expected_response{&mr_};
         expected_response.node_id = 42;
-        EXPECT_CALL(gateway_mock, send(_, ElementsAre(ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response)))).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
         CyServiceRxTransfer transfer{{{{0, libcyphal::transport::Priority::Nominal}, now()}, 42}, {}};
         cy_sess_42.res_rx_cb_fn({transfer});
 
         // Node 43 never responded, so timeout is expected.
         expected_response.node_id = 43;
         optErrorToDsdlError(Error{Error::Code::TimedOut}, expected_response._error);
-        EXPECT_CALL(gateway_mock, send(_, ElementsAre(ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response)))).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
@@ -284,9 +282,9 @@ TEST_F(TestExecCmdService, out_of_memory)
         ExecCmdSpec::Response expected_response{&mr_};
         expected_response.node_id = 13;
         optErrorToDsdlError(Error{Error::Code::OutOfMemory}, expected_response._error);
-        EXPECT_CALL(gateway_mock, send(_, ElementsAre(ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response)))).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
         expected_response.node_id = 31;
-        EXPECT_CALL(gateway_mock, send(_, ElementsAre(ipc::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response)))).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
 
         EXPECT_CALL(gateway_mock, complete(OptError{}, false)).Times(1);
         EXPECT_CALL(gateway_mock, deinit()).Times(1);

@@ -9,7 +9,7 @@
 #include "common_helpers.hpp"
 #include "io/io.hpp"
 #include "io/socket_address.hpp"
-#include "ipc/ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "logging.hpp"
 #include "ocvsmd/platform/posix_executor_extension.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
@@ -115,11 +115,11 @@ sdk::OptError SocketServer::makeSocketHandle()
     return sdk::OptError{};
 }
 
-sdk::OptError SocketServer::send(const ClientId client_id, const ListOfPayloads& payloads)
+sdk::OptError SocketServer::send(const ClientId client_id, io::SocketBuffer& sock_buff)
 {
     if (auto* const client_context = tryFindClientContext(client_id))
     {
-        return SocketBase::send(client_context->state(), payloads);
+        return SocketBase::send(client_context->state(), sock_buff);
     }
 
     logger().warn("Client context is not found (id={}).", client_id);
@@ -150,7 +150,7 @@ void SocketServer::handleAccept()
             },
             platform::IPosixExecutorExtension::Trigger::Readable{raw_fd}));
         //
-        client_context->state().on_rx_msg_payload = [this, new_client_id](const Payload payload) {
+        client_context->state().on_rx_msg_payload = [this, new_client_id](const io::Payload payload) {
             //
             return event_handler_(Event::Message{new_client_id, payload});
         };

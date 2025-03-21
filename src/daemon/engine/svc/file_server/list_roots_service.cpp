@@ -73,7 +73,7 @@ public:
 
             ipc_response.item.path.clear();
             std::copy(root.cbegin(), root.cend(), std::back_inserter(ipc_response.item.path));
-            if (const auto opt_error = channel.send(ipc_response, {}))
+            if (const auto opt_error = channel.send(ipc_response))
             {
                 logger_->warn("ListRootsSvc: failed to send ipc response (err={}).", *opt_error);
             }

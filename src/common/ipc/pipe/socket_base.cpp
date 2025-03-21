@@ -6,17 +6,19 @@
 #include "socket_base.hpp"
 
 #include "common_helpers.hpp"
-#include "ipc/ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
 #include "ocvsmd/sdk/defines.hpp"
+
+#include <cetl/cetl.hpp>
 
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <limits>
 #include <memory>
-#include <numeric>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <utility>
@@ -50,37 +52,19 @@ constexpr std::size_t   MsgPayloadMaxSize  = 1ULL << 20ULL;  // 1 MB
 
 }  // namespace
 
-sdk::OptError SocketBase::send(const IoState& io_state, const ListOfPayloads& payloads) const
+sdk::OptError SocketBase::send(const IoState& io_state, io::SocketBuffer& sock_buff) const
 {
-    // 1. Write the message header (signature and total size of the following fragments).
+    // 1. Prepend the message header (signature and total size of the following fragments).
     //
-    const std::size_t total_payload_size = std::accumulate(  // NOLINT
-        payloads.begin(),
-        payloads.end(),
-        0ULL,
-        [](const std::size_t acc, const Payload payload) {
-            //
-            return acc + payload.size();
-        });
-    if (const int err = platform::posixSyscallError([total_payload_size, &io_state] {
-            //
-            const IoState::MsgHeader msg_header{MsgHeaderSignature, static_cast<std::uint32_t>(total_payload_size)};
-            return ::send(io_state.fd.get(), &msg_header, sizeof(msg_header), MSG_DONTWAIT);
-        }))
-    {
-        logger_->error("SocketBase: Failed to send msg header (fd={}): {}.", io_state.fd.get(), std::strerror(err));
-        return errnoToError(err);
-    }
+    CETL_DEBUG_ASSERT(sock_buff.size() <= std::numeric_limits<std::uint32_t>::max(), "");
+    const IoState::MsgHeader msg_header{MsgHeaderSignature, static_cast<std::uint32_t>(sock_buff.size())};
+    // NOLINTNEXTLINE(*-reinterpret-cast)
+    sock_buff.prepend({reinterpret_cast<const std::uint8_t*>(&msg_header), sizeof(msg_header)});
 
-    // 2. Write the message payload fragments.
+    // 2. Write all payload fragments.
     //
-    for (const auto payload : payloads)
+    for (const auto payload : sock_buff.fragments())
     {
-        if (payload.empty())
-        {
-            continue;
-        }
-
         if (const int err = platform::posixSyscallError([payload, &io_state] {
                 //
                 return ::send(io_state.fd.get(), payload.data(), payload.size(), MSG_DONTWAIT);
@@ -231,7 +215,7 @@ sdk::OptError SocketBase::receiveData(IoState& io_state) const
         const auto payload       = std::move(msg_payload);
         io_state.rx_msg_part.emplace<IoState::MsgHeader>();
 
-        io_state.on_rx_msg_payload(Payload{payload.buffer.get(), payload.size});
+        io_state.on_rx_msg_payload(io::Payload{payload.buffer.get(), payload.size});
     }
 
     return sdk::OptError{};

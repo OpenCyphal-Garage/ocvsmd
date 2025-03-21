@@ -6,8 +6,8 @@
 #include "ipc/server_router.hpp"
 
 #include "common_helpers.hpp"
+#include "io/socket_buffer.hpp"
 #include "ipc/channel.hpp"
-#include "ipc/ipc_types.hpp"
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc_gtest_helpers.hpp"
 #include "ocvsmd/sdk/defines.hpp"
@@ -31,6 +31,7 @@
 namespace
 {
 
+using namespace ocvsmd::common::io;   // NOLINT This our main concern here in the unit tests.
 using namespace ocvsmd::common::ipc;  // NOLINT This our main concern here in the unit tests.
 using ocvsmd::sdk::Error;
 using ocvsmd::sdk::OptError;
@@ -255,11 +256,11 @@ TEST_F(TestServerRouter, channel_send)
     const Channel::Output msg{&mr_};
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(OptError{}));
-    EXPECT_THAT(maybe_channel->send(msg, {}), OptError{});
+    EXPECT_THAT(maybe_channel->send(msg), OptError{});
 
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(OptError{}));
-    EXPECT_THAT(maybe_channel->send(msg, {}), OptError{});
+    EXPECT_THAT(maybe_channel->send(msg), OptError{});
 }
 
 TEST_F(TestServerRouter, channel_send_after_end)
@@ -314,11 +315,11 @@ TEST_F(TestServerRouter, channel_send_after_end)
     const Channel::Output msg{&mr_};
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(OptError{}));
-    EXPECT_THAT(maybe_channel->send(msg, {}), OptError{});
+    EXPECT_THAT(maybe_channel->send(msg), OptError{});
 
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelMsg(msg, mr_, tag, seq++)))  //
         .WillOnce(Return(OptError{}));
-    EXPECT_THAT(maybe_channel->send(msg, {}), OptError{});
+    EXPECT_THAT(maybe_channel->send(msg), OptError{});
 
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelEnd(mr_, tag, OptError{}, true)))
         .WillOnce(Return(OptError{}));
@@ -329,14 +330,14 @@ TEST_F(TestServerRouter, channel_send_after_end)
     EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_), _)).Times(1);
     emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, OptError{});
     //
-    EXPECT_THAT(maybe_channel->send(msg, {}), Optional(Error{Error::Code::Shutdown}));
+    EXPECT_THAT(maybe_channel->send(msg), Optional(Error{Error::Code::Shutdown}));
     EXPECT_THAT(maybe_channel->complete(), Optional(Error{Error::Code::Shutdown}));
 
     // Emulate that the whole client has been disconnected.
     //
     server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Disconnected{cl_id});
     //
-    EXPECT_THAT(maybe_channel->send(msg, {}), Optional(Error{Error::Code::NotConnected}));
+    EXPECT_THAT(maybe_channel->send(msg), Optional(Error{Error::Code::NotConnected}));
     EXPECT_THAT(maybe_channel->complete(), Optional(Error{Error::Code::NotConnected}));
 }
 

@@ -6,6 +6,7 @@
 #ifndef OCVSMD_COMMON_IPC_GATEWAY_MOCK_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_GATEWAY_MOCK_HPP_INCLUDED
 
+#include "io/socket_buffer.hpp"
 #include "ipc/gateway.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 #include "ref_wrapper.hpp"
@@ -30,9 +31,9 @@ public:
 
         // MARK: Gateway
 
-        CETL_NODISCARD sdk::OptError send(const ServiceDesc::Id service_id, ListOfPayloads&& payloads) override
+        CETL_NODISCARD sdk::OptError send(const ServiceDesc::Id service_id, io::SocketBuffer& sock_buff) override
         {
-            return reference().send(service_id, std::move(payloads));
+            return reference().send(service_id, sock_buff);
         }
 
         CETL_NODISCARD sdk::OptError complete(const sdk::OptError opt_error, const bool keep_alive) override
@@ -54,7 +55,7 @@ public:
     };  // Wrapper
 
     MOCK_METHOD(void, deinit, (), (const));
-    MOCK_METHOD(sdk::OptError, send, (const ServiceDesc::Id service_id, ListOfPayloads&& payloads), (override));
+    MOCK_METHOD(sdk::OptError, send, (const ServiceDesc::Id service_id, io::SocketBuffer& sock_buff), (override));
     MOCK_METHOD(sdk::OptError, complete, (const sdk::OptError opt_error, const bool keep_alive), (override));
     MOCK_METHOD(sdk::OptError, event, (const Event::Var& event), (override));
     MOCK_METHOD(void, subscribe, (EventHandler event_handler), (override));

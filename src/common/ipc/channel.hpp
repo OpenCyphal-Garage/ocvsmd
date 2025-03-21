@@ -8,6 +8,7 @@
 
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
@@ -83,7 +84,7 @@ public:
     using Output = Output_;
 
     using EventVar     = cetl::variant<Connected, Input, Completed>;
-    using EventHandler = std::function<void(const EventVar& event, const Payload payload)>;
+    using EventHandler = std::function<void(const EventVar& event, const io::Payload payload)>;
 
     // Move-only.
     ~Channel()                                   = default;
@@ -94,17 +95,17 @@ public:
     Channel(const Channel&)            = delete;
     Channel& operator=(const Channel&) = delete;
 
-    CETL_NODISCARD sdk::OptError send(const Output& output, ListOfPayloads&& payloads)
+    CETL_NODISCARD sdk::OptError send(const Output& output)
     {
         constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
 
         return tryPerformOnSerialized<Output, BufferSize, IsOnStack>(  //
             output,
-            [this, pays = std::move(payloads)](const auto payload) mutable {
+            [this](const auto payload) mutable {
                 //
-                pays.push_front(payload);
-                return gateway_->send(service_id_, std::move(pays));
+                io::SocketBuffer sock_buff{payload};
+                return gateway_->send(service_id_, sock_buff);
             });
     }
 
