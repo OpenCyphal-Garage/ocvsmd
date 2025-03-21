@@ -50,9 +50,7 @@ public:
     struct Event final
     {
         struct Connected final
-        {
-            io::Payload payload;
-        };
+        {};
         struct Message final
         {
             std::uint64_t sequence;
@@ -62,7 +60,6 @@ public:
         {
             sdk::OptError opt_error;
             bool          keep_alive;
-            io::Payload   payload;
         };
 
         using Var = cetl::variant<Connected, Message, Completed>;

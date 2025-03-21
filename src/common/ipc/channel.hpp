@@ -97,14 +97,20 @@ public:
 
     CETL_NODISCARD sdk::OptError send(const Output& output)
     {
+        io::SocketBuffer sock_buff;
+        return send(output, sock_buff);
+    }
+
+    CETL_NODISCARD sdk::OptError send(const Output& output, io::SocketBuffer& sock_buff)
+    {
         constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
 
         return tryPerformOnSerialized<Output, BufferSize, IsOnStack>(  //
             output,
-            [this](const auto payload) mutable {
+            [this, &sock_buff](const auto payload) mutable {
                 //
-                io::SocketBuffer sock_buff{payload};
+                sock_buff.prepend(payload);
                 return gateway_->send(service_id_, sock_buff);
             });
     }
@@ -141,9 +147,9 @@ private:
         cetl::pmr::memory_resource& memory;            // NOLINT
         EventHandler                ch_event_handler;  // NOLINT
 
-        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Connected& connected) const
+        CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Connected&) const
         {
-            ch_event_handler(Connected{}, connected.payload);
+            ch_event_handler(Connected{}, {});
             return sdk::OptError{};
         }
 
@@ -162,7 +168,7 @@ private:
 
         CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Completed& completed) const
         {
-            ch_event_handler(Completed{completed.opt_error, completed.keep_alive}, completed.payload);
+            ch_event_handler(Completed{completed.opt_error, completed.keep_alive}, {});
             return sdk::OptError{};
         }
 

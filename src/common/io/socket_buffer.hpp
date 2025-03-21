@@ -25,6 +25,8 @@ using Payload = cetl::span<const std::uint8_t>;
 class SocketBuffer final
 {
 public:
+    SocketBuffer() = default;
+
     explicit SocketBuffer(const Payload payload)
     {
         append(payload);
@@ -32,7 +34,7 @@ public:
 
     std::size_t size() const noexcept
     {
-        return total_size_;
+        return size_;
     }
 
     const std::list<Payload>& fragments() const
@@ -44,7 +46,7 @@ public:
     {
         if (!payload.empty())
         {
-            total_size_ += payload.size();
+            size_ += payload.size();
             payloads_.push_front(payload);
         }
     }
@@ -53,13 +55,13 @@ public:
     {
         if (!payload.empty())
         {
-            total_size_ += payload.size();
+            size_ += payload.size();
             payloads_.push_back(payload);
         }
     }
 
 private:
-    std::size_t        total_size_{0};
+    std::size_t        size_{0};
     std::list<Payload> payloads_;
 
 };  // SocketBuffer
