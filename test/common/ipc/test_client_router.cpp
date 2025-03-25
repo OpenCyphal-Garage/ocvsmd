@@ -108,7 +108,7 @@ protected:
             //
             return tryPerformOnSerialized(msg, [&](const auto suffix) {
                 //
-                std::vector<std::uint8_t> buffer;
+                std::vector<cetl::byte> buffer;
                 std::copy(prefix.begin(), prefix.end(), std::back_inserter(buffer));
                 std::copy(suffix.begin(), suffix.end(), std::back_inserter(buffer));
                 const Payload payload{buffer.data(), buffer.size()};

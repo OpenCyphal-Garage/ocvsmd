@@ -11,6 +11,7 @@
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <cerrno>
 #include <cstddef>
@@ -59,11 +60,11 @@ sdk::OptError SocketBase::send(const IoState& io_state, io::SocketBuffer& sock_b
     CETL_DEBUG_ASSERT(sock_buff.size() <= std::numeric_limits<std::uint32_t>::max(), "");
     const IoState::MsgHeader msg_header{MsgHeaderSignature, static_cast<std::uint32_t>(sock_buff.size())};
     // NOLINTNEXTLINE(*-reinterpret-cast)
-    sock_buff.prepend({reinterpret_cast<const std::uint8_t*>(&msg_header), sizeof(msg_header)});
+    sock_buff.prepend({reinterpret_cast<const cetl::byte*>(&msg_header), sizeof(msg_header)});
 
     // 2. Write all payload fragments.
     //
-    for (const auto payload : sock_buff.fragments())
+    for (const auto payload : sock_buff.listFragments())
     {
         if (const int err = platform::posixSyscallError([payload, &io_state] {
                 //
@@ -157,7 +158,7 @@ sdk::OptError SocketBase::receiveData(IoState& io_state) const
         // Switch to the next part - message payload.
         //
         io_state.rx_partial_size = 0;
-        auto payload_buffer = std::make_unique<std::uint8_t[]>(msg_header.payload_size);  // NOLINT(*-avoid-c-arrays)
+        auto payload_buffer      = std::make_unique<cetl::byte[]>(msg_header.payload_size);  // NOLINT(*-avoid-c-arrays)
         io_state.rx_msg_part.emplace<IoState::MsgPayload>(
             IoState::MsgPayload{msg_header.payload_size, std::move(payload_buffer)});
     }
@@ -174,7 +175,7 @@ sdk::OptError SocketBase::receiveData(IoState& io_state) const
             ssize_t bytes_read = 0;
             if (const int err = platform::posixSyscallError([&io_state, &bytes_read, &msg_payload] {
                     //
-                    std::uint8_t* const dst_buf = msg_payload.buffer.get() + io_state.rx_partial_size;
+                    auto* const dst_buf = msg_payload.buffer.get() + io_state.rx_partial_size;
                     //
                     const auto bytes_to_read = msg_payload.size - io_state.rx_partial_size;
                     return bytes_read        = ::recv(io_state.fd.get(), dst_buf, bytes_to_read, MSG_DONTWAIT);

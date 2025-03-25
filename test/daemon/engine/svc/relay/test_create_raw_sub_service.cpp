@@ -17,6 +17,7 @@
 #include "svc/relay/create_raw_sub_spec.hpp"
 #include "svc/svc_helpers.hpp"
 #include "tracking_memory_resource.hpp"
+#include "verify_utilz.hpp"
 #include "virtual_time_scheduler.hpp"
 
 #include <uavcan/node/Version_1_0.hpp>
@@ -26,6 +27,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <string>
 #include <utility>
 
@@ -36,6 +38,8 @@ using namespace ocvsmd::common;               // NOLINT This our main concern he
 using namespace ocvsmd::daemon::engine::svc;  // NOLINT This our main concern here in the unit tests.
 using ocvsmd::sdk::Error;
 using ocvsmd::sdk::OptError;
+
+using ocvsmd::verify_utilz::b;
 
 using testing::_;
 using testing::Invoke;
@@ -158,6 +162,8 @@ TEST_F(TestCreateRawSubService, request)
     request.extent_size = CyTestMessage::_traits_::ExtentBytes;
     request.subject_id  = 123;
 
+    std::array<cetl::byte, 3> test_raw_bytes{b(0x11), b(0x22), b(0x33)};
+
     CySessCntx cy_sess_cntx;
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
@@ -192,14 +198,17 @@ TEST_F(TestCreateRawSubService, request)
         //
         Spec::Response expected_response{&mr_};
         expected_response.priority     = 5;
-        expected_response.payload_size = 3;
+        expected_response.payload_size = test_raw_bytes.size();
         EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<Spec::Response>(mr_, expected_response))).Times(1);
         //
         NiceMock<CyScatteredBufferStorageMock> storage_mock;
         EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(3));
-        CyScatteredBufferStorageMock::Wrapper storage{&storage_mock};
+        EXPECT_CALL(storage_mock, observeFragments(_)).WillOnce(Invoke([&](auto& observer) {
+            //
+            observer.onNext(test_raw_bytes);
+        }));
         CyMsgRxTransfer transfer{{{{147, libcyphal::transport::Priority::Low}, now()}, cetl::nullopt},
-                                 CyScatteredBuffer{std::move(storage)}};
+                                 CyScatteredBuffer{CyScatteredBufferStorageMock::Wrapper{&storage_mock}}};
         cy_sess_cntx.msg_rx_cb_fn({transfer});
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {

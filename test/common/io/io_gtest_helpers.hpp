@@ -13,9 +13,6 @@
 
 #include "ocvsmd/sdk/defines.hpp"
 
-#include <uavcan/node/Version_1_0.hpp>
-#include <uavcan/primitive/Empty_1_0.hpp>
-
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <gmock/gmock.h>
@@ -70,8 +67,8 @@ public:
 
     bool MatchAndExplain(const SocketBuffer& sock_buff, testing::MatchResultListener* listener) const
     {
-        std::vector<std::uint8_t> flatten;
-        for (const auto payload : sock_buff.fragments())
+        std::vector<cetl::byte> flatten;
+        for (const auto payload : sock_buff.listFragments())
         {
             flatten.insert(flatten.end(), payload.begin(), payload.end());
         }
@@ -131,8 +128,8 @@ public:
 
     bool MatchAndExplain(const SocketBuffer& sock_buff, testing::MatchResultListener* listener) const
     {
-        std::vector<std::uint8_t> flatten;
-        for (const auto payload : sock_buff.fragments())
+        std::vector<cetl::byte> flatten;
+        for (const auto payload : sock_buff.listFragments())
         {
             flatten.insert(flatten.end(), payload.begin(), payload.end());
         }

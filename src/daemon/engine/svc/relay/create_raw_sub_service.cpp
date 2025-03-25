@@ -159,7 +159,8 @@ private:
                 ipc_response.remote_node_id.push_back(*opt_node_id);
             }
 
-            if (const auto opt_error = channel_.send(ipc_response))  // FIX: make list of payloads of `raw_msg`
+            common::io::SocketBuffer sock_buff{raw_msg};
+            if (const auto opt_error = channel_.send(ipc_response, sock_buff))
             {
                 logger().warn("CreateRawSubSvc: failed to send ipc response (err={}, fsm_id={}).", *opt_error, id_);
             }
