@@ -6,6 +6,7 @@
 #include "create_raw_sub_service.hpp"
 
 #include "engine_helpers.hpp"
+#include "io/socket_buffer.hpp"
 #include "logging.hpp"
 #include "svc/relay/create_raw_sub_spec.hpp"
 #include "svc/svc_helpers.hpp"

@@ -39,7 +39,7 @@ using ocvsmd::sdk::Daemon;
 using ocvsmd::sdk::sync_wait;
 using Executor = ocvsmd::platform::SingleThreadedExecutor;
 
-using std::literals::chrono_literals::operator""s;
+using std::literals::chrono_literals::operator""s;  // NOLINT(misc-unused-using-decls)
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 volatile sig_atomic_t g_running = 1;

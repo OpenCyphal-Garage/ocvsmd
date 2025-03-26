@@ -13,7 +13,7 @@
 #include <cstdint>
 
 template <typename Message>
-CETL_NODISCARD static auto tryDeserializePayload(const cetl::span<const cetl::byte> payload, Message& out_message)
+CETL_NODISCARD auto tryDeserializePayload(const cetl::span<const cetl::byte> payload, Message& out_message)
 {
     // No lint b/c of integration with Nunavut.
     // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)

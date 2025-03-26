@@ -71,7 +71,12 @@ protected:
 /// but usually it represents one RPC session, which could be completed (finished) with an optional error code.
 /// Such completion normally done at server side (when RPC request has been fulfilled),
 /// but client could also complete the channel. Any unexpected IPC communication error (like f.e. sudden death of
-/// either client or server process) also leads to channel completion (with `ipc::ErrorCode::Disconnected` error).
+/// either client or server process) also leads to channel completion (with `Error::Code::Disconnected` error).
+///
+/// Either side could also request to keep the channel alive after completion, indicating that this side
+/// has finished of sending output messages, but still could receive input messages. Such "keep-alive" completion
+/// from a client-side is useful for indicating to the server-side that all input messages/parameters have been
+/// received, and the server could start processing the combined request.
 ///
 /// Channel could be moved, but not copied.
 /// Channel lifetime is managed by its owner - an IPC service client or server.
