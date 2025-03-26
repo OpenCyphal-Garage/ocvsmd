@@ -483,13 +483,13 @@ int main(const int argc, const char** const argv)
 
         // Un/Comment needed scenario.
         //
-        // tryResetNodesScenario(executor, daemon);
-        // tryBeginSoftwareUpdateScenario(executor, daemon);
-        // tryPushRootScenario(executor, daemon);
-        // tryPopRootScenario(executor, daemon);
-        // tryListRootsScenario(executor, daemon);
-        // tryListReadWriteRegsOfNodesScenario(executor, memory, daemon);
-        // tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
+        tryResetNodesScenario(executor, daemon);
+        tryBeginSoftwareUpdateScenario(executor, daemon);
+        tryPushRootScenario(executor, daemon);
+        tryPopRootScenario(executor, daemon);
+        tryListRootsScenario(executor, daemon);
+        tryListReadWriteRegsOfNodesScenario(executor, memory, daemon);
+        tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
         tryRawSubscriberScenario(executor, memory, daemon);
 
         if (g_running == 0)

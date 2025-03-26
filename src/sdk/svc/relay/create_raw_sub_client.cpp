@@ -117,7 +117,7 @@ private:
         void handleEvent(const Channel::Completed& completed)
         {
             logger_->debug("CreateRawSubClient::handleEvent({}).", completed);
-            completion_error_ = completed.opt_error.value_or(Error::Code::Canceled);
+            completion_error_ = completed.opt_error.value_or(Error{Error::Code::Canceled});
             notifyReceived(Failure{*completion_error_});
         }
 
@@ -192,7 +192,7 @@ private:
         CETL_DEBUG_ASSERT(receiver_, "");
 
         logger_->debug("CreateRawSubClient::handleEvent({}).", completed);
-        receiver_(Failure{completed.opt_error.value_or(Error::Code::Canceled)});
+        receiver_(Failure{completed.opt_error.value_or(Error{Error::Code::Canceled})});
     }
 
     cetl::pmr::memory_resource&   memory_;
