@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+#include "dsdl_helpers.hpp"
 #include "fmt_helpers.hpp"
 #include "setup_logging.hpp"
 
@@ -11,6 +12,8 @@
 #include <ocvsmd/sdk/defines.hpp>
 #include <ocvsmd/sdk/execution.hpp>
 #include <ocvsmd/sdk/node_command_client.hpp>
+
+#include <uavcan/node/Heartbeat_1_0.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
@@ -32,7 +35,8 @@
 namespace
 {
 
-using Daemon   = ocvsmd::sdk::Daemon;
+using ocvsmd::sdk::Daemon;
+using ocvsmd::sdk::sync_wait;
 using Executor = ocvsmd::platform::SingleThreadedExecutor;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -149,6 +153,33 @@ void logRegistryAccessResult(ocvsmd::sdk::NodeRegistryClient::Access::Result&& r
     }
 }
 
+void logHeartbeat(const uavcan::node::Heartbeat_1_0&               hb,
+                  const cetl::optional<ocvsmd::sdk::CyphalNodeId>& opt_node_id,
+                  const ocvsmd::sdk::CyphalPriority                priority)
+{
+    if (const auto node_id = opt_node_id)
+    {
+        spdlog::info(  //
+            "❤️ heartbeat from {} node: uptime={} sec, health={}, mode={}, vendor_status={} (cy_priority={}).",
+            *node_id,
+            hb.uptime,
+            static_cast<int>(hb.health.value),
+            static_cast<int>(hb.mode.value),
+            static_cast<int>(hb.vendor_specific_status_code),
+            static_cast<int>(priority));
+    }
+    else
+    {
+        spdlog::info(  //
+            "🖤 heartbeat from anonymous node: uptime={} sec, health={}, mode={}, vendor_status={} (cy_priority={}).",
+            hb.uptime,
+            static_cast<int>(hb.health.value),
+            static_cast<int>(hb.mode.value),
+            static_cast<int>(hb.vendor_specific_status_code),
+            static_cast<int>(priority));
+    }
+}
+
 // MARK: - Test Scenarios:
 
 /// Demo of daemon's node command client - sending `COMMAND_RESTART` command to nodes: 42, 43, & 44.
@@ -162,8 +193,8 @@ void tryResetNodesScenario(Executor& executor, const Daemon::Ptr& daemon)
     const auto node_cmd_client = daemon->getNodeCommandClient();
 
     std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
-    auto                                     sender = node_cmd_client->restart(node_ids);
-    const auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
+    auto                                     sender     = node_cmd_client->restart(node_ids);
+    const auto                               cmd_result = sync_wait<Command::Result>(executor, std::move(sender));
     logCommandResult(cmd_result);
 
     // Let child nodes time (100 ms) to restart.
@@ -182,7 +213,7 @@ void tryBeginSoftwareUpdateScenario(Executor& executor, const Daemon::Ptr& daemo
 
     std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
     auto                                     sender = node_cmd_client->beginSoftwareUpdate(node_ids, "firmware.bin");
-    const auto cmd_result = ocvsmd::sdk::sync_wait<Command::Result>(executor, std::move(sender));
+    const auto                               cmd_result = sync_wait<Command::Result>(executor, std::move(sender));
     logCommandResult(cmd_result);
 }
 
@@ -198,7 +229,7 @@ void tryPushRootScenario(Executor& executor, const Daemon::Ptr& daemon)
 
     const std::string path{"key"};
     auto              sender     = file_server->pushRoot(path, true);
-    auto              cmd_result = ocvsmd::sdk::sync_wait<PushRoot::Result>(executor, std::move(sender));
+    auto              cmd_result = sync_wait<PushRoot::Result>(executor, std::move(sender));
     if (const auto* const failure = cetl::get_if<PushRoot::Failure>(&cmd_result))
     {
         spdlog::error("Failed to push FS root (path='{}', err={}).", path, *failure);
@@ -221,7 +252,7 @@ void tryPopRootScenario(Executor& executor, const Daemon::Ptr& daemon)
 
     const std::string path{"key"};
     auto              sender     = file_server->popRoot(path, true);
-    auto              cmd_result = ocvsmd::sdk::sync_wait<PopRoot::Result>(executor, std::move(sender));
+    auto              cmd_result = sync_wait<PopRoot::Result>(executor, std::move(sender));
     if (const auto* const failure = cetl::get_if<PopRoot::Failure>(&cmd_result))
     {
         spdlog::error("Failed to pop FS root (path='{}', err={}).", path, *failure);
@@ -243,7 +274,7 @@ void tryListRootsScenario(Executor& executor, const Daemon::Ptr& daemon)
     const auto file_server = daemon->getFileServer();
 
     auto sender     = file_server->listRoots();
-    auto cmd_result = ocvsmd::sdk::sync_wait<ListRoots::Result>(executor, std::move(sender));
+    auto cmd_result = sync_wait<ListRoots::Result>(executor, std::move(sender));
     if (const auto* const failure = cetl::get_if<ListRoots::Failure>(&cmd_result))
     {
         spdlog::error("Failed to list FS roots (err={}).", *failure);
@@ -277,7 +308,7 @@ void tryListReadWriteRegsOfNodesScenario(Executor&                   executor,
     std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
     //
     auto sender      = registry->list(node_ids, std::chrono::seconds{1});
-    auto list_result = ocvsmd::sdk::sync_wait<List::Result>(executor, std::move(sender));
+    auto list_result = sync_wait<List::Result>(executor, std::move(sender));
     if (const auto* const list_failure = cetl::get_if<List::Failure>(&list_result))
     {
         spdlog::error("Failed to list registers (err={}).", *list_failure);
@@ -297,7 +328,7 @@ void tryListReadWriteRegsOfNodesScenario(Executor&                   executor,
         // Read ALL registers.
         //
         auto read_sender = registry->read(node_ids, reg_names, std::chrono::seconds{1});
-        auto read_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(read_sender));
+        auto read_result = sync_wait<Access::Result>(executor, std::move(read_sender));
         if (const auto* const failure = cetl::get_if<Access::Failure>(&read_result))
         {
             spdlog::error("Failed to read registers (err={}).", *failure);
@@ -315,7 +346,7 @@ void tryListReadWriteRegsOfNodesScenario(Executor&                   executor,
         setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node3");
         //
         auto write_sender = registry->write(node_ids, reg_keys_and_values, std::chrono::seconds{1});
-        auto write_result = ocvsmd::sdk::sync_wait<Access::Result>(executor, std::move(write_sender));
+        auto write_result = sync_wait<Access::Result>(executor, std::move(write_sender));
         if (const auto* const failure = cetl::get_if<Access::Failure>(&write_result))
         {
             spdlog::error("Failed to write registers (err={}).", *failure);
@@ -346,7 +377,7 @@ void tryListReadWriteRegsOfSingleNodeScenario(Executor&                   execut
     // List
     {
         auto list_node_sender = registry->list(node_id, std::chrono::seconds{1});
-        auto list_node_result = ocvsmd::sdk::sync_wait<List::NodeRegisters::Result>(  //
+        auto list_node_result = sync_wait<List::NodeRegisters::Result>(  //
             executor,
             std::move(list_node_sender));
 
@@ -362,7 +393,7 @@ void tryListReadWriteRegsOfSingleNodeScenario(Executor&                   execut
         setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node42");
 
         auto       write_node_sender = registry->write(node_id, reg_keys_and_values, std::chrono::seconds{1});
-        const auto write_node_result = ocvsmd::sdk::sync_wait<Access::NodeRegisters::Result>(  //
+        const auto write_node_result = sync_wait<Access::NodeRegisters::Result>(  //
             executor,
             std::move(write_node_sender));
 
@@ -372,10 +403,53 @@ void tryListReadWriteRegsOfSingleNodeScenario(Executor&                   execut
     // Read
     {
         auto       read_node_sender = registry->read(node_id, reg_keys, std::chrono::seconds{1});
-        const auto read_node_result = ocvsmd::sdk::sync_wait<Access::NodeRegisters::Result>(  //
+        const auto read_node_result = sync_wait<Access::NodeRegisters::Result>(  //
             executor,
             std::move(read_node_sender));
         logRegistryAccessNodeResult(node_id, read_node_result);
+    }
+}
+
+/// Demo of daemon's raw subscriber - subscribes for raw Heartbeat messages, and prints them for some time.
+///
+void tryRawSubscriberScenario(Executor& executor, cetl::pmr::memory_resource& memory, const Daemon::Ptr& daemon)
+{
+    using ocvsmd::sdk::RawSubscriber;
+    using Heartbeat         = uavcan::node::Heartbeat_1_0;
+    using MakeRawSubscriber = Daemon::MakeRawSubscriber;
+
+    spdlog::info("tryMakeRawSubscriberScenario -----------------");
+
+    auto raw_sub_sender = daemon->makeRawSubscriber(Heartbeat::_traits_::FixedPortId, Heartbeat::_traits_::ExtentBytes);
+    auto raw_sub_result = sync_wait<MakeRawSubscriber::Result>(executor, std::move(raw_sub_sender));
+    if (const auto* const failure = cetl::get_if<MakeRawSubscriber::Failure>(&raw_sub_result))
+    {
+        spdlog::error("Failed to make raw subscriber (err={}).", *failure);
+        return;
+    }
+    const auto raw_subscriber = cetl::get<MakeRawSubscriber::Success>(std::move(raw_sub_result));
+
+    spdlog::info("Printing heartbeat messages...");
+    while (true)
+    {
+        using Receive = RawSubscriber::Receive;
+
+        auto raw_msg_sender = raw_subscriber->receive();
+        auto raw_msg_result = sync_wait<Receive::Result>(executor, std::move(raw_msg_sender));
+        if (const auto* const failure = cetl::get_if<Receive::Failure>(&raw_msg_result))
+        {
+            spdlog::error("Failed to receive raw message (err={}).", *failure);
+            return;
+        }
+        const auto raw_msg = cetl::get<Receive::Success>(std::move(raw_msg_result));
+
+        Heartbeat heartbeat{&memory};
+        if (!tryDeserializePayload({raw_msg.data.get(), raw_msg.size}, heartbeat))
+        {
+            spdlog::error("Failed to deserialize heartbeat.");
+            return;
+        }
+        logHeartbeat(heartbeat, raw_msg.publisher_node_id, raw_msg.priority);
     }
 }
 
@@ -409,13 +483,14 @@ int main(const int argc, const char** const argv)
 
         // Un/Comment needed scenario.
         //
-        tryResetNodesScenario(executor, daemon);
-        tryBeginSoftwareUpdateScenario(executor, daemon);
-        tryPushRootScenario(executor, daemon);
-        tryPopRootScenario(executor, daemon);
-        tryListRootsScenario(executor, daemon);
-        tryListReadWriteRegsOfNodesScenario(executor, memory, daemon);
-        tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
+        // tryResetNodesScenario(executor, daemon);
+        // tryBeginSoftwareUpdateScenario(executor, daemon);
+        // tryPushRootScenario(executor, daemon);
+        // tryPopRootScenario(executor, daemon);
+        // tryListRootsScenario(executor, daemon);
+        // tryListReadWriteRegsOfNodesScenario(executor, memory, daemon);
+        // tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
+        tryRawSubscriberScenario(executor, memory, daemon);
 
         if (g_running == 0)
         {

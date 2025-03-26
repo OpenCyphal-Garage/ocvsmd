@@ -13,6 +13,8 @@
 #include "ocvsmd/sdk/node_command_client.hpp"
 #include "ocvsmd/sdk/node_registry_client.hpp"
 #include "sdk_factory.hpp"
+#include "svc/as_sender.hpp"
+#include "svc/relay/create_raw_sub_client.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -89,6 +91,23 @@ public:
     NodeRegistryClient::Ptr getNodeRegistryClient() const override
     {
         return node_registry_client_;
+    }
+
+    SenderOf<MakeRawSubscriber::Result>::Ptr makeRawSubscriber(const CyphalPortId subject_id,
+                                                               const std::size_t  extent_bytes) override
+    {
+        using CreateRawSubClient = svc::relay::CreateRawSubClient;
+        using Request            = common::svc::relay::CreateRawSubSpec::Request;
+
+        logger_->trace("Making sender of `rawSubscriber()`.");
+
+        const Request request{extent_bytes, subject_id, &memory_};
+        auto          svc_client = CreateRawSubClient::make(memory_, ipc_router_, request);
+
+        return std::make_unique<svc::AsSender<MakeRawSubscriber::Result, decltype(svc_client)>>(  //
+            "Daemon::rawSubscriber",
+            std::move(svc_client),
+            logger_);
     }
 
 private:

@@ -90,7 +90,15 @@ private:
 
         void start(const Spec::Request& request)
         {
-            makeCySubscriber(request.subject_id, request.extent_size);
+            if (makeCySubscriber(request.subject_id, request.extent_size))
+            {
+                const Spec::Response ipc_response{&memory()};
+                if (const auto opt_error = channel_.send(ipc_response))
+                {
+                    logger().warn("CreateRawSubSvc: failed to send ipc reply (err={}, fsm_id={}).", *opt_error, id_);
+                    complete(opt_error);
+                }
+            }
         }
 
     private:
@@ -120,11 +128,10 @@ private:
             {
                 logger().warn("CreateRawSubSvc: canceling processing (fsm_id={}).", id_);
                 complete(sdk::Error{sdk::Error::Code::Canceled});
-                return;
             }
         }
 
-        void makeCySubscriber(const sdk::CyphalPortId port_id, const std::size_t extent_bytes)
+        bool makeCySubscriber(const sdk::CyphalPortId port_id, const std::size_t extent_bytes)
         {
             using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
 
@@ -144,22 +151,25 @@ private:
                               id_);
 
                 complete(opt_error);
-                return;
+                return false;
             }
+
             cy_raw_subscriber_.emplace(cetl::get<CyRawSubscriber>(std::move(cy_make_result)));
+            return true;
         }
 
-        void handleNodeMessage(const CyScatteredBuff& raw_msg, const CyMsgRxMetadata& metadata)
+        void handleNodeMessage(const CyScatteredBuff& raw_msg_buff, const CyMsgRxMetadata& metadata)
         {
             Spec::Response ipc_response{&memory()};
-            ipc_response.priority     = static_cast<std::uint8_t>(metadata.rx_meta.base.priority);
-            ipc_response.payload_size = raw_msg.size();
+            auto&          raw_msg = ipc_response.set_raw_message();
+            raw_msg.priority       = static_cast<std::uint8_t>(metadata.rx_meta.base.priority);
+            raw_msg.payload_size   = raw_msg_buff.size();
             if (const auto opt_node_id = metadata.publisher_node_id)
             {
-                ipc_response.remote_node_id.push_back(*opt_node_id);
+                raw_msg.remote_node_id.push_back(*opt_node_id);
             }
 
-            common::io::SocketBuffer sock_buff{raw_msg};
+            common::io::SocketBuffer sock_buff{raw_msg_buff};
             if (const auto opt_error = channel_.send(ipc_response, sock_buff))
             {
                 logger().warn("CreateRawSubSvc: failed to send ipc response (err={}, fsm_id={}).", *opt_error, id_);

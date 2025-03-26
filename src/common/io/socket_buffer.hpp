@@ -20,7 +20,7 @@ namespace io
 
 using Payload = libcyphal::transport::PayloadFragment;
 
-class SocketBuffer final : libcyphal::transport::ScatteredBuffer::IFragmentsObserver
+class SocketBuffer final : libcyphal::transport::ScatteredBuffer::IFragmentsVisitor
 {
 public:
     SocketBuffer() = default;
@@ -32,7 +32,7 @@ public:
 
     explicit SocketBuffer(const libcyphal::transport::ScatteredBuffer& scattered_buffer)
     {
-        scattered_buffer.observeFragments(*this);
+        scattered_buffer.forEachFragment(*this);
     }
 
     std::size_t size() const noexcept
@@ -69,7 +69,7 @@ private:
         return (payload.data() != nullptr) && !payload.empty();
     }
 
-    // IFragmentsObserver
+    // IFragmentsVisitor
 
     void onNext(const Payload payload) override
     {

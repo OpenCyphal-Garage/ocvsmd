@@ -49,6 +49,7 @@ using testing::IsEmpty;
 using testing::NotNull;
 using testing::NiceMock;
 using testing::StrictMock;
+using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
 // NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
@@ -61,9 +62,11 @@ using std::literals::chrono_literals::operator""ms;
 class TestCreateRawSubService : public testing::Test
 {
 protected:
-    using Spec         = svc::relay::CreateRawSubSpec;
-    using GatewayMock  = ipc::detail::GatewayMock;
-    using GatewayEvent = ipc::detail::Gateway::Event;
+    using Spec           = svc::relay::CreateRawSubSpec;
+    using GatewayMock    = ipc::detail::GatewayMock;
+    using GatewayEvent   = ipc::detail::Gateway::Event;
+    using EmptyResponse  = uavcan::primitive::Empty_1_0;
+    using RawMsgResponse = svc::relay::RawMessage_0_1;
 
     using CyTestMessage = uavcan::node::Version_1_0;
 
@@ -171,23 +174,25 @@ TEST_F(TestCreateRawSubService, request)
         // Emulate service request.
         expectCyMsgSession(cy_sess_cntx, request.subject_id);
         EXPECT_CALL(gateway_mock, subscribe(_)).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadVariantWith<Spec::Response>(mr_, VariantWith<EmptyResponse>(_))))
+            .WillOnce(Return(OptError{}));
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //
             (*ch_factory)(std::make_shared<GatewayMock::Wrapper>(gateway_mock), payload);
             return OptError{};
         });
         EXPECT_THAT(result, OptError{});
-
-        gateway_mock.event_handler_(GatewayEvent::Completed{OptError{}, true});
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         // Emulate that node 42 has published an empty raw message.
         //
-        Spec::Response expected_response{&mr_};
-        expected_response.priority = 4;
-        expected_response.remote_node_id.push_back(42);
-        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<Spec::Response>(mr_, expected_response))).Times(1);
+        RawMsgResponse raw_msg{&mr_};
+        raw_msg.priority = 4;
+        raw_msg.remote_node_id.push_back(42);
+        EXPECT_CALL(gateway_mock,
+                    send(_, io::PayloadVariantWith<Spec::Response>(mr_, VariantWith<RawMsgResponse>(raw_msg))))
+            .WillOnce(Return(OptError{}));
         //
         CyMsgRxTransfer transfer{{{{0, libcyphal::transport::Priority::Nominal}, now()}, 42}, {}};
         cy_sess_cntx.msg_rx_cb_fn({transfer});
@@ -196,16 +201,18 @@ TEST_F(TestCreateRawSubService, request)
         //
         // Emulate that anonymous node has published a raw message (3 bytes).
         //
-        Spec::Response expected_response{&mr_};
-        expected_response.priority     = 5;
-        expected_response.payload_size = test_raw_bytes.size();
-        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<Spec::Response>(mr_, expected_response))).Times(1);
+        RawMsgResponse raw_msg{&mr_};
+        raw_msg.priority     = 5;
+        raw_msg.payload_size = test_raw_bytes.size();
+        EXPECT_CALL(gateway_mock,
+                    send(_, io::PayloadVariantWith<Spec::Response>(mr_, VariantWith<RawMsgResponse>(raw_msg))))
+            .WillOnce(Return(OptError{}));
         //
         NiceMock<CyScatteredBufferStorageMock> storage_mock;
         EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(3));
-        EXPECT_CALL(storage_mock, observeFragments(_)).WillOnce(Invoke([&](auto& observer) {
+        EXPECT_CALL(storage_mock, forEachFragment(_)).WillOnce(Invoke([&](auto& visitor) {
             //
-            observer.onNext(test_raw_bytes);
+            visitor.onNext(test_raw_bytes);
         }));
         CyMsgRxTransfer transfer{{{{147, libcyphal::transport::Priority::Low}, now()}, cetl::nullopt},
                                  CyScatteredBuffer{CyScatteredBufferStorageMock::Wrapper{&storage_mock}}};
@@ -213,7 +220,8 @@ TEST_F(TestCreateRawSubService, request)
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
-        EXPECT_CALL(gateway_mock, complete(OptError{Error{Error::Code::Canceled}}, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(OptError{Error{Error::Code::Canceled}}, false))  //
+            .WillOnce(Return(OptError{}));
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
         gateway_mock.event_handler_(GatewayEvent::Completed{OptError{}, false});
     });
@@ -237,20 +245,17 @@ namespace svc
 {
 namespace relay
 {
-namespace CreateRawSub
+static void PrintTo(const RawMessage_0_1& raw_msg, std::ostream* os)  // NOLINT
 {
-static void PrintTo(const Response_0_1& res, std::ostream* os)  // NOLINT
-{
-    const auto node_id = res.remote_node_id.empty() ? 65535 : res.remote_node_id.front();
-    *os << "CreateRawSub::Response_0_1{priority=" << static_cast<int>(res.priority) << ", node_id=" << node_id
-        << ", payload_size=" << res.payload_size << "}";
+    const auto node_id = raw_msg.remote_node_id.empty() ? 65535 : raw_msg.remote_node_id.front();
+    *os << "relay::RawMessage_0_1{priority=" << static_cast<int>(raw_msg.priority) << ", node_id=" << node_id
+        << ", payload_size=" << raw_msg.payload_size << "}";
 }
-static bool operator==(const Response_0_1& lhs, const Response_0_1& rhs)  // NOLINT
+static bool operator==(const RawMessage_0_1& lhs, const RawMessage_0_1& rhs)  // NOLINT
 {
     return (lhs.priority == rhs.priority) && (lhs.remote_node_id == rhs.remote_node_id) &&
            (lhs.payload_size == rhs.payload_size);
 }
-}  // namespace CreateRawSub
 }  // namespace relay
 }  // namespace svc
 }  // namespace common

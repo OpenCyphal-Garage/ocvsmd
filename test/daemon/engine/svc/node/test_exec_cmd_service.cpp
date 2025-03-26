@@ -173,7 +173,7 @@ TEST_F(TestExecCmdService, empty_request)
         });
         EXPECT_THAT(result, OptError{});
 
-        EXPECT_CALL(gateway_mock, complete(OptError{}, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(OptError{}, false)).WillOnce(Return(OptError{}));
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
         gateway_mock.event_handler_(GatewayEvent::Completed{OptError{}, true});
     }
@@ -223,18 +223,20 @@ TEST_F(TestExecCmdService, two_nodes_request)
         // Emulate that node 42 has responded in time (after 100ms).
         ExecCmdSpec::Response expected_response{&mr_};
         expected_response.node_id = 42;
-        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response)))
+            .WillOnce(Return(OptError{}));
         CyServiceRxTransfer transfer{{{{0, libcyphal::transport::Priority::Nominal}, now()}, 42}, {}};
         cy_sess_42.res_rx_cb_fn({transfer});
 
         // Node 43 never responded, so timeout is expected.
         expected_response.node_id = 43;
         optErrorToDsdlError(Error{Error::Code::TimedOut}, expected_response._error);
-        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response)))
+            .WillOnce(Return(OptError{}));
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        EXPECT_CALL(gateway_mock, complete(OptError{}, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(OptError{}, false)).WillOnce(Return(OptError{}));
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
     });
     scheduler_.scheduleAt(2s + 1ms, [&](const auto&) {
@@ -282,11 +284,13 @@ TEST_F(TestExecCmdService, out_of_memory)
         ExecCmdSpec::Response expected_response{&mr_};
         expected_response.node_id = 13;
         optErrorToDsdlError(Error{Error::Code::OutOfMemory}, expected_response._error);
-        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response)))
+            .WillOnce(Return(OptError{}));
         expected_response.node_id = 31;
-        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response))).Times(1);
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadWith<ExecCmdSpec::Response>(mr_, expected_response)))
+            .WillOnce(Return(OptError{}));
 
-        EXPECT_CALL(gateway_mock, complete(OptError{}, false)).Times(1);
+        EXPECT_CALL(gateway_mock, complete(OptError{}, false)).WillOnce(Return(OptError{}));
         EXPECT_CALL(gateway_mock, deinit()).Times(1);
         gateway_mock.event_handler_(GatewayEvent::Completed{OptError{}, true});
     }

@@ -28,6 +28,7 @@ add_library(ocvsmd_sdk
         svc/file_server/list_roots_client.cpp
         svc/file_server/pop_root_client.cpp
         svc/file_server/push_root_client.cpp
+        svc/relay/create_raw_sub_client.cpp
 )
 target_link_libraries(ocvsmd_sdk
         PUBLIC ${sdk_transpiled}
@@ -35,6 +36,7 @@ target_link_libraries(ocvsmd_sdk
 )
 target_include_directories(ocvsmd_sdk
         PUBLIC ${include_dir}
+        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_include_directories(ocvsmd_sdk SYSTEM
         PUBLIC ${submodules_dir}/cetl/include

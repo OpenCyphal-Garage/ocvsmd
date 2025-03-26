@@ -6,14 +6,18 @@
 #ifndef OCVSMD_SDK_DAEMON_HPP_INCLUDED
 #define OCVSMD_SDK_DAEMON_HPP_INCLUDED
 
+#include "defines.hpp"
+#include "execution.hpp"
 #include "file_server.hpp"
 #include "node_command_client.hpp"
+#include "node_pub_sub.hpp"
 #include "node_registry_client.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 
+#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -39,6 +43,7 @@ public:
     /// @param executor The executor to use for the factory and its subcomponents.
     ///                 Instance of the executor must outlive the factory.
     ///                 Should support `IPosixExecutorExtension` interface (via `cetl::rtti`).
+    /// @param connection The IPC connection string to the daemon.
     /// @return Shared pointer to the successfully created factory.
     ///         `nullptr` on failure (see logs for the reason of failure).
     ///
@@ -74,6 +79,15 @@ public:
     ///         The component is always present in the OCVSMD engine, so the result is never `nullptr`.
     ///
     virtual NodeRegistryClient::Ptr getNodeRegistryClient() const = 0;
+
+    struct MakeRawSubscriber final
+    {
+        using Success = RawSubscriber::Ptr;
+        using Failure = Error;
+        using Result  = cetl::variant<Success, Failure>;
+    };
+    virtual SenderOf<MakeRawSubscriber::Result>::Ptr makeRawSubscriber(const CyphalPortId subject_id,
+                                                                       const std::size_t  extent_bytes) = 0;
 
 protected:
     Daemon() = default;

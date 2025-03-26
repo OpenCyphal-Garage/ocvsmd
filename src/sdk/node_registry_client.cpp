@@ -48,7 +48,7 @@ public:
 
         auto svc_client = ListRegistersClient::make(memory_, ipc_router_, node_ids, timeout);
 
-        return std::make_unique<svc::AsSender<ListRegistersClient, ListRegistersClient::Result>>(  //
+        return std::make_unique<svc::AsSender<ListRegistersClient::Result, decltype(svc_client)>>(  //
             "NodeRegistryClient::list",
             std::move(svc_client),
             logger_);
@@ -74,7 +74,7 @@ public:
 
         auto svc_client = AccessRegistersClient::make(memory_, ipc_router_, node_ids, registers, timeout);
 
-        return std::make_unique<svc::AsSender<AccessRegistersClient, AccessRegistersClient::Result>>(  //
+        return std::make_unique<svc::AsSender<AccessRegistersClient::Result, decltype(svc_client)>>(  //
             "NodeRegistryClient::read",
             std::move(svc_client),
             logger_);
@@ -100,7 +100,7 @@ public:
 
         auto svc_client = AccessRegistersClient::make(memory_, ipc_router_, node_ids, registers, timeout);
 
-        return std::make_unique<svc::AsSender<AccessRegistersClient, AccessRegistersClient::Result>>(  //
+        return std::make_unique<svc::AsSender<AccessRegistersClient::Result, decltype(svc_client)>>(  //
             "NodeRegistryClient::write",
             std::move(svc_client),
             logger_);

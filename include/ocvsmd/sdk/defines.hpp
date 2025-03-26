@@ -102,6 +102,19 @@ using CyphalNodeIds = cetl::span<CyphalNodeId>;
 ///
 using CyphalPortId = std::uint16_t;
 
+enum class CyphalPriority : std::uint8_t
+{
+    Exceptional = 0,
+    Immediate,
+    Fast,
+    High,
+    Nominal,
+    Low,
+    Slow,
+    Optional,
+
+};  // CyphalPriority
+
 }  // namespace sdk
 }  // namespace ocvsmd
 

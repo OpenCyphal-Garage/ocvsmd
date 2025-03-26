@@ -5,8 +5,9 @@ uint16 subject_id
 
 ---
 
-uint8 priority
-uint16[<=1] remote_node_id
-uint64 payload_size
+@union
 
-@extent 64 * 8
+uavcan.primitive.Empty.1.0 empty
+RawMessage.0.1 raw_message
+
+@sealed
