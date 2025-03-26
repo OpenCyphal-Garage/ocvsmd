@@ -39,6 +39,8 @@ using ocvsmd::sdk::Daemon;
 using ocvsmd::sdk::sync_wait;
 using Executor = ocvsmd::platform::SingleThreadedExecutor;
 
+using std::literals::chrono_literals::operator""s;
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 volatile sig_atomic_t g_running = 1;
 
@@ -194,7 +196,7 @@ void tryResetNodesScenario(Executor& executor, const Daemon::Ptr& daemon)
 
     std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
     auto                                     sender     = node_cmd_client->restart(node_ids);
-    const auto                               cmd_result = sync_wait<Command::Result>(executor, std::move(sender));
+    const auto                               cmd_result = sync_wait<Command::Result>(executor, std::move(sender), 2s);
     logCommandResult(cmd_result);
 
     // Let child nodes time (100 ms) to restart.
@@ -213,7 +215,7 @@ void tryBeginSoftwareUpdateScenario(Executor& executor, const Daemon::Ptr& daemo
 
     std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
     auto                                     sender = node_cmd_client->beginSoftwareUpdate(node_ids, "firmware.bin");
-    const auto                               cmd_result = sync_wait<Command::Result>(executor, std::move(sender));
+    const auto                               cmd_result = sync_wait<Command::Result>(executor, std::move(sender), 2s);
     logCommandResult(cmd_result);
 }
 
@@ -229,7 +231,7 @@ void tryPushRootScenario(Executor& executor, const Daemon::Ptr& daemon)
 
     const std::string path{"key"};
     auto              sender     = file_server->pushRoot(path, true);
-    auto              cmd_result = sync_wait<PushRoot::Result>(executor, std::move(sender));
+    auto              cmd_result = sync_wait<PushRoot::Result>(executor, std::move(sender), 2s);
     if (const auto* const failure = cetl::get_if<PushRoot::Failure>(&cmd_result))
     {
         spdlog::error("Failed to push FS root (path='{}', err={}).", path, *failure);
@@ -252,7 +254,7 @@ void tryPopRootScenario(Executor& executor, const Daemon::Ptr& daemon)
 
     const std::string path{"key"};
     auto              sender     = file_server->popRoot(path, true);
-    auto              cmd_result = sync_wait<PopRoot::Result>(executor, std::move(sender));
+    auto              cmd_result = sync_wait<PopRoot::Result>(executor, std::move(sender), 2s);
     if (const auto* const failure = cetl::get_if<PopRoot::Failure>(&cmd_result))
     {
         spdlog::error("Failed to pop FS root (path='{}', err={}).", path, *failure);
@@ -274,7 +276,7 @@ void tryListRootsScenario(Executor& executor, const Daemon::Ptr& daemon)
     const auto file_server = daemon->getFileServer();
 
     auto sender     = file_server->listRoots();
-    auto cmd_result = sync_wait<ListRoots::Result>(executor, std::move(sender));
+    auto cmd_result = sync_wait<ListRoots::Result>(executor, std::move(sender), 2s);
     if (const auto* const failure = cetl::get_if<ListRoots::Failure>(&cmd_result))
     {
         spdlog::error("Failed to list FS roots (err={}).", *failure);
@@ -308,7 +310,7 @@ void tryListReadWriteRegsOfNodesScenario(Executor&                   executor,
     std::array<ocvsmd::sdk::CyphalNodeId, 3> node_ids{42, 43, 44};
     //
     auto sender      = registry->list(node_ids, std::chrono::seconds{1});
-    auto list_result = sync_wait<List::Result>(executor, std::move(sender));
+    auto list_result = sync_wait<List::Result>(executor, std::move(sender), 2s);
     if (const auto* const list_failure = cetl::get_if<List::Failure>(&list_result))
     {
         spdlog::error("Failed to list registers (err={}).", *list_failure);
@@ -328,7 +330,7 @@ void tryListReadWriteRegsOfNodesScenario(Executor&                   executor,
         // Read ALL registers.
         //
         auto read_sender = registry->read(node_ids, reg_names, std::chrono::seconds{1});
-        auto read_result = sync_wait<Access::Result>(executor, std::move(read_sender));
+        auto read_result = sync_wait<Access::Result>(executor, std::move(read_sender), 2s);
         if (const auto* const failure = cetl::get_if<Access::Failure>(&read_result))
         {
             spdlog::error("Failed to read registers (err={}).", *failure);
@@ -346,7 +348,7 @@ void tryListReadWriteRegsOfNodesScenario(Executor&                   executor,
         setRegisterValue(reg_keys_and_values[0].value, "libcyphal demo node3");
         //
         auto write_sender = registry->write(node_ids, reg_keys_and_values, std::chrono::seconds{1});
-        auto write_result = sync_wait<Access::Result>(executor, std::move(write_sender));
+        auto write_result = sync_wait<Access::Result>(executor, std::move(write_sender), 2s);
         if (const auto* const failure = cetl::get_if<Access::Failure>(&write_result))
         {
             spdlog::error("Failed to write registers (err={}).", *failure);
@@ -379,7 +381,8 @@ void tryListReadWriteRegsOfSingleNodeScenario(Executor&                   execut
         auto list_node_sender = registry->list(node_id, std::chrono::seconds{1});
         auto list_node_result = sync_wait<List::NodeRegisters::Result>(  //
             executor,
-            std::move(list_node_sender));
+            std::move(list_node_sender),
+            2s);
 
         std::set<std::string> reg_names_set;
         logRegistryListNodeResult(reg_names_set, node_id, list_node_result);
@@ -395,7 +398,8 @@ void tryListReadWriteRegsOfSingleNodeScenario(Executor&                   execut
         auto       write_node_sender = registry->write(node_id, reg_keys_and_values, std::chrono::seconds{1});
         const auto write_node_result = sync_wait<Access::NodeRegisters::Result>(  //
             executor,
-            std::move(write_node_sender));
+            std::move(write_node_sender),
+            2s);
 
         logRegistryAccessNodeResult(node_id, write_node_result);
     }
@@ -405,7 +409,8 @@ void tryListReadWriteRegsOfSingleNodeScenario(Executor&                   execut
         auto       read_node_sender = registry->read(node_id, reg_keys, std::chrono::seconds{1});
         const auto read_node_result = sync_wait<Access::NodeRegisters::Result>(  //
             executor,
-            std::move(read_node_sender));
+            std::move(read_node_sender),
+            2s);
         logRegistryAccessNodeResult(node_id, read_node_result);
     }
 }
@@ -421,7 +426,7 @@ void tryRawSubscriberScenario(Executor& executor, cetl::pmr::memory_resource& me
     spdlog::info("tryMakeRawSubscriberScenario -----------------");
 
     auto raw_sub_sender = daemon->makeRawSubscriber(Heartbeat::_traits_::FixedPortId, Heartbeat::_traits_::ExtentBytes);
-    auto raw_sub_result = sync_wait<MakeRawSubscriber::Result>(executor, std::move(raw_sub_sender));
+    auto raw_sub_result = sync_wait<MakeRawSubscriber::Result>(executor, std::move(raw_sub_sender), 2s);
     if (const auto* const failure = cetl::get_if<MakeRawSubscriber::Failure>(&raw_sub_result))
     {
         spdlog::error("Failed to make raw subscriber (err={}).", *failure);
@@ -429,16 +434,19 @@ void tryRawSubscriberScenario(Executor& executor, cetl::pmr::memory_resource& me
     }
     const auto raw_subscriber = cetl::get<MakeRawSubscriber::Success>(std::move(raw_sub_result));
 
-    spdlog::info("Printing heartbeat messages...");
-    while (true)
+    constexpr int duration_secs = 10;
+    spdlog::info("Printing heartbeat messages for {} secs...", duration_secs);
+    const auto until_timepoint = executor.now() + std::chrono::seconds{duration_secs};
+    while (until_timepoint > executor.now())
     {
         using Receive = RawSubscriber::Receive;
 
-        auto raw_msg_sender = raw_subscriber->receive();
-        auto raw_msg_result = sync_wait<Receive::Result>(executor, std::move(raw_msg_sender));
+        auto       raw_msg_sender = raw_subscriber->receive();
+        const auto timeout        = until_timepoint - executor.now();
+        auto       raw_msg_result = sync_wait<Receive::Result>(executor, std::move(raw_msg_sender), timeout);
         if (const auto* const failure = cetl::get_if<Receive::Failure>(&raw_msg_result))
         {
-            spdlog::error("Failed to receive raw message (err={}).", *failure);
+            spdlog::warn("Failed to receive raw message (err={}).", *failure);
             return;
         }
         const auto raw_msg = cetl::get<Receive::Success>(std::move(raw_msg_result));

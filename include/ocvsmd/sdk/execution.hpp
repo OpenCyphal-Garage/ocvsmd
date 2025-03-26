@@ -41,7 +41,7 @@ public:
     template <typename... Args>
     void operator()(Args&&... args)
     {
-        state_->maybe_result_.emplace(std::forward<Args>(args)...);
+        state_->complete(Result{std::forward<Args>(args)...});
     }
 
 private:
@@ -69,9 +69,15 @@ public:
         return ReceiverOf<Result>{this->shared_from_this()};
     }
 
-private:
-    friend class ReceiverOf<Result>;
+    void complete(Result&& result)
+    {
+        if (!maybe_result_)
+        {
+            maybe_result_.emplace(std::move(result));
+        }
+    }
 
+private:
     cetl::optional<Result> maybe_result_;
 
 };  // StateOf
@@ -192,6 +198,26 @@ Result sync_wait(Executor& executor, Sender&& sender)
     auto state = std::make_shared<detail::StateOf<Result>>();
 
     submit(sender, state->makeReceiver());
+
+    platform::waitPollingUntil(executor, [state] { return state->completed(); });
+
+    return state->get();
+}
+
+template <typename Result, typename Executor, typename Sender, typename Duration>
+Result sync_wait(Executor& executor, Sender&& sender, const Duration timeout)
+{
+    auto state = std::make_shared<detail::StateOf<Result>>();
+
+    submit(sender, state->makeReceiver());
+
+    auto timeout_cb = executor.registerCallback([state](const auto& arg) {
+        //
+        state->complete(Error{Error::Code::TimedOut});
+    });
+
+    const auto deadline = executor.now() + std::chrono::duration_cast<libcyphal::Duration>(timeout);
+    timeout_cb.schedule(libcyphal::IExecutor::Callback::Schedule::Once{deadline});
 
     platform::waitPollingUntil(executor, [state] { return state->completed(); });
 
