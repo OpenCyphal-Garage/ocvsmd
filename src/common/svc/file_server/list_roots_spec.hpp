@@ -17,6 +17,8 @@ namespace svc
 namespace file_server
 {
 
+/// Defines IPC internal housekeeping specification for the `ListRoots` service.
+///
 struct ListRootsSpec
 {
     using Request  = ListRoots::Request_0_1;

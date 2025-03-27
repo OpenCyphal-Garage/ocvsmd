@@ -17,6 +17,8 @@ namespace svc
 namespace file_server
 {
 
+/// Defines IPC internal housekeeping specification for the `PopRoot` service.
+///
 struct PopRootSpec
 {
     using Request  = PopRoot::Request_0_1;

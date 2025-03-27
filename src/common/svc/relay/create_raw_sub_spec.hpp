@@ -17,6 +17,8 @@ namespace svc
 namespace relay
 {
 
+/// Defines IPC internal housekeeping specification for the `CreateRawSub` service.
+///
 struct CreateRawSubSpec
 {
     using Request  = CreateRawSub::Request_0_1;

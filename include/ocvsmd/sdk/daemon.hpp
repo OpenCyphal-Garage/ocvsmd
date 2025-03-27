@@ -80,12 +80,27 @@ public:
     ///
     virtual NodeRegistryClient::Ptr getNodeRegistryClient() const = 0;
 
+    /// Defines the result type of the raw subscriber creation.
+    ///
+    /// On success, the result is a smart pointer to a raw subscriber with the required parameters.
+    /// On failure, the result is an SDK error.
+    ///
     struct MakeRawSubscriber final
     {
         using Success = RawSubscriber::Ptr;
         using Failure = Error;
         using Result  = cetl::variant<Success, Failure>;
     };
+    /// Makes a new raw subscriber for the specified subject.
+    ///
+    /// The server-side (the daemon) of SDK will create the corresponding Cyphal network subscriber,
+    /// subscribe to its raw (aka `void`) messages, and then forward them to the client-side of SDK.
+    /// See also `RawSubscriber` docs for how to consume the incoming messages.
+    ///
+    /// @param subject_id The subject ID to subscribe to.
+    /// @param extent_bytes The "extent" size of raw messages (see Cyphal spec).
+    /// @return An execution sender which emits the async result of the operation.
+    ///
     virtual SenderOf<MakeRawSubscriber::Result>::Ptr makeRawSubscriber(const CyphalPortId subject_id,
                                                                        const std::size_t  extent_bytes) = 0;
 

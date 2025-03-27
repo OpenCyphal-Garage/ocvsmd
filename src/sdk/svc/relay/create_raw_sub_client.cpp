@@ -84,6 +84,7 @@ private:
             if (const auto error = completion_error_)
             {
                 receiver(Failure{*error});
+                return;
             }
 
             receiver_ = std::forward<Receiver>(receiver);

@@ -52,7 +52,7 @@ public:
         /// Defines the result type of the list of a node registers.
         ///
         /// On success, the result is a vector of register names.
-        /// On failure, the result is a SDK error.
+        /// On failure, the result is an SDK error.
         ///
         struct NodeRegisters final
         {
@@ -134,7 +134,7 @@ public:
         /// Defines the result type of the list of a node registers.
         ///
         /// On success, the result is a vector of register names and values (or errors).
-        /// On failure, the result is a SDK error.
+        /// On failure, the result is an SDK error.
         ///
         struct NodeRegisters final
         {

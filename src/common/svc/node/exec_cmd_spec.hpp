@@ -17,6 +17,8 @@ namespace svc
 namespace node
 {
 
+/// Defines IPC internal housekeeping specification for the `ExecCmd` service.
+///
 struct ExecCmdSpec
 {
     using Request  = ExecCmd::Request_0_2;
