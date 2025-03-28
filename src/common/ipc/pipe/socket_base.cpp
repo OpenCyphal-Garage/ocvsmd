@@ -6,20 +6,22 @@
 #include "socket_base.hpp"
 
 #include "common_helpers.hpp"
-#include "ipc/ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/platform/posix_utils.hpp"
 #include "ocvsmd/sdk/defines.hpp"
+
+#include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <limits>
 #include <memory>
-#include <numeric>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <utility>
 
 namespace ocvsmd
@@ -51,31 +53,18 @@ constexpr std::size_t   MsgPayloadMaxSize  = 1ULL << 20ULL;  // 1 MB
 
 }  // namespace
 
-sdk::OptError SocketBase::send(const IoState& io_state, const Payloads payloads) const
+sdk::OptError SocketBase::send(const IoState& io_state, io::SocketBuffer& sock_buff) const
 {
-    // 1. Write the message header (signature and total size of the following fragments).
+    // 1. Prepend the message header (signature and total size of the following fragments).
     //
-    const std::size_t total_payload_size = std::accumulate(  // NOLINT
-        payloads.begin(),
-        payloads.end(),
-        0ULL,
-        [](const std::size_t acc, const Payload payload) {
-            //
-            return acc + payload.size();
-        });
-    if (const int err = platform::posixSyscallError([total_payload_size, &io_state] {
-            //
-            const IoState::MsgHeader msg_header{MsgHeaderSignature, static_cast<std::uint32_t>(total_payload_size)};
-            return ::send(io_state.fd.get(), &msg_header, sizeof(msg_header), MSG_DONTWAIT);
-        }))
-    {
-        logger_->error("SocketBase: Failed to send msg header (fd={}): {}.", io_state.fd.get(), std::strerror(err));
-        return errnoToError(err);
-    }
+    CETL_DEBUG_ASSERT(sock_buff.size() <= std::numeric_limits<std::uint32_t>::max(), "");
+    const IoState::MsgHeader msg_header{MsgHeaderSignature, static_cast<std::uint32_t>(sock_buff.size())};
+    // NOLINTNEXTLINE(*-reinterpret-cast)
+    sock_buff.prepend({reinterpret_cast<const cetl::byte*>(&msg_header), sizeof(msg_header)});
 
-    // 2. Write the message payload fragments.
+    // 2. Write all payload fragments.
     //
-    for (const auto payload : payloads)
+    for (const auto payload : sock_buff.listFragments())
     {
         if (const int err = platform::posixSyscallError([payload, &io_state] {
                 //
@@ -169,7 +158,7 @@ sdk::OptError SocketBase::receiveData(IoState& io_state) const
         // Switch to the next part - message payload.
         //
         io_state.rx_partial_size = 0;
-        auto payload_buffer = std::make_unique<std::uint8_t[]>(msg_header.payload_size);  // NOLINT(*-avoid-c-arrays)
+        auto payload_buffer      = std::make_unique<cetl::byte[]>(msg_header.payload_size);  // NOLINT(*-avoid-c-arrays)
         io_state.rx_msg_part.emplace<IoState::MsgPayload>(
             IoState::MsgPayload{msg_header.payload_size, std::move(payload_buffer)});
     }
@@ -186,7 +175,7 @@ sdk::OptError SocketBase::receiveData(IoState& io_state) const
             ssize_t bytes_read = 0;
             if (const int err = platform::posixSyscallError([&io_state, &bytes_read, &msg_payload] {
                     //
-                    std::uint8_t* const dst_buf = msg_payload.buffer.get() + io_state.rx_partial_size;
+                    auto* const dst_buf = msg_payload.buffer.get() + io_state.rx_partial_size;
                     //
                     const auto bytes_to_read = msg_payload.size - io_state.rx_partial_size;
                     return bytes_read        = ::recv(io_state.fd.get(), dst_buf, bytes_to_read, MSG_DONTWAIT);
@@ -227,7 +216,7 @@ sdk::OptError SocketBase::receiveData(IoState& io_state) const
         const auto payload       = std::move(msg_payload);
         io_state.rx_msg_part.emplace<IoState::MsgHeader>();
 
-        io_state.on_rx_msg_payload(Payload{payload.buffer.get(), payload.size});
+        io_state.on_rx_msg_payload(io::Payload{payload.buffer.get(), payload.size});
     }
 
     return sdk::OptError{};

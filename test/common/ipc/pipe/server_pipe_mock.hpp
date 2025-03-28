@@ -7,9 +7,9 @@
 #define OCVSMD_COMMON_IPC_SERVER_PIPE_MOCK_HPP_INCLUDED
 
 #include "ipc/pipe/server_pipe.hpp"
-#include "ocvsmd/sdk/defines.hpp"
 
-#include "ipc/ipc_types.hpp"
+#include "io/socket_buffer.hpp"
+#include "ocvsmd/sdk/defines.hpp"
 #include "ref_wrapper.hpp"
 
 #include <gmock/gmock.h>
@@ -38,16 +38,16 @@ public:
             return reference().start(event_handler);
         }
 
-        sdk::OptError send(const ClientId client_id, const Payloads payloads) override
+        sdk::OptError send(const ClientId client_id, io::SocketBuffer& sock_buff) override
         {
-            return reference().send(client_id, payloads);
+            return reference().send(client_id, sock_buff);
         }
 
     };  // Wrapper
 
     MOCK_METHOD(void, deinit, (), (const));
     MOCK_METHOD(sdk::OptError, start, (EventHandler event_handler), (override));
-    MOCK_METHOD(sdk::OptError, send, (const ClientId client_id, const Payloads payloads), (override));
+    MOCK_METHOD(sdk::OptError, send, (const ClientId client_id, io::SocketBuffer& sock_buff), (override));
 
     // MARK: Data members:
 

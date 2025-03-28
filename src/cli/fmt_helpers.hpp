@@ -99,7 +99,7 @@ struct fmt::formatter<ocvsmd::sdk::Error> : formatter<std::string>
 
         if (const auto opt_errno = error.getOptErrno())
         {
-            return format_to(ctx.out(), "{}(errno={})", error_name, opt_errno.value_or(0));
+            return format_to(ctx.out(), "{}(errno={})", error_name, *opt_errno);
         }
         return format_to(ctx.out(), "{}", error_name);
     }

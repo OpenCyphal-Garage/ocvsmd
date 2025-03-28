@@ -49,7 +49,7 @@ public:
         const Request request{&memory_};
         auto          svc_client = ListRootsClient::make(memory_, ipc_router_, request);
 
-        return std::make_unique<svc::AsSender<ListRootsClient, ListRoots::Result>>(  //
+        return std::make_unique<svc::AsSender<ListRoots::Result, decltype(svc_client)>>(  //
             "FileServer::listRoots",
             std::move(svc_client),
             logger_);
@@ -73,7 +73,7 @@ public:
         request.is_back = back;
         auto svc_client = PopRootClient::make(memory_, ipc_router_, request);
 
-        return std::make_unique<svc::AsSender<PopRootClient, PopRoot::Result>>(  //
+        return std::make_unique<svc::AsSender<PopRoot::Result, decltype(svc_client)>>(  //
             "FileServer::popRoot",
             std::move(svc_client),
             logger_);
@@ -97,7 +97,7 @@ public:
         request.is_back = back;
         auto svc_client = PushRootClient::make(memory_, ipc_router_, request);
 
-        return std::make_unique<svc::AsSender<PushRootClient, PushRoot::Result>>(  //
+        return std::make_unique<svc::AsSender<PushRoot::Result, decltype(svc_client)>>(  //
             "FileServer::pushRoot",
             std::move(svc_client),
             logger_);

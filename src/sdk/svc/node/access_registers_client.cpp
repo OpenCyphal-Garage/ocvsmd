@@ -8,7 +8,6 @@
 #include "common_helpers.hpp"
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
-#include "ipc/ipc_types.hpp"
 #include "logging.hpp"
 #include "ocvsmd/common/svc/node/AccessRegistersScope_0_1.hpp"
 #include "svc/node/access_registers_spec.hpp"
@@ -66,7 +65,7 @@ public:
     {
         receiver_ = std::move(receiver);
 
-        channel_.subscribe([this](const auto& event_var) {
+        channel_.subscribe([this](const auto& event_var, const auto) {
             //
             cetl::visit([this](const auto& event) { handleEvent(event); }, event_var);
         });

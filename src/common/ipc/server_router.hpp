@@ -8,7 +8,7 @@
 
 #include "channel.hpp"
 #include "gateway.hpp"
-#include "ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 #include "pipe/server_pipe.hpp"
 
@@ -58,7 +58,7 @@ public:
         registerChannelFactory(  //
             svc_desc,
             [this, svc_id = svc_desc.id, new_ch_handler = std::move(handler)](detail::Gateway::Ptr gateway,
-                                                                              const Payload        payload) {
+                                                                              const io::Payload    payload) {
                 typename Ch::Input input{&memory()};
                 if (tryDeserializePayload(payload, input))
                 {
@@ -68,7 +68,7 @@ public:
     }
 
 protected:
-    using TypeErasedChannelFactory = std::function<void(detail::Gateway::Ptr gateway, const Payload payload)>;
+    using TypeErasedChannelFactory = std::function<void(detail::Gateway::Ptr gateway, const io::Payload payload)>;
 
     ServerRouter() = default;
 

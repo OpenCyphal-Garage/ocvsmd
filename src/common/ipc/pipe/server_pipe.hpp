@@ -6,7 +6,7 @@
 #ifndef OCVSMD_COMMON_IPC_PIPE_SERVER_PIPE_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_PIPE_SERVER_PIPE_HPP_INCLUDED
 
-#include "ipc/ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
@@ -41,8 +41,8 @@ public:
         };
         struct Message final
         {
-            ClientId client_id;
-            Payload  payload;
+            ClientId    client_id;
+            io::Payload payload;
         };
         struct Disconnected final
         {
@@ -62,8 +62,8 @@ public:
 
     virtual ~ServerPipe() = default;
 
-    CETL_NODISCARD virtual sdk::OptError start(EventHandler event_handler)                       = 0;
-    CETL_NODISCARD virtual sdk::OptError send(const ClientId client_id, const Payloads payloads) = 0;
+    CETL_NODISCARD virtual sdk::OptError start(EventHandler event_handler)                           = 0;
+    CETL_NODISCARD virtual sdk::OptError send(const ClientId client_id, io::SocketBuffer& sock_buff) = 0;
 
 protected:
     ServerPipe() = default;

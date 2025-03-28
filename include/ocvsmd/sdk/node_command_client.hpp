@@ -41,7 +41,7 @@ public:
     /// Defines the result type of the command execution.
     ///
     /// On success, the result is a map of node IDs to their responses (`status` and `output` params).
-    /// On failure, the result is a SDK error.
+    /// On failure, the result is an SDK error.
     ///
     struct Command final
     {

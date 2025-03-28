@@ -8,6 +8,7 @@
 
 #include "dsdl_helpers.hpp"
 #include "gateway.hpp"
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
@@ -70,7 +71,12 @@ protected:
 /// but usually it represents one RPC session, which could be completed (finished) with an optional error code.
 /// Such completion normally done at server side (when RPC request has been fulfilled),
 /// but client could also complete the channel. Any unexpected IPC communication error (like f.e. sudden death of
-/// either client or server process) also leads to channel completion (with `ipc::ErrorCode::Disconnected` error).
+/// either client or server process) also leads to channel completion (with `Error::Code::Disconnected` error).
+///
+/// Either side could also request to keep the channel alive after completion, indicating that this side
+/// has finished of sending output messages, but still could receive input messages. Such "keep-alive" completion
+/// from a client-side is useful for indicating to the server-side that all input messages/parameters have been
+/// received, and the server could start processing the combined request.
 ///
 /// Channel could be moved, but not copied.
 /// Channel lifetime is managed by its owner - an IPC service client or server.
@@ -83,7 +89,7 @@ public:
     using Output = Output_;
 
     using EventVar     = cetl::variant<Connected, Input, Completed>;
-    using EventHandler = std::function<void(const EventVar&)>;
+    using EventHandler = std::function<void(const EventVar& event, const io::Payload payload)>;
 
     // Move-only.
     ~Channel()                                   = default;
@@ -96,14 +102,21 @@ public:
 
     CETL_NODISCARD sdk::OptError send(const Output& output)
     {
+        io::SocketBuffer sock_buff;
+        return send(output, sock_buff);
+    }
+
+    CETL_NODISCARD sdk::OptError send(const Output& output, io::SocketBuffer& sock_buff)
+    {
         constexpr std::size_t BufferSize = Output::_traits_::SerializationBufferSizeBytes;
         constexpr bool        IsOnStack  = BufferSize <= MsgSmallPayloadSize;
 
         return tryPerformOnSerialized<Output, BufferSize, IsOnStack>(  //
             output,
-            [this](const auto payload) {
+            [this, &sock_buff](const auto payload) mutable {
                 //
-                return gateway_->send(service_id_, payload);
+                sock_buff.prepend(payload);
+                return gateway_->send(service_id_, sock_buff);
             });
     }
 
@@ -141,7 +154,7 @@ private:
 
         CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Connected&) const
         {
-            ch_event_handler(Connected{});
+            ch_event_handler(Connected{}, {});
             return sdk::OptError{};
         }
 
@@ -154,13 +167,13 @@ private:
                 return sdk::OptError{sdk::Error::Code::InvalidArgument};
             }
 
-            ch_event_handler(input);
+            ch_event_handler(input, gateway_msg.payload);
             return sdk::OptError{};
         }
 
         CETL_NODISCARD sdk::OptError operator()(const GatewayEvent::Completed& completed) const
         {
-            ch_event_handler(Completed{completed.opt_error, completed.keep_alive});
+            ch_event_handler(Completed{completed.opt_error, completed.keep_alive}, {});
             return sdk::OptError{};
         }
 

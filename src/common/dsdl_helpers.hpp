@@ -6,10 +6,11 @@
 #ifndef OCVSMD_COMMON_DSDL_HELPERS_HPP_INCLUDED
 #define OCVSMD_COMMON_DSDL_HELPERS_HPP_INCLUDED
 
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
-#include <cetl/pf20/cetlpf.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <array>
 #include <cstddef>
@@ -23,9 +24,11 @@ namespace common
 {
 
 template <typename Message>
-CETL_NODISCARD static auto tryDeserializePayload(const cetl::span<const std::uint8_t> payload, Message& out_message)
+CETL_NODISCARD static auto tryDeserializePayload(const io::Payload payload, Message& out_message)
 {
-    return deserialize(out_message, {payload.data(), payload.size()});
+    // No lint b/c of integration with Nunavut.
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    return deserialize(out_message, {reinterpret_cast<const std::uint8_t*>(payload.data()), payload.size()});
 }
 
 template <typename Message, typename Action>
@@ -35,16 +38,18 @@ CETL_NODISCARD static sdk::OptError tryPerformOnSerialized(const Message& messag
     //
     // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
-    std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer;
+    std::array<cetl::byte, Message::_traits_::SerializationBufferSizeBytes> buffer;
     //
-    const auto result_size = serialize(message, {buffer.data(), buffer.size()});
+    // No lint b/c of integration with Nunavut.
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    const auto result_size = serialize(message, {reinterpret_cast<std::uint8_t*>(buffer.data()), buffer.size()});
     if (!result_size)
     {
         return sdk::OptError{sdk::Error::Code::InvalidArgument};
     }
 
-    const cetl::span<const std::uint8_t> bytes{buffer.data(), result_size.value()};
-    return std::forward<Action>(action)(bytes);
+    const io::Payload payload{buffer.data(), result_size.value()};
+    return std::forward<Action>(action)(payload);
 }
 
 template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
@@ -56,16 +61,18 @@ CETL_NODISCARD static auto tryPerformOnSerialized(  //
     //
     // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
-    std::array<std::uint8_t, BufferSize> buffer;
+    std::array<cetl::byte, BufferSize> buffer;
     //
-    const auto result_size = serialize(message, {buffer.data(), buffer.size()});
+    // No lint b/c of integration with Nunavut.
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    const auto result_size = serialize(message, {reinterpret_cast<std::uint8_t*>(buffer.data()), buffer.size()});
     if (!result_size)
     {
         return sdk::OptError{sdk::Error::Code::InvalidArgument};
     }
 
-    const cetl::span<const std::uint8_t> bytes{buffer.data(), result_size.value()};
-    return std::forward<Action>(action)(bytes);
+    const io::Payload payload{buffer.data(), result_size.value()};
+    return std::forward<Action>(action)(payload);
 }
 
 template <typename Message, std::size_t BufferSize, bool IsOnStack, typename Action>
@@ -75,17 +82,19 @@ CETL_NODISCARD static auto tryPerformOnSerialized(  //
 {
     // Try to serialize the message to raw payload buffer.
     //
-    using ArrayOfBytes = std::array<std::uint8_t, BufferSize>;
+    using ArrayOfBytes = std::array<cetl::byte, BufferSize>;
     const std::unique_ptr<ArrayOfBytes> buffer{new ArrayOfBytes};
     //
-    const auto result_size = serialize(message, {buffer->data(), buffer->size()});
+    // No lint b/c of integration with Nunavut.
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    const auto result_size = serialize(message, {reinterpret_cast<std::uint8_t*>(buffer->data()), buffer->size()});
     if (!result_size)
     {
         return sdk::OptError{sdk::Error::Code::InvalidArgument};
     }
 
-    const cetl::span<const std::uint8_t> bytes{buffer->data(), result_size.value()};
-    return std::forward<Action>(action)(bytes);
+    const io::Payload payload{buffer->data(), result_size.value()};
+    return std::forward<Action>(action)(payload);
 }
 
 }  // namespace common

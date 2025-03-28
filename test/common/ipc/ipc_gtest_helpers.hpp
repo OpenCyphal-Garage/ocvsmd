@@ -7,9 +7,9 @@
 #define OCVSMD_COMMON_IPC_GTEST_HELPERS_HPP_INCLUDED
 
 #include "common/common_gtest_helpers.hpp"
+#include "common/io/io_gtest_helpers.hpp"
 #include "common_helpers.hpp"
 #include "dsdl_helpers.hpp"
-#include "ipc/ipc_types.hpp"
 
 #include "ocvsmd/common/ipc/RouteChannelEnd_0_2.hpp"
 #include "ocvsmd/common/ipc/RouteChannelMsg_0_1.hpp"
@@ -99,142 +99,6 @@ inline bool operator==(const RouteChannelEnd_0_2& lhs, const RouteChannelEnd_0_2
 
 // MARK: - GTest Matchers:
 
-template <typename Msg>
-class PayloadMatcher
-{
-public:
-    PayloadMatcher(cetl::pmr::memory_resource& memory, testing::Matcher<const Msg&> matcher)
-        : memory_{memory}
-        , matcher_(std::move(matcher))
-    {
-    }
-
-    bool MatchAndExplain(const Payload& payload, testing::MatchResultListener* listener) const
-    {
-        Msg        msg{&memory_};
-        const auto result = tryDeserializePayload<Msg>(payload, msg);
-        if (!result)
-        {
-            if (listener->IsInterested())
-            {
-                *listener << "Failed to deserialize the payload.";
-            }
-            return false;
-        }
-
-        const bool match = matcher_.MatchAndExplain(msg, listener);
-        if (!match && listener->IsInterested())
-        {
-            *listener << ".\n          Payload: ";
-            *listener << testing::PrintToString(msg);
-        }
-        return match;
-    }
-
-    bool MatchAndExplain(const Payloads& payloads, testing::MatchResultListener* listener) const
-    {
-        std::vector<std::uint8_t> flatten;
-        for (const auto& payload : payloads)
-        {
-            flatten.insert(flatten.end(), payload.begin(), payload.end());
-        }
-        return MatchAndExplain({flatten.data(), flatten.size()}, listener);
-    }
-
-    void DescribeTo(std::ostream* os) const
-    {
-        *os << "is a value of type '" << "GetTypeName()" << "' and the value ";
-        matcher_.DescribeTo(os);
-    }
-
-    void DescribeNegationTo(std::ostream* os) const
-    {
-        *os << "is a value of type other than '" << "GetTypeName()" << "' or the value ";
-        matcher_.DescribeNegationTo(os);
-    }
-
-private:
-    cetl::pmr::memory_resource&        memory_;
-    const testing::Matcher<const Msg&> matcher_;
-
-};  // PayloadMatcher
-
-template <typename Msg>
-class PayloadVariantMatcher
-{
-public:
-    PayloadVariantMatcher(cetl::pmr::memory_resource&                        memory,
-                          testing::Matcher<const typename Msg::VariantType&> matcher)
-        : memory_{memory}
-        , matcher_(std::move(matcher))
-    {
-    }
-
-    bool MatchAndExplain(const Payload& payload, testing::MatchResultListener* listener) const
-    {
-        Msg        msg{&memory_};
-        const auto result = tryDeserializePayload<Msg>(payload, msg);
-        if (!result)
-        {
-            if (listener->IsInterested())
-            {
-                *listener << "Failed to deserialize the payload.";
-            }
-            return false;
-        }
-
-        const bool match = matcher_.MatchAndExplain(msg.union_value, listener);
-        if (!match && listener->IsInterested())
-        {
-            *listener << ".\n          Payload: ";
-            *listener << testing::PrintToString(msg);
-        }
-        return match;
-    }
-
-    bool MatchAndExplain(const Payloads& payloads, testing::MatchResultListener* listener) const
-    {
-        std::vector<std::uint8_t> flatten;
-        for (const auto& payload : payloads)
-        {
-            flatten.insert(flatten.end(), payload.begin(), payload.end());
-        }
-        return MatchAndExplain({flatten.data(), flatten.size()}, listener);
-    }
-
-    void DescribeTo(std::ostream* os) const
-    {
-        *os << "is a variant<> with value of type '" << "GetTypeName()" << "' and the value ";
-        matcher_.DescribeTo(os);
-    }
-
-    void DescribeNegationTo(std::ostream* os) const
-    {
-        *os << "is a variant<> with value of type other than '" << "GetTypeName()" << "' or the value ";
-        matcher_.DescribeNegationTo(os);
-    }
-
-private:
-    cetl::pmr::memory_resource&                              memory_;
-    const testing::Matcher<const typename Msg::VariantType&> matcher_;
-
-};  // PayloadVariantMatcher
-
-template <typename Msg>
-testing::PolymorphicMatcher<PayloadMatcher<Msg>> PayloadWith(cetl::pmr::memory_resource&         mr,
-                                                             const testing::Matcher<const Msg&>& matcher)
-{
-    return testing::MakePolymorphicMatcher(PayloadMatcher<Msg>(mr, matcher));
-}
-
-template <typename Msg>
-testing::PolymorphicMatcher<PayloadVariantMatcher<Msg>> PayloadVariantWith(
-    cetl::pmr::memory_resource&                               mr,
-    const testing::Matcher<const typename Msg::VariantType&>& matcher)
-{
-    return testing::MakePolymorphicMatcher(PayloadVariantMatcher<Msg>(mr, matcher));
-}
-
 inline auto PayloadOfRouteConnect(cetl::pmr::memory_resource& mr,
                                   const std::uint8_t          ver_major = VERSION_MAJOR,
                                   const std::uint8_t          ver_minor = VERSION_MINOR,
@@ -243,7 +107,7 @@ inline auto PayloadOfRouteConnect(cetl::pmr::memory_resource& mr,
     RouteConnect_0_1 route_conn{&mr};
     route_conn.version = {ver_major, ver_minor, &mr};
     optErrorToDsdlError(opt_error, route_conn._error);
-    return PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteConnect_0_1>(route_conn));
+    return io::PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteConnect_0_1>(route_conn));
 }
 
 template <typename Msg>
@@ -262,7 +126,7 @@ auto PayloadOfRouteChannelMsg(const Msg&                  msg,
                         return ocvsmd::sdk::OptError{};
                     }),
                 ocvsmd::sdk::OptError{});
-    return PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteChannelMsg_0_1>(route_ch_msg));
+    return io::PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteChannelMsg_0_1>(route_ch_msg));
 }
 
 inline auto PayloadOfRouteChannelEnd(cetl::pmr::memory_resource& mr,  //
@@ -274,7 +138,7 @@ inline auto PayloadOfRouteChannelEnd(cetl::pmr::memory_resource& mr,  //
     ch_end.tag        = tag;
     ch_end.keep_alive = keep_alive;
     optErrorToDsdlError(opt_error, ch_end._error);
-    return PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteChannelEnd_0_2>(ch_end));
+    return io::PayloadVariantWith<Route_0_2>(mr, testing::VariantWith<RouteChannelEnd_0_2>(ch_end));
 }
 
 }  // namespace ipc

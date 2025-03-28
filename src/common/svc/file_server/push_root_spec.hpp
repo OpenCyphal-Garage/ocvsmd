@@ -17,6 +17,8 @@ namespace svc
 namespace file_server
 {
 
+/// Defines IPC internal housekeeping specification for the `PushRoot` service.
+///
 struct PushRootSpec
 {
     using Request  = PushRoot::Request_0_1;

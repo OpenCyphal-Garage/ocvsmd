@@ -17,6 +17,8 @@ namespace svc
 namespace node
 {
 
+/// Defines IPC internal housekeeping specification for the `ListRegisters` service.
+///
 struct ListRegistersSpec
 {
     using Request  = ListRegisters::Request_0_1;

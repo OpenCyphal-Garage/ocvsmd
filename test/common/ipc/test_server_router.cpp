@@ -6,8 +6,8 @@
 #include "ipc/server_router.hpp"
 
 #include "common_helpers.hpp"
+#include "io/socket_buffer.hpp"
 #include "ipc/channel.hpp"
-#include "ipc/ipc_types.hpp"
 #include "ipc/pipe/server_pipe.hpp"
 #include "ipc_gtest_helpers.hpp"
 #include "ocvsmd/sdk/defines.hpp"
@@ -31,6 +31,7 @@
 namespace
 {
 
+using namespace ocvsmd::common::io;   // NOLINT This our main concern here in the unit tests.
 using namespace ocvsmd::common::ipc;  // NOLINT This our main concern here in the unit tests.
 using ocvsmd::sdk::Error;
 using ocvsmd::sdk::OptError;
@@ -107,7 +108,7 @@ protected:
             //
             return tryPerformOnSerialized(msg, [&](const auto suffix) {
                 //
-                std::vector<std::uint8_t> buffer;
+                std::vector<cetl::byte> buffer;
                 std::copy(prefix.begin(), prefix.end(), std::back_inserter(buffer));
                 std::copy(suffix.begin(), suffix.end(), std::back_inserter(buffer));
                 const Payload payload{buffer.data(), buffer.size()};
@@ -214,28 +215,28 @@ TEST_F(TestServerRouter, channel_send)
     EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
-    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
+    StrictMock<MockFunction<void(const Channel::EventVar&, const Payload)>> ch_event_mock;
 
     cetl::optional<Channel> maybe_channel;
     server_router->registerChannel<Channel>("", [&](Channel&& ch, const auto& input) {
         //
         ch.subscribe(ch_event_mock.AsStdFunction());
         maybe_channel = std::move(ch);
-        ch_event_mock.Call(input);
+        ch_event_mock.Call(input, {});
     });
     EXPECT_THAT(maybe_channel.has_value(), IsFalse());
 
     // Emulate that client #42 is connected.
     //
     constexpr std::uint64_t cl_id = 42;
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_), _)).Times(1);
     emulateRouteConnect(cl_id, server_pipe_mock);
 
     // Emulate that client posted initial `RouteChannelMsg` on 42/7 client/tag pair.
     //
     constexpr std::uint64_t tag = 7;
     std::uint64_t           seq = 0;
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_), _)).Times(1);
     emulateRouteChannelMsg(cl_id, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
     ASSERT_THAT(maybe_channel.has_value(), IsTrue());
     EXPECT_CALL(server_pipe_mock, send(cl_id, PayloadOfRouteChannelEnd(mr_, tag, OptError{})))
@@ -243,12 +244,12 @@ TEST_F(TestServerRouter, channel_send)
 
     // Emulate that client posted one more `RouteChannelMsg` on the same 42/7 client/tag pair.
     //
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_), _)).Times(1);
     emulateRouteChannelMsg(cl_id, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
 
     // Emulate that client posted final `RouteChannelEnd` on the same 42/7 client/tag pair.
     //
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_), _)).Times(1);
     emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, OptError{}, true);
 
     seq = 0;
@@ -280,34 +281,34 @@ TEST_F(TestServerRouter, channel_send_after_end)
     EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
-    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
+    StrictMock<MockFunction<void(const Channel::EventVar&, const Payload)>> ch_event_mock;
 
     cetl::optional<Channel> maybe_channel;
     server_router->registerChannel<Channel>("", [&](Channel&& ch, const auto& input) {
         //
         ch.subscribe(ch_event_mock.AsStdFunction());
         maybe_channel = std::move(ch);
-        ch_event_mock.Call(input);
+        ch_event_mock.Call(input, {});
     });
     EXPECT_THAT(maybe_channel.has_value(), IsFalse());
 
     // Emulate that client #43 is connected.
     //
     constexpr std::uint64_t cl_id = 43;
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_), _)).Times(1);
     emulateRouteConnect(cl_id, server_pipe_mock);
 
     // Emulate that client posted initial `RouteChannelMsg` on 43/8 client/tag pair.
     //
     constexpr std::uint64_t tag = 8;
     std::uint64_t           seq = 0;
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_), _)).Times(1);
     emulateRouteChannelMsg(cl_id, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
     ASSERT_THAT(maybe_channel.has_value(), IsTrue());
 
     // Emulate that client posted final `RouteChannelEnd(keep-alive)` on the same 43/8 client/tag pair.
     //
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_), _)).Times(1);
     emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, OptError{}, true);
 
     seq = 0;
@@ -326,7 +327,7 @@ TEST_F(TestServerRouter, channel_send_after_end)
 
     // Emulate that client posted terminal `RouteChannelEnd` on the same 43/8 client/tag pair.
     //
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_), _)).Times(1);
     emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, OptError{});
     //
     EXPECT_THAT(maybe_channel->send(msg), Optional(Error{Error::Code::Shutdown}));
@@ -358,28 +359,28 @@ TEST_F(TestServerRouter, channel_disconnected)
     EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
-    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
+    StrictMock<MockFunction<void(const Channel::EventVar&, const Payload)>> ch_event_mock;
 
     cetl::optional<Channel> maybe_channel;
     server_router->registerChannel<Channel>("", [&](Channel&& ch, const auto& input) {
         //
         ch.subscribe(ch_event_mock.AsStdFunction());
         maybe_channel = std::move(ch);
-        ch_event_mock.Call(input);
+        ch_event_mock.Call(input, {});
     });
     EXPECT_THAT(maybe_channel.has_value(), IsFalse());
 
     // Emulate that client #43 is connected.
     //
     constexpr std::uint64_t cl_id = 43;
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Connected>(_), _)).Times(1);
     emulateRouteConnect(cl_id, server_pipe_mock);
 
     // Emulate that client posted initial `RouteChannelMsg` on 43/8 client/tag pair.
     //
     constexpr std::uint64_t tag = 8;
     std::uint64_t           seq = 0;
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Input>(_), _)).Times(1);
     emulateRouteChannelMsg(cl_id, server_pipe_mock, tag, Channel::Input{&mr_}, seq);
     ASSERT_THAT(maybe_channel.has_value(), IsTrue());
 
@@ -393,7 +394,7 @@ TEST_F(TestServerRouter, channel_disconnected)
 
     // Emulate that the whole client has been disconnected.
     //
-    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_))).Times(1);
+    EXPECT_CALL(ch_event_mock, Call(VariantWith<Channel::Completed>(_), _)).Times(1);
     server_pipe_mock.event_handler_(pipe::ServerPipe::Event::Disconnected{cl_id});
 }
 
@@ -416,14 +417,14 @@ TEST_F(TestServerRouter, channel_unsolicited)
     EXPECT_THAT(server_router->start(), OptError{});
     EXPECT_THAT(server_pipe_mock.event_handler_, IsTrue());
 
-    StrictMock<MockFunction<void(const Channel::EventVar&)>> ch_event_mock;
+    StrictMock<MockFunction<void(const Channel::EventVar&, const Payload)>> ch_event_mock;
 
     cetl::optional<Channel> maybe_channel;
     server_router->registerChannel<Channel>("", [&](Channel&& ch, const auto& input) {
         //
         ch.subscribe(ch_event_mock.AsStdFunction());
         maybe_channel = std::move(ch);
-        ch_event_mock.Call(input);
+        ch_event_mock.Call(input, {});
     });
     EXPECT_THAT(maybe_channel.has_value(), IsFalse());
 

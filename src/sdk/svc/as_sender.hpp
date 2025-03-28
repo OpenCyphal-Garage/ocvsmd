@@ -19,13 +19,13 @@ namespace svc
 
 /// Adapter for an IPC service client to be used as a sender.
 ///
-template <typename SvcClient, typename Result>
+template <typename Result, typename SvcClientPtr>
 class AsSender final : public SenderOf<Result>
 {
 public:
-    AsSender(cetl::string_view op_name, typename SvcClient::Ptr&& svc_client, common::LoggerPtr logger)
+    AsSender(cetl::string_view op_name, SvcClientPtr&& svc_client, common::LoggerPtr logger)
         : op_name_{op_name}
-        , svc_client_{std::forward<typename SvcClient::Ptr>(svc_client)}
+        , svc_client_{std::forward<SvcClientPtr>(svc_client)}
         , logger_{std::move(logger)}
     {
     }
@@ -34,7 +34,7 @@ public:
     {
         logger_->trace("Submitting `{}` operation.", op_name_);
 
-        svc_client_->submit([this, receiver = std::move(receiver)](typename SvcClient::Result&& result) mutable {
+        svc_client_->submit([this, receiver = std::move(receiver)](Result&& result) mutable {
             //
             logger_->trace("Received result of `{}` operation.", op_name_);
             receiver(std::move(result));
@@ -42,9 +42,9 @@ public:
     }
 
 private:
-    cetl::string_view       op_name_;
-    typename SvcClient::Ptr svc_client_;
-    common::LoggerPtr       logger_;
+    cetl::string_view op_name_;
+    SvcClientPtr      svc_client_;
+    common::LoggerPtr logger_;
 
 };  // AsSender
 

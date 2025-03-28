@@ -6,7 +6,7 @@
 #ifndef OCVSMD_COMMON_IPC_GATEWAY_HPP_INCLUDED
 #define OCVSMD_COMMON_IPC_GATEWAY_HPP_INCLUDED
 
-#include "ipc_types.hpp"
+#include "io/socket_buffer.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <cetl/cetl.hpp>
@@ -54,7 +54,7 @@ public:
         struct Message final
         {
             std::uint64_t sequence;
-            Payload       payload;
+            io::Payload   payload;
         };
         struct Completed final
         {
@@ -74,10 +74,10 @@ public:
     Gateway& operator=(const Gateway&)     = delete;
     Gateway& operator=(Gateway&&) noexcept = delete;
 
-    CETL_NODISCARD virtual sdk::OptError send(const ServiceDesc::Id service_id, const Payload payload)  = 0;
-    CETL_NODISCARD virtual sdk::OptError complete(const sdk::OptError opt_error, const bool keep_alive) = 0;
-    CETL_NODISCARD virtual sdk::OptError event(const Event::Var& event)                                 = 0;
-    virtual void                         subscribe(EventHandler event_handler)                          = 0;
+    CETL_NODISCARD virtual sdk::OptError send(const ServiceDesc::Id service_id, io::SocketBuffer& sock_buff) = 0;
+    CETL_NODISCARD virtual sdk::OptError complete(const sdk::OptError opt_error, const bool keep_alive)      = 0;
+    CETL_NODISCARD virtual sdk::OptError event(const Event::Var& event)                                      = 0;
+    virtual void                         subscribe(EventHandler event_handler)                               = 0;
 
 protected:
     Gateway()  = default;
