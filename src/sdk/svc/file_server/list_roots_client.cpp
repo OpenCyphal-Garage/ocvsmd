@@ -38,10 +38,10 @@ class ListRootsClientImpl final : public ListRootsClient
 public:
     ListRootsClientImpl(cetl::pmr::memory_resource&           memory,
                         const common::ipc::ClientRouter::Ptr& ipc_router,
-                        Spec::Request                         request)
+                        const Spec::Request&                  request)
         : memory_{memory}
         , logger_{common::getLogger("svc")}
-        , request_{std::move(request)}
+        , request_{request}
         , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
     {
     }
