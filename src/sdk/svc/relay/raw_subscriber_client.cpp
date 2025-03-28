@@ -3,13 +3,15 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "create_raw_sub_client.hpp"
+#include "raw_subscriber_client.hpp"
+
 #include "io/socket_buffer.hpp"
 #include "ipc/client_router.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/node_pub_sub.hpp"
 #include "svc/as_sender.hpp"
 
-#include <ocvsmd/common/svc/relay/RawMessage_0_1.hpp>
+#include <ocvsmd/common/svc/relay/RawSubscriberReceive_0_1.hpp>
 #include <uavcan/primitive/Empty_1_0.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -28,12 +30,12 @@ namespace relay
 namespace
 {
 
-class CreateRawSubClientImpl final : public CreateRawSubClient
+class RawSubscriberClientImpl final : public RawSubscriberClient
 {
 public:
-    CreateRawSubClientImpl(cetl::pmr::memory_resource&           memory,
-                           const common::ipc::ClientRouter::Ptr& ipc_router,
-                           const Spec::Request&                  request)
+    RawSubscriberClientImpl(cetl::pmr::memory_resource&           memory,
+                            const common::ipc::ClientRouter::Ptr& ipc_router,
+                            const Spec::Request&                  request)
         : memory_{memory}
         , logger_{common::getLogger("svc")}
         , request_{request}
@@ -117,12 +119,13 @@ private:
 
         void handleEvent(const Channel::Completed& completed)
         {
-            logger_->debug("CreateRawSubClient::handleEvent({}).", completed);
+            logger_->debug("RawSubscriberClient::handleEvent({}).", completed);
             completion_error_ = completed.opt_error.value_or(Error{Error::Code::Canceled});
             notifyReceived(Failure{*completion_error_});
         }
 
-        void handleInputEvent(const common::svc::relay::RawMessage_0_1& raw_msg, const common::io::Payload payload)
+        void handleInputEvent(const common::svc::relay::RawSubscriberReceive_0_1& raw_msg,
+                              const common::io::Payload                           payload)
         {
 #if defined(__cpp_exceptions)
             try
@@ -170,7 +173,7 @@ private:
 
     void handleEvent(const Channel::Connected& connected)
     {
-        logger_->trace("CreateRawSubClient::handleEvent({}).", connected);
+        logger_->trace("RawSubscriberClient::handleEvent({}).", connected);
 
         if (const auto opt_error = channel_.send(request_))
         {
@@ -182,7 +185,7 @@ private:
 
     void handleEvent(const Channel::Input&)
     {
-        logger_->trace("CreateRawSubClient::handleEvent(Input).");
+        logger_->trace("RawSubscriberClient::handleEvent(Input).");
 
         auto raw_subscriber = std::make_shared<RawSubscriberImpl>(logger_, std::move(channel_));
         receiver_(Success{std::move(raw_subscriber)});
@@ -192,7 +195,7 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        logger_->debug("CreateRawSubClient::handleEvent({}).", completed);
+        logger_->debug("RawSubscriberClient::handleEvent({}).", completed);
         receiver_(Failure{completed.opt_error.value_or(Error{Error::Code::Canceled})});
     }
 
@@ -202,16 +205,16 @@ private:
     Channel                       channel_;
     std::function<void(Result&&)> receiver_;
 
-};  // CreateRawSubClientImpl
+};  // RawSubscriberClientImpl
 
 }  // namespace
 
-CreateRawSubClient::Ptr CreateRawSubClient::make(  //
+RawSubscriberClient::Ptr RawSubscriberClient::make(  //
     cetl::pmr::memory_resource&           memory,
     const common::ipc::ClientRouter::Ptr& ipc_router,
     const Spec::Request&                  request)
 {
-    return std::make_shared<CreateRawSubClientImpl>(memory, ipc_router, request);
+    return std::make_shared<RawSubscriberClientImpl>(memory, ipc_router, request);
 }
 
 }  // namespace relay

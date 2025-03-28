@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_DAEMON_ENGINE_SVC_RELAY_CREATE_RAW_SUB_SERVICE_HPP_INCLUDED
-#define OCVSMD_DAEMON_ENGINE_SVC_RELAY_CREATE_RAW_SUB_SERVICE_HPP_INCLUDED
+#ifndef OCVSMD_DAEMON_ENGINE_SVC_RELAY_RAW_SUBSCRIBER_SERVICE_HPP_INCLUDED
+#define OCVSMD_DAEMON_ENGINE_SVC_RELAY_RAW_SUBSCRIBER_SERVICE_HPP_INCLUDED
 
 #include "svc/svc_helpers.hpp"
 
@@ -19,15 +19,15 @@ namespace svc
 namespace relay
 {
 
-/// Defines registration factory of the 'Relay: Create Raw Subscriber' service.
+/// Defines registration factory of the 'Relay: Raw Subscriber' service.
 ///
-class CreateRawSubService
+class RawSubscriberService
 {
 public:
-    CreateRawSubService() = delete;
+    RawSubscriberService() = delete;
     static void registerWithContext(const ScvContext& context);
 
-};  // CreateRawSubService
+};  // RawSubscriberService
 
 }  // namespace relay
 }  // namespace svc
@@ -35,4 +35,4 @@ public:
 }  // namespace daemon
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_DAEMON_ENGINE_SVC_RELAY_CREATE_RAW_SUB_SERVICE_HPP_INCLUDED
+#endif  // OCVSMD_DAEMON_ENGINE_SVC_RELAY_RAW_SUBSCRIBER_SERVICE_HPP_INCLUDED

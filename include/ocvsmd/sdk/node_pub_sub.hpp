@@ -17,6 +17,54 @@ namespace ocvsmd
 namespace sdk
 {
 
+/// Defines the interface for the Raw Messages Publisher.
+///
+class RawPublisher
+{
+public:
+    /// Defines a smart pointer type for the interface.
+    ///
+    /// It's made "shared" b/c execution sender (see `publish` method) implicitly
+    /// holds reference to its publisher.
+    ///
+    using Ptr = std::shared_ptr<RawPublisher>;
+
+    virtual ~RawPublisher() = default;
+
+    // No copy/move semantics.
+    RawPublisher(RawPublisher&&)                 = delete;
+    RawPublisher(const RawPublisher&)            = delete;
+    RawPublisher& operator=(RawPublisher&&)      = delete;
+    RawPublisher& operator=(const RawPublisher&) = delete;
+
+    /// Publishes the next raw message using this publisher.
+    ///
+    /// The client-side (the SDK) will forward the raw data to the corresponding Cyphal network publisher
+    /// on the server-side (the daemon). The raw data is forwarded as is, without any interpretation or validation.
+    ///
+    /// Note, only one operation can be active at a time (per publisher).
+    /// In the case of multiple "concurrent" operations, only the last one will report the publishing result.
+    /// Any previous still existing operations will be "stalled" and never complete.
+    ///
+    /// @return An execution sender which emits the async result of the operation.
+    ///
+    virtual SenderOf<cetl::optional<Error>>::Ptr publish() = 0;
+
+    /// Gets the current priority assigned to this raw publisher.
+    ///
+    virtual CyphalPriority getPriority() const = 0;
+
+    /// Sets priority for raw messages to be issued by this raw publisher.
+    ///
+    /// The next and following `publish` operations will use this priority.
+    ///
+    virtual cetl::optional<Error> setPriority(const CyphalPriority priority);
+
+protected:
+    RawPublisher() = default;
+
+};  // RawPublisher
+
 /// Defines the interface for the Raw Messages Subscriber.
 ///
 class RawSubscriber
