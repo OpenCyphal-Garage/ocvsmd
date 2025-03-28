@@ -18,6 +18,7 @@
 #include <cetl/visit_helpers.hpp>
 
 #include <memory>
+#include <utility>
 
 namespace ocvsmd
 {
@@ -35,10 +36,10 @@ class RawSubscriberClientImpl final : public RawSubscriberClient
 public:
     RawSubscriberClientImpl(cetl::pmr::memory_resource&           memory,
                             const common::ipc::ClientRouter::Ptr& ipc_router,
-                            const Spec::Request&                  request)
+                            Spec::Request                         request)
         : memory_{memory}
         , logger_{common::getLogger("svc")}
-        , request_{request}
+        , request_{std::move(request)}
         , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
     {
     }
@@ -103,18 +104,18 @@ private:
         }
 
     private:
-        void handleEvent(const Channel::Input& input_var, const common::io::Payload payload)
+        void handleEvent(const Channel::Input& input, const common::io::Payload payload)
         {
             logger_->trace("RawSubscriber::handleEvent(Input).");
 
             cetl::visit(                //
                 cetl::make_overloaded(  //
-                    [this, payload](const auto& input) {
+                    [this, payload](const auto& receive) {
                         //
-                        handleInputEvent(input, payload);
+                        handleInputEvent(receive, payload);
                     },
                     [](const uavcan::primitive::Empty_1_0&) {}),
-                input_var.union_value);
+                input.union_value);
         }
 
         void handleEvent(const Channel::Completed& completed)
@@ -124,7 +125,7 @@ private:
             notifyReceived(Failure{*completion_error_});
         }
 
-        void handleInputEvent(const common::svc::relay::RawSubscriberReceive_0_1& raw_msg,
+        void handleInputEvent(const common::svc::relay::RawSubscriberReceive_0_1& receive,
                               const common::io::Payload                           payload)
         {
 #if defined(__cpp_exceptions)
@@ -134,18 +135,18 @@ private:
                 // The tail of the payload is the raw message data.
                 // Copy the data as we pass it to the receiver, which might handle it asynchronously.
                 //
-                const auto raw_msg_payload = payload.subspan(payload.size() - raw_msg.payload_size);
+                const auto raw_msg_payload = payload.subspan(payload.size() - receive.payload_size);
                 // NOLINTNEXTLINE(*-avoid-c-arrays)
                 auto raw_msg_buff = std::make_unique<cetl::byte[]>(raw_msg_payload.size());
                 std::memmove(raw_msg_buff.get(), raw_msg_payload.data(), raw_msg_payload.size());
 
-                const auto opt_node_id = raw_msg.remote_node_id.empty()
+                const auto opt_node_id = receive.remote_node_id.empty()
                                              ? cetl::nullopt
-                                             : cetl::optional<CyphalNodeId>{raw_msg.remote_node_id.front()};
+                                             : cetl::optional<CyphalNodeId>{receive.remote_node_id.front()};
 
                 notifyReceived(Receive::Success{raw_msg_payload.size(),
                                                 std::move(raw_msg_buff),
-                                                static_cast<CyphalPriority>(raw_msg.priority),
+                                                static_cast<CyphalPriority>(receive.priority),
                                                 opt_node_id});
 
 #if defined(__cpp_exceptions)
