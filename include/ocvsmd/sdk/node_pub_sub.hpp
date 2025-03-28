@@ -9,7 +9,9 @@
 #include "execution.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 
+#include <chrono>
 #include <memory>
 
 namespace ocvsmd
@@ -46,9 +48,12 @@ public:
     /// In the case of multiple "concurrent" operations, only the last one will report the publishing result.
     /// Any previous still existing operations will be "stalled" and never complete.
     ///
+    /// @param raw_msg The raw message data to publish.
+    /// @param timeout The maximum time to keep the published raw message as valid in the Cyphal network.
     /// @return An execution sender which emits the async result of the operation.
     ///
-    virtual SenderOf<cetl::optional<Error>>::Ptr publish() = 0;
+    virtual SenderOf<cetl::optional<Error>>::Ptr publish(const cetl::span<const cetl::byte> raw_msg,
+                                                         const std::chrono::microseconds    timeout) = 0;
 
     /// Gets the current priority assigned to this raw publisher.
     ///

@@ -56,6 +56,7 @@ add_library(ocvsmd_engine
         svc/node/exec_cmd_service.cpp
         svc/node/list_registers_service.cpp
         svc/node/services.cpp
+        svc/relay/raw_publisher_service.cpp
         svc/relay/raw_subscriber_service.cpp
         svc/relay/services.cpp
 )

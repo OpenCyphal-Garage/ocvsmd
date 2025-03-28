@@ -1,3 +1,4 @@
+uint64 timeout_us
 uint64 payload_size
 
-@extent 16 * 8
+@extent 32 * 8

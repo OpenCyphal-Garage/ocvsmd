@@ -169,6 +169,8 @@ TEST_F(TestRawSubscriberService, request)
 
     std::array<cetl::byte, 3> test_raw_bytes{b(0x11), b(0x22), b(0x33)};
 
+    const auto expected_empty = VariantWith<EmptyResponse>(_);
+
     CySessCntx cy_sess_cntx;
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
@@ -176,7 +178,7 @@ TEST_F(TestRawSubscriberService, request)
         // Emulate service request.
         expectCyMsgSession(cy_sess_cntx, create_req.subject_id);
         EXPECT_CALL(gateway_mock, subscribe(_)).Times(1);
-        EXPECT_CALL(gateway_mock, send(_, io::PayloadVariantWith<Spec::Response>(mr_, VariantWith<EmptyResponse>(_))))
+        EXPECT_CALL(gateway_mock, send(_, io::PayloadVariantWith<Spec::Response>(mr_, expected_empty)))
             .WillOnce(Return(OptError{}));
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //

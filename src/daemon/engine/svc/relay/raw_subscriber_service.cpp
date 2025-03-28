@@ -139,12 +139,12 @@ private:
             }
         }
 
-        bool makeCySubscriber(const sdk::CyphalPortId port_id, const std::size_t extent_bytes)
+        bool makeCySubscriber(const sdk::CyphalPortId subject_id, const std::size_t extent_bytes)
         {
             using CyMakeFailure = libcyphal::presentation::Presentation::MakeFailure;
 
             auto cy_make_result = service_.context_.presentation.makeSubscriber(  //
-                port_id,
+                subject_id,
                 extent_bytes,
                 [this](const auto& arg) {
                     //
@@ -153,8 +153,8 @@ private:
             if (const auto* const cy_failure = cetl::get_if<CyMakeFailure>(&cy_make_result))
             {
                 const auto opt_error = cyFailureToOptError(*cy_failure);
-                logger().warn("RawSubscriberSvc: failed to make subscriber (port_id={}, err={}, fsm_id={}).",
-                              port_id,
+                logger().warn("RawSubscriberSvc: failed to make subscriber (subj_id={}, err={}, fsm_id={}).",
+                              subject_id,
                               opt_error,
                               id_);
 

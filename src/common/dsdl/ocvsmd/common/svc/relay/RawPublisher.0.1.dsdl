@@ -9,6 +9,9 @@ RawPublisherPublish.0.1 publish
 
 ---
 
+@union
+
+uavcan.primitive.Empty.1.0 empty
 ocvsmd.common.Error.0.1 publish_error
 
-@extent 32 * 8
+@sealed
