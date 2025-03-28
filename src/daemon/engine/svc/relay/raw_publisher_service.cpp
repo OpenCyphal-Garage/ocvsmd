@@ -174,6 +174,11 @@ private:
         void handleInputEvent(const common::svc::relay::RawPublisherConfig_0_1& config)
         {
             CETL_DEBUG_ASSERT(cy_raw_publisher_, "");
+            if (!cy_raw_publisher_)
+            {
+                complete(sdk::Error{sdk::Error::Code::Canceled});
+                return;
+            }
 
             if (!config.priority.empty())
             {
@@ -185,6 +190,11 @@ private:
                               const common::io::Payload                         payload)
         {
             CETL_DEBUG_ASSERT(cy_raw_publisher_, "");
+            if (!cy_raw_publisher_)
+            {
+                complete(sdk::Error{sdk::Error::Code::Canceled});
+                return;
+            }
 
             const auto timeout  = std::chrono::duration_cast<libcyphal::Duration>(  //
                 std::chrono::microseconds{publish.timeout_us});

@@ -52,8 +52,8 @@ public:
     /// @param timeout The maximum time to keep the published raw message as valid in the Cyphal network.
     /// @return An execution sender which emits the async result of the operation.
     ///
-    virtual SenderOf<cetl::optional<Error>>::Ptr publish(const cetl::span<const cetl::byte> raw_msg,
-                                                         const std::chrono::microseconds    timeout) = 0;
+    virtual SenderOf<OptError>::Ptr publish(const cetl::span<const cetl::byte> raw_msg,
+                                            const std::chrono::microseconds    timeout) = 0;
 
     /// Gets the current priority assigned to this raw publisher.
     ///
@@ -63,7 +63,7 @@ public:
     ///
     /// The next and following `publish` operations will use this priority.
     ///
-    virtual cetl::optional<Error> setPriority(const CyphalPriority priority);
+    virtual OptError setPriority(const CyphalPriority priority);
 
 protected:
     RawPublisher() = default;
