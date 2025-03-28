@@ -5,7 +5,6 @@
 
 #include "raw_publisher_client.hpp"
 
-#include "io/socket_buffer.hpp"
 #include "ipc/client_router.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/node_pub_sub.hpp"
@@ -54,6 +53,87 @@ public:
 private:
     using Channel = common::ipc::Channel<Spec::Response, Spec::Request>;
 
+    class RawPublisherImpl final : public std::enable_shared_from_this<RawPublisherImpl>, public RawPublisher
+    {
+    public:
+        RawPublisherImpl(common::LoggerPtr logger, Channel&& channel)
+            : logger_(std::move(logger))
+            , channel_{std::move(channel)}
+        {
+            channel_.subscribe([this](const auto& event_var, const auto) {
+                //
+                cetl::visit(                //
+                    cetl::make_overloaded(  //
+                        [this](const Channel::Input& input) {
+                            //
+                            handleEvent(input);
+                        },
+                        [this](const Channel::Completed& completed) {
+                            //
+                            handleEvent(completed);
+                        },
+                        [this](const Channel::Connected&) {}),
+                    event_var);
+            });
+        }
+
+        template <typename Receiver>
+        void submit(Receiver&& receiver)
+        {
+            if (const auto error = completion_error_)
+            {
+                receiver(Failure{*error});
+                return;
+            }
+
+            receiver_ = std::forward<Receiver>(receiver);
+        }
+
+        // RawPublisher
+
+        SenderOf<OptError>::Ptr publish(const cetl::span<const cetl::byte>, const std::chrono::microseconds) override
+        {
+            return nullptr;
+        }
+
+        CyphalPriority getPriority() const override
+        {
+            return CyphalPriority::Nominal;
+        }
+
+        OptError setPriority(const CyphalPriority) override
+        {
+            return OptError{};
+        }
+
+    private:
+        void handleEvent(const Channel::Input&)
+        {
+            logger_->trace("RawPublisher::handleEvent(Input).");
+        }
+
+        void handleEvent(const Channel::Completed& completed)
+        {
+            logger_->debug("RawPublisher::handleEvent({}).", completed);
+            completion_error_ = completed.opt_error.value_or(Error{Error::Code::Canceled});
+            notifyPublished(Failure{*completion_error_});
+        }
+
+        void notifyPublished(OptError opt_error)
+        {
+            if (receiver_)
+            {
+                receiver_(opt_error);
+            }
+        }
+
+        common::LoggerPtr             logger_;
+        Channel                       channel_;
+        OptError                      completion_error_;
+        std::function<void(OptError)> receiver_;
+
+    };  // RawPublisherImpl
+
     void handleEvent(const Channel::Connected& connected)
     {
         logger_->trace("RawPublisherClient::handleEvent({}).", connected);
@@ -69,6 +149,9 @@ private:
     void handleEvent(const Channel::Input&)
     {
         logger_->trace("RawPublisherClient::handleEvent(Input).");
+
+        auto raw_publisher = std::make_shared<RawPublisherImpl>(logger_, std::move(channel_));
+        receiver_(Success{std::move(raw_publisher)});
     }
 
     void handleEvent(const Channel::Completed& completed)

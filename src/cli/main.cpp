@@ -14,12 +14,14 @@
 #include <ocvsmd/sdk/node_command_client.hpp>
 
 #include <uavcan/node/Heartbeat_1_0.hpp>
+#include <uavcan/time/Synchronization_1_0.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <spdlog/spdlog.h>
 
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -35,6 +37,8 @@
 namespace
 {
 
+using ocvsmd::sdk::Error;
+using ocvsmd::sdk::OptError;
 using ocvsmd::sdk::Daemon;
 using ocvsmd::sdk::sync_wait;
 using Executor = ocvsmd::platform::SingleThreadedExecutor;
@@ -461,6 +465,65 @@ void tryRawSubscriberScenario(Executor& executor, cetl::pmr::memory_resource& me
     }
 }
 
+/// Demo of daemon's raw publisher - publishes `uavcan::time::Synchronization_1_0` messages (every ~1s during 30s).
+///
+void tryRawPublisherScenario(Executor& executor, cetl::pmr::memory_resource& memory, const Daemon::Ptr& daemon)
+{
+    using Schedule = libcyphal::IExecutor::Callback::Schedule;
+    using ocvsmd::sdk::RawPublisher;
+    using SyncMessage      = uavcan::time::Synchronization_1_0;
+    using MakeRawPublisher = Daemon::MakeRawPublisher;
+
+    spdlog::info("tryRawPublisherScenario -----------------");
+
+    auto raw_pub_sender = daemon->makeRawPublisher(SyncMessage::_traits_::FixedPortId);
+    auto raw_pub_result = sync_wait<MakeRawPublisher::Result>(executor, std::move(raw_pub_sender), 2s);
+    if (const auto* const failure = cetl::get_if<MakeRawPublisher::Failure>(&raw_pub_result))
+    {
+        spdlog::error("Failed to make raw publisher (err={}).", *failure);
+        return;
+    }
+    const auto raw_publisher = cetl::get<MakeRawPublisher::Success>(std::move(raw_pub_result));
+
+    // auto every_1s_cb = executor.registerCallback([&raw_publisher](const auto& arg) {
+    //     //
+    //         raw_publisher->publish()
+    // });
+    //
+    // const auto             period = std::chrono::milliseconds{1000};
+    // const Schedule::Repeat schedule{executor.now() + period, period};
+    // every_1s_cb.schedule(schedule);
+
+    uavcan::time::Synchronization_1_0 sync_msg{&memory};
+
+    constexpr int duration_secs = 30;
+    spdlog::info("Publishing time syncs for {} secs...", duration_secs);
+    const auto until_timepoint = executor.now() + std::chrono::seconds{duration_secs};
+    while (until_timepoint > executor.now())
+    {
+        const auto timeout = until_timepoint - executor.now();
+
+        ocvsmd::sdk::SenderOf<OptError>::Ptr sender;
+
+        const auto result = tryPerformOnSerialized(sync_msg, [&](const auto payload) {
+            //
+            sender = raw_publisher->publish(payload, 1s);
+            return OptError{};
+        });
+        (void) result;
+        if (const auto error = sync_wait<OptError>(executor, std::move(sender), timeout))
+        {
+            spdlog::warn("Failed to publish raw message (err={}).", *error);
+            return;
+        }
+
+        sync_msg.previous_transmission_timestamp_microsecond =
+            std::chrono::duration_cast<std::chrono::microseconds>(executor.now().time_since_epoch()).count();
+
+        usleep(1'000'000);  // TODO: Should wait using `sync_wait` (so that the executor keep spinning).
+    }
+}
+
 }  // namespace
 
 int main(const int argc, const char** const argv)
@@ -491,14 +554,15 @@ int main(const int argc, const char** const argv)
 
         // Un/Comment needed scenario.
         //
-        tryResetNodesScenario(executor, daemon);
-        tryBeginSoftwareUpdateScenario(executor, daemon);
-        tryPushRootScenario(executor, daemon);
-        tryPopRootScenario(executor, daemon);
-        tryListRootsScenario(executor, daemon);
-        tryListReadWriteRegsOfNodesScenario(executor, memory, daemon);
-        tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
-        tryRawSubscriberScenario(executor, memory, daemon);
+        // tryResetNodesScenario(executor, daemon);
+        // tryBeginSoftwareUpdateScenario(executor, daemon);
+        // tryPushRootScenario(executor, daemon);
+        // tryPopRootScenario(executor, daemon);
+        // tryListRootsScenario(executor, daemon);
+        // tryListReadWriteRegsOfNodesScenario(executor, memory, daemon);
+        // tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
+        // tryRawSubscriberScenario(executor, memory, daemon);
+        tryRawPublisherScenario(executor, memory, daemon);
 
         if (g_running == 0)
         {

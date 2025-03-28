@@ -63,7 +63,7 @@ public:
     ///
     /// The next and following `publish` operations will use this priority.
     ///
-    virtual OptError setPriority(const CyphalPriority priority);
+    virtual OptError setPriority(const CyphalPriority priority) = 0;
 
 protected:
     RawPublisher() = default;
