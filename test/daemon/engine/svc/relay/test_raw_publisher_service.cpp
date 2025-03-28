@@ -48,7 +48,6 @@ using testing::IsNull;
 using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
-using testing::NiceMock;
 using testing::StrictMock;
 using testing::VariantWith;
 
