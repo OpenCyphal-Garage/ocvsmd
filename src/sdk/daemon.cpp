@@ -114,8 +114,9 @@ public:
             logger_);
     }
 
-    SenderOf<MakeRawSubscriber::Result>::Ptr makeRawSubscriber(const CyphalPortId subject_id,
-                                                               const std::size_t  extent_bytes) override
+    SenderOf<MakeRawSubscriber::Result>::Ptr makeRawSubscriber(  //
+        const CyphalPortId subject_id,                           // NOLINT bugprone-easily-swappable-parameters
+        const std::size_t  extent_bytes) override
     {
         using RawSubscriberClient = svc::relay::RawSubscriberClient;
         using Request             = common::svc::relay::RawSubscriberSpec::Request;
