@@ -456,7 +456,7 @@ void tryRawSubscriberScenario(Executor& executor, cetl::pmr::memory_resource& me
         const auto raw_msg = cetl::get<Receive::Success>(std::move(raw_msg_result));
 
         Heartbeat heartbeat{&memory};
-        if (!tryDeserializePayload({raw_msg.data.get(), raw_msg.size}, heartbeat))
+        if (!tryDeserializePayload({raw_msg.payload.data.get(), raw_msg.payload.size}, heartbeat))
         {
             spdlog::error("Failed to deserialize heartbeat.");
             return;
@@ -468,7 +468,7 @@ void tryRawSubscriberScenario(Executor& executor, cetl::pmr::memory_resource& me
 /// Demo of daemon's raw publisher - publishes `uavcan::time::Synchronization_1_0` messages (every ~1s during 30s).
 /// The first half with low priority, and the second half with high priority.
 ///
-void tryRawPublisherScenario(Executor& executor, cetl::pmr::memory_resource& memory, const Daemon::Ptr& daemon)
+void tryPublisherScenario(Executor& executor, cetl::pmr::memory_resource& memory, const Daemon::Ptr& daemon)
 {
     using ocvsmd::sdk::RawPublisher;
     using SyncMessage      = uavcan::time::Synchronization_1_0;
@@ -509,13 +509,7 @@ void tryRawPublisherScenario(Executor& executor, cetl::pmr::memory_resource& mem
 
         const auto timeout = until_timepoint - executor.now();
 
-        ocvsmd::sdk::SenderOf<OptError>::Ptr sender;
-        const auto                           result = tryPerformOnSerialized(sync_msg, [&](const auto payload) {
-            //
-            sender = raw_publisher->publish(payload, 1s);
-            return OptError{};
-        });
-        (void) result;
+        auto sender = raw_publisher->publish(sync_msg, 1s);
         if (const auto error = sync_wait<OptError>(executor, std::move(sender), timeout))
         {
             spdlog::warn("Failed to publish raw message (err={}).", *error);
@@ -559,15 +553,15 @@ int main(const int argc, const char** const argv)
 
         // Un/Comment needed scenario.
         //
-        // tryResetNodesScenario(executor, daemon);
-        // tryBeginSoftwareUpdateScenario(executor, daemon);
-        // tryPushRootScenario(executor, daemon);
-        // tryPopRootScenario(executor, daemon);
-        // tryListRootsScenario(executor, daemon);
-        // tryListReadWriteRegsOfNodesScenario(executor, memory, daemon);
-        // tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
-        // tryRawSubscriberScenario(executor, memory, daemon);
-        tryRawPublisherScenario(executor, memory, daemon);
+        tryResetNodesScenario(executor, daemon);
+        tryBeginSoftwareUpdateScenario(executor, daemon);
+        tryPushRootScenario(executor, daemon);
+        tryPopRootScenario(executor, daemon);
+        tryListRootsScenario(executor, daemon);
+        tryListReadWriteRegsOfNodesScenario(executor, memory, daemon);
+        tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
+        tryRawSubscriberScenario(executor, memory, daemon);
+        tryPublisherScenario(executor, memory, daemon);
 
         if (g_running == 0)
         {

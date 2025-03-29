@@ -61,7 +61,7 @@ private:
             : memory_{memory}
             , logger_(std::move(logger))
             , channel_{std::move(channel)}
-            , published_{PublishRequest{&memory}, nullptr}
+            , published_{PublishRequest{&memory}, {}}
         {
             channel_.subscribe([this](const auto& event_var, const auto) {
                 //
@@ -92,11 +92,13 @@ private:
 
             Spec::Request request{&memory_};
             auto&         publish = request.set_publish(published_.request);
-            SocketBuffer  sock_buff{{published_.payload.get(), publish.payload_size}};
-            const auto    opt_send_error = channel_.send(request, sock_buff);
+            publish.payload_size  = published_.payload.size;
+            SocketBuffer sock_buff{{published_.payload.data.get(), publish.payload_size}};
+            const auto   opt_send_error = channel_.send(request, sock_buff);
 
             // Raw message payload has been sent, so no need to keep it in memory.
-            published_.payload.reset();
+            published_.payload.size = 0;
+            published_.payload.data.reset();
 
             if (const auto error = opt_send_error)
             {
@@ -110,33 +112,15 @@ private:
 
         // RawPublisher
 
-        SenderOf<OptError>::Ptr publish(const cetl::span<const cetl::byte> raw_msg,
-                                        const std::chrono::microseconds    timeout) override
+        SenderOf<OptError>::Ptr publish(OwnMutablePayload&& raw_msg, const std::chrono::microseconds timeout) override
         {
-#if defined(__cpp_exceptions)
-            try
-            {
-#endif
-                published_.request.payload_size = raw_msg.size();
-                published_.request.timeout_us   = std::max<std::uint64_t>(0, timeout.count());
+            published_.payload            = std::move(raw_msg);
+            published_.request.timeout_us = std::max<std::uint64_t>(0, timeout.count());
 
-                // NOLINTNEXTLINE(*-avoid-c-arrays)
-                auto raw_msg_buff = std::make_unique<cetl::byte[]>(raw_msg.size());
-                std::memmove(raw_msg_buff.get(), raw_msg.data(), raw_msg.size());
-                published_.payload = std::move(raw_msg_buff);
-
-                return std::make_unique<AsSender<OptError, decltype(shared_from_this())>>(  //
-                    "RawPublisher::publish",
-                    shared_from_this(),
-                    logger_);
-
-#if defined(__cpp_exceptions)
-            } catch (const std::bad_alloc&)
-            {
-                logger_->warn("RawPublisher::publish() Cannot allocate message buffer.");
-                return just<OptError>(Error{Error::Code::OutOfMemory});
-            }
-#endif
+            return std::make_unique<AsSender<OptError, decltype(shared_from_this())>>(  //
+                "RawPublisher::publish",
+                shared_from_this(),
+                logger_);
         }
 
         OptError setPriority(const CyphalPriority priority) override
@@ -166,8 +150,8 @@ private:
 
         struct Published
         {
-            PublishRequest                request;
-            std::unique_ptr<cetl::byte[]> payload;  // NOLINT(*-avoid-c-arrays)
+            PublishRequest    request;
+            OwnMutablePayload payload;  // NOLINT(*-avoid-c-arrays)
         };
 
         void handleEvent(const Channel::Input& input)

@@ -145,8 +145,7 @@ private:
                                              ? cetl::nullopt
                                              : cetl::optional<CyphalNodeId>{receive.remote_node_id.front()};
 
-                notifyReceived(Receive::Success{raw_msg_payload.size(),
-                                                std::move(raw_msg_buff),
+                notifyReceived(Receive::Success{{raw_msg_payload.size(), std::move(raw_msg_buff)},
                                                 static_cast<CyphalPriority>(receive.priority),
                                                 opt_node_id});
 
