@@ -86,6 +86,7 @@ private:
         {
             if (const auto error = completion_error_)
             {
+                logger_->warn("RawSubscriber::submit() Already completed with error (err={}).", *error);
                 receiver(Failure{*error});
                 return;
             }
@@ -126,7 +127,7 @@ private:
         }
 
         void handleInputEvent(const common::svc::relay::RawSubscriberReceive_0_1& receive,
-                              const common::io::Payload                           payload)
+                              const common::io::Payload                           payload) const
         {
 #if defined(__cpp_exceptions)
             try
@@ -152,12 +153,13 @@ private:
 #if defined(__cpp_exceptions)
             } catch (const std::bad_alloc&)
             {
+                logger_->warn("RawSubscriber::handleInputEvent() Cannot allocate message buffer.");
                 notifyReceived(Receive::Failure{Error::Code::OutOfMemory});
             }
 #endif
         }
 
-        void notifyReceived(Receive::Result&& result)
+        void notifyReceived(Receive::Result&& result) const
         {
             if (receiver_)
             {
@@ -174,18 +176,21 @@ private:
 
     void handleEvent(const Channel::Connected& connected)
     {
+        CETL_DEBUG_ASSERT(receiver_, "");
+
         logger_->trace("RawSubscriberClient::handleEvent({}).", connected);
 
         if (const auto opt_error = channel_.send(request_))
         {
-            CETL_DEBUG_ASSERT(receiver_, "");
-
+            logger_->warn("RawSubscriberClient::handleEvent() Failed to send request (err={}).", *opt_error);
             receiver_(Failure{*opt_error});
         }
     }
 
     void handleEvent(const Channel::Input&)
     {
+        CETL_DEBUG_ASSERT(receiver_, "");
+
         logger_->trace("RawSubscriberClient::handleEvent(Input).");
 
         auto raw_subscriber = std::make_shared<RawSubscriberImpl>(logger_, std::move(channel_));
@@ -197,6 +202,7 @@ private:
         CETL_DEBUG_ASSERT(receiver_, "");
 
         logger_->debug("RawSubscriberClient::handleEvent({}).", completed);
+
         receiver_(Failure{completed.opt_error.value_or(Error{Error::Code::Canceled})});
     }
 

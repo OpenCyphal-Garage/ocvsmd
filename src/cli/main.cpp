@@ -166,7 +166,7 @@ void logHeartbeat(const uavcan::node::Heartbeat_1_0&               hb,
     if (const auto node_id = opt_node_id)
     {
         spdlog::info(  //
-            "❤️ heartbeat from {} node: uptime={} sec, health={}, mode={}, vendor_status={} (cy_priority={}).",
+            "❤️ heartbeat from {} node: uptime={}s, health={}, mode={}, vendor_status={} (cy_priority={}).",
             *node_id,
             hb.uptime,
             static_cast<int>(hb.health.value),
@@ -177,7 +177,7 @@ void logHeartbeat(const uavcan::node::Heartbeat_1_0&               hb,
     else
     {
         spdlog::info(  //
-            "🖤 heartbeat from anonymous node: uptime={} sec, health={}, mode={}, vendor_status={} (cy_priority={}).",
+            "🖤 heartbeat from anonymous node: uptime={}s, health={}, mode={}, vendor_status={} (cy_priority={}).",
             hb.uptime,
             static_cast<int>(hb.health.value),
             static_cast<int>(hb.mode.value),
@@ -466,10 +466,10 @@ void tryRawSubscriberScenario(Executor& executor, cetl::pmr::memory_resource& me
 }
 
 /// Demo of daemon's raw publisher - publishes `uavcan::time::Synchronization_1_0` messages (every ~1s during 30s).
+/// The first half with low priority, and the second half with high priority.
 ///
 void tryRawPublisherScenario(Executor& executor, cetl::pmr::memory_resource& memory, const Daemon::Ptr& daemon)
 {
-    using Schedule = libcyphal::IExecutor::Callback::Schedule;
     using ocvsmd::sdk::RawPublisher;
     using SyncMessage      = uavcan::time::Synchronization_1_0;
     using MakeRawPublisher = Daemon::MakeRawPublisher;
@@ -485,27 +485,32 @@ void tryRawPublisherScenario(Executor& executor, cetl::pmr::memory_resource& mem
     }
     const auto raw_publisher = cetl::get<MakeRawPublisher::Success>(std::move(raw_pub_result));
 
-    // auto every_1s_cb = executor.registerCallback([&raw_publisher](const auto& arg) {
-    //     //
-    //         raw_publisher->publish()
-    // });
-    //
-    // const auto             period = std::chrono::milliseconds{1000};
-    // const Schedule::Repeat schedule{executor.now() + period, period};
-    // every_1s_cb.schedule(schedule);
+    if (const auto opt_error = raw_publisher->setPriority(ocvsmd::sdk::CyphalPriority::Low))
+    {
+        spdlog::warn("Failed to set 'low' priority raw publisher (err={}).", *opt_error);
+    }
 
     uavcan::time::Synchronization_1_0 sync_msg{&memory};
 
+    int           counter       = 0;
     constexpr int duration_secs = 30;
     spdlog::info("Publishing time syncs for {} secs...", duration_secs);
     const auto until_timepoint = executor.now() + std::chrono::seconds{duration_secs};
     while (until_timepoint > executor.now())
     {
+        ++counter;
+        if (counter == 15)
+        {
+            if (const auto opt_error = raw_publisher->setPriority(ocvsmd::sdk::CyphalPriority::High))
+            {
+                spdlog::warn("Failed to set 'high' priority raw publisher (err={}).", *opt_error);
+            }
+        }
+
         const auto timeout = until_timepoint - executor.now();
 
         ocvsmd::sdk::SenderOf<OptError>::Ptr sender;
-
-        const auto result = tryPerformOnSerialized(sync_msg, [&](const auto payload) {
+        const auto                           result = tryPerformOnSerialized(sync_msg, [&](const auto payload) {
             //
             sender = raw_publisher->publish(payload, 1s);
             return OptError{};

@@ -7,6 +7,7 @@
 
 #include "ipc/client_router.hpp"
 #include "logging.hpp"
+#include "ocvsmd/sdk/execution.hpp"
 #include "ocvsmd/sdk/node_pub_sub.hpp"
 #include "svc/as_sender.hpp"
 
@@ -56,9 +57,11 @@ private:
     class RawPublisherImpl final : public std::enable_shared_from_this<RawPublisherImpl>, public RawPublisher
     {
     public:
-        RawPublisherImpl(common::LoggerPtr logger, Channel&& channel)
-            : logger_(std::move(logger))
+        RawPublisherImpl(cetl::pmr::memory_resource& memory, common::LoggerPtr logger, Channel&& channel)
+            : memory_{memory}
+            , logger_(std::move(logger))
             , channel_{std::move(channel)}
+            , published_{PublishRequest{&memory}, nullptr}
         {
             channel_.subscribe([this](const auto& event_var, const auto) {
                 //
@@ -80,9 +83,25 @@ private:
         template <typename Receiver>
         void submit(Receiver&& receiver)
         {
-            if (const auto error = completion_error_)
+            if (auto error = completion_error_)
             {
-                receiver(Failure{*error});
+                logger_->warn("RawPublisher::submit() Already completed with error (err={}).", *error);
+                receiver(std::move(error));
+                return;
+            }
+
+            Spec::Request request{&memory_};
+            auto&         publish = request.set_publish(published_.request);
+            SocketBuffer  sock_buff{{published_.payload.get(), publish.payload_size}};
+            const auto    opt_send_error = channel_.send(request, sock_buff);
+
+            // Raw message payload has been sent, so no need to keep it in memory.
+            published_.payload.reset();
+
+            if (auto error = opt_send_error)
+            {
+                logger_->warn("RawPublisher::submit() Failed to send 'publish' request (err={}).", *error);
+                receiver(std::move(error));
                 return;
             }
 
@@ -91,35 +110,93 @@ private:
 
         // RawPublisher
 
-        SenderOf<OptError>::Ptr publish(const cetl::span<const cetl::byte>, const std::chrono::microseconds) override
+        SenderOf<OptError>::Ptr publish(const cetl::span<const cetl::byte> raw_msg,
+                                        const std::chrono::microseconds    timeout) override
         {
-            return nullptr;
+#if defined(__cpp_exceptions)
+            try
+            {
+#endif
+                published_.request.payload_size = raw_msg.size();
+                published_.request.timeout_us   = std::max<std::uint64_t>(0, timeout.count());
+
+                // NOLINTNEXTLINE(*-avoid-c-arrays)
+                auto raw_msg_buff = std::make_unique<cetl::byte[]>(raw_msg.size());
+                std::memmove(raw_msg_buff.get(), raw_msg.data(), raw_msg.size());
+                published_.payload = std::move(raw_msg_buff);
+
+                return std::make_unique<AsSender<OptError, decltype(shared_from_this())>>(  //
+                    "RawPublisher::publish",
+                    shared_from_this(),
+                    logger_);
+
+#if defined(__cpp_exceptions)
+            } catch (const std::bad_alloc&)
+            {
+                logger_->warn("RawPublisher::publish() Cannot allocate message buffer.");
+                return just<OptError>(Error{Error::Code::OutOfMemory});
+            }
+#endif
         }
 
-        CyphalPriority getPriority() const override
+        OptError setPriority(const CyphalPriority priority) override
         {
-            return CyphalPriority::Nominal;
-        }
+            if (const auto error = completion_error_)
+            {
+                logger_->warn("RawPublisher::setPriority() Already completed with error (err={}).", *error);
+                return error;
+            }
 
-        OptError setPriority(const CyphalPriority) override
-        {
-            return OptError{};
+            Spec::Request request{&memory_};
+            auto&         config = request.set_config();
+            config.priority.push_back(static_cast<std::uint8_t>(priority));
+
+            const auto opt_error = channel_.send(request);
+            if (opt_error)
+            {
+                logger_->warn("RawPublisher::setPriority() Failed to send 'config' request (err={}).", *opt_error);
+            }
+            return opt_error;
         }
 
     private:
-        void handleEvent(const Channel::Input&)
+        using SocketBuffer    = common::io::SocketBuffer;
+        using PublishRequest  = Spec::Request::_traits_::TypeOf::publish;
+        using PublishResponse = Spec::Response::_traits_::TypeOf::publish_error;
+
+        struct Published
+        {
+            PublishRequest                request;
+            std::unique_ptr<cetl::byte[]> payload;  // NOLINT(*-avoid-c-arrays)
+        };
+
+        void handleEvent(const Channel::Input& input)
         {
             logger_->trace("RawPublisher::handleEvent(Input).");
+
+            cetl::visit(                //
+                cetl::make_overloaded(  //
+                    [this](const auto& published) {
+                        //
+                        handleInputEvent(published);
+                    },
+                    [](const uavcan::primitive::Empty_1_0&) {}),
+                input.union_value);
         }
 
         void handleEvent(const Channel::Completed& completed)
         {
             logger_->debug("RawPublisher::handleEvent({}).", completed);
             completion_error_ = completed.opt_error.value_or(Error{Error::Code::Canceled});
-            notifyPublished(Failure{*completion_error_});
+            notifyPublished(completion_error_);
         }
 
-        void notifyPublished(OptError opt_error)
+        void handleInputEvent(const PublishResponse& publish_error) const
+        {
+            notifyPublished(dsdlErrorToOptError(publish_error));
+        }
+
+        void notifyPublished(const OptError opt_error) const
         {
             if (receiver_)
             {
@@ -127,8 +204,10 @@ private:
             }
         }
 
+        cetl::pmr::memory_resource&   memory_;
         common::LoggerPtr             logger_;
         Channel                       channel_;
+        Published                     published_;
         OptError                      completion_error_;
         std::function<void(OptError)> receiver_;
 
@@ -136,21 +215,24 @@ private:
 
     void handleEvent(const Channel::Connected& connected)
     {
+        CETL_DEBUG_ASSERT(receiver_, "");
+
         logger_->trace("RawPublisherClient::handleEvent({}).", connected);
 
         if (const auto opt_error = channel_.send(request_))
         {
-            CETL_DEBUG_ASSERT(receiver_, "");
-
+            logger_->warn("RawPublisherClient::handleEvent() Failed to send request (err={}).", *opt_error);
             receiver_(Failure{*opt_error});
         }
     }
 
     void handleEvent(const Channel::Input&)
     {
+        CETL_DEBUG_ASSERT(receiver_, "");
+
         logger_->trace("RawPublisherClient::handleEvent(Input).");
 
-        auto raw_publisher = std::make_shared<RawPublisherImpl>(logger_, std::move(channel_));
+        auto raw_publisher = std::make_shared<RawPublisherImpl>(memory_, logger_, std::move(channel_));
         receiver_(Success{std::move(raw_publisher)});
     }
 
@@ -159,6 +241,7 @@ private:
         CETL_DEBUG_ASSERT(receiver_, "");
 
         logger_->debug("RawPublisherClient::handleEvent({}).", completed);
+
         receiver_(Failure{completed.opt_error.value_or(Error{Error::Code::Canceled})});
     }
 

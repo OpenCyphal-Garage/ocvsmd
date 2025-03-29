@@ -55,10 +55,6 @@ public:
     virtual SenderOf<OptError>::Ptr publish(const cetl::span<const cetl::byte> raw_msg,
                                             const std::chrono::microseconds    timeout) = 0;
 
-    /// Gets the current priority assigned to this raw publisher.
-    ///
-    virtual CyphalPriority getPriority() const = 0;
-
     /// Sets priority for raw messages to be issued by this raw publisher.
     ///
     /// The next and following `publish` operations will use this priority.
