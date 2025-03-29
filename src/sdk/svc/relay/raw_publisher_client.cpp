@@ -83,10 +83,10 @@ private:
         template <typename Receiver>
         void submit(Receiver&& receiver)
         {
-            if (auto error = completion_error_)
+            if (const auto error = completion_error_)
             {
                 logger_->warn("RawPublisher::submit() Already completed with error (err={}).", *error);
-                receiver(std::move(error));
+                receiver(OptError{error});
                 return;
             }
 
@@ -98,10 +98,10 @@ private:
             // Raw message payload has been sent, so no need to keep it in memory.
             published_.payload.reset();
 
-            if (auto error = opt_send_error)
+            if (const auto error = opt_send_error)
             {
                 logger_->warn("RawPublisher::submit() Failed to send 'publish' request (err={}).", *error);
-                receiver(std::move(error));
+                receiver(OptError{error});
                 return;
             }
 
