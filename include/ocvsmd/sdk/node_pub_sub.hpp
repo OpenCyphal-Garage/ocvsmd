@@ -102,8 +102,8 @@ private:
             //
             // No lint b/c of integration with Nunavut.
             // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-            const auto result_size =
-                serialize(msg, {reinterpret_cast<std::uint8_t*>(payload.data.get()), payload.size});
+            auto* const payload_data = reinterpret_cast<std::uint8_t*>(payload.data.get());
+            const auto  result_size  = serialize(msg, {payload_data, payload.size});
             if (result_size)
             {
                 payload.size = result_size.value();

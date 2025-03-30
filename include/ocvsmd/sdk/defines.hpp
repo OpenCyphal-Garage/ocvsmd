@@ -12,6 +12,7 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 namespace ocvsmd
 {

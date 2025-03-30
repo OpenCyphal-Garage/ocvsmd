@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "dsdl_helpers.hpp"
 #include "fmt_helpers.hpp"
 #include "setup_logging.hpp"
 
