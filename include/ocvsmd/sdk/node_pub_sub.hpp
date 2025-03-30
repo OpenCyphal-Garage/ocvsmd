@@ -19,9 +19,9 @@ namespace ocvsmd
 namespace sdk
 {
 
-/// Defines the interface for the Raw Messages Publisher.
+/// Defines the interface of Messages Publisher.
 ///
-class RawPublisher
+class Publisher
 {
 public:
     /// Defines a smart pointer type for the interface.
@@ -29,15 +29,15 @@ public:
     /// It's made "shared" b/c execution sender (see `publish` method) implicitly
     /// holds reference to its publisher.
     ///
-    using Ptr = std::shared_ptr<RawPublisher>;
+    using Ptr = std::shared_ptr<Publisher>;
 
-    virtual ~RawPublisher() = default;
+    virtual ~Publisher() = default;
 
     // No copy/move semantics.
-    RawPublisher(RawPublisher&&)                 = delete;
-    RawPublisher(const RawPublisher&)            = delete;
-    RawPublisher& operator=(RawPublisher&&)      = delete;
-    RawPublisher& operator=(const RawPublisher&) = delete;
+    Publisher(Publisher&&)                 = delete;
+    Publisher(const Publisher&)            = delete;
+    Publisher& operator=(Publisher&&)      = delete;
+    Publisher& operator=(const Publisher&) = delete;
 
     /// Publishes the next raw message using this publisher.
     ///
@@ -48,13 +48,14 @@ public:
     /// In the case of multiple "concurrent" operations, only the last one will report the publishing result.
     /// Any previous still existing operations will be "stalled" and never complete.
     ///
-    /// @param raw_msg The raw message data to publish.
+    /// @param raw_payload The raw message data to publish.
     /// @param timeout The maximum time to keep the published raw message as valid in the Cyphal network.
     /// @return An execution sender which emits the async result of the operation.
     ///
-    virtual SenderOf<OptError>::Ptr publish(OwnMutablePayload&& raw_msg, const std::chrono::microseconds timeout) = 0;
+    virtual SenderOf<OptError>::Ptr rawPublish(OwnMutablePayload&&             raw_payload,
+                                               const std::chrono::microseconds timeout) = 0;
 
-    /// Sets priority for raw messages to be issued by this raw publisher.
+    /// Sets priority for messages to be issued by this publisher.
     ///
     /// The next and following `publish` operations will use this priority.
     ///
@@ -76,14 +77,14 @@ public:
     template <typename Message>
     SenderOf<OptError>::Ptr publish(const Message& message, const std::chrono::microseconds timeout)
     {
-        return tryPerformOnSerialized(message, [this, timeout](auto payload) {
+        return tryPerformOnSerialized(message, [this, timeout](auto raw_payload) {
             //
-            return publish(std::move(payload), timeout);
+            return rawPublish(std::move(raw_payload), timeout);
         });
     }
 
 protected:
-    RawPublisher() = default;
+    Publisher() = default;
 
 private:
     template <typename Message, typename Action>
@@ -118,11 +119,11 @@ private:
 #endif
     }
 
-};  // RawPublisher
+};  // Publisher
 
-/// Defines the interface for the Raw Messages Subscriber.
+/// Defines the interface of Messages Subscriber.
 ///
-class RawSubscriber
+class Subscriber
 {
 public:
     /// Defines a smart pointer type for the interface.
@@ -130,15 +131,15 @@ public:
     /// It's made "shared" b/c execution sender (see `receive` method) implicitly
     /// holds reference to its subscriber.
     ///
-    using Ptr = std::shared_ptr<RawSubscriber>;
+    using Ptr = std::shared_ptr<Subscriber>;
 
-    virtual ~RawSubscriber() = default;
+    virtual ~Subscriber() = default;
 
     // No copy/move semantics.
-    RawSubscriber(RawSubscriber&&)                 = delete;
-    RawSubscriber(const RawSubscriber&)            = delete;
-    RawSubscriber& operator=(RawSubscriber&&)      = delete;
-    RawSubscriber& operator=(const RawSubscriber&) = delete;
+    Subscriber(Subscriber&&)                 = delete;
+    Subscriber(const Subscriber&)            = delete;
+    Subscriber& operator=(Subscriber&&)      = delete;
+    Subscriber& operator=(const Subscriber&) = delete;
 
     /// Defines the result type of the subscriber raw message reception.
     ///
@@ -237,9 +238,9 @@ public:
     }
 
 protected:
-    RawSubscriber() = default;
+    Subscriber() = default;
 
-};  // RawSubscriber
+};  // Subscriber
 
 }  // namespace sdk
 }  // namespace ocvsmd

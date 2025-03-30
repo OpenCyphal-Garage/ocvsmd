@@ -423,13 +423,13 @@ void tryListReadWriteRegsOfSingleNodeScenario(Executor&                   execut
 ///
 void trySubscriberScenario(Executor& executor, cetl::pmr::memory_resource& memory, const Daemon::Ptr& daemon)
 {
-    using ocvsmd::sdk::RawSubscriber;
+    using ocvsmd::sdk::Subscriber;
     using Heartbeat      = uavcan::node::Heartbeat_1_0;
-    using MakeSubscriber = Daemon::MakeRawSubscriber;
+    using MakeSubscriber = Daemon::MakeSubscriber;
 
     spdlog::info("trySubscriberScenario -----------------");
 
-    auto sub_sender = daemon->makeRawSubscriber(Heartbeat::_traits_::FixedPortId, Heartbeat::_traits_::ExtentBytes);
+    auto sub_sender = daemon->makeSubscriber(Heartbeat::_traits_::FixedPortId, Heartbeat::_traits_::ExtentBytes);
     auto sub_result = sync_wait<MakeSubscriber::Result>(executor, std::move(sub_sender), 2s);
     if (const auto* const failure = cetl::get_if<MakeSubscriber::Failure>(&sub_result))
     {
@@ -443,7 +443,7 @@ void trySubscriberScenario(Executor& executor, cetl::pmr::memory_resource& memor
     const auto until_timepoint = executor.now() + std::chrono::seconds{duration_secs};
     while (until_timepoint > executor.now())
     {
-        using Receive = RawSubscriber::Receive;
+        using Receive = Subscriber::Receive;
 
         auto       rcv_sender = subscriber->receive<Heartbeat>(memory);
         const auto timeout    = until_timepoint - executor.now();
@@ -463,13 +463,13 @@ void trySubscriberScenario(Executor& executor, cetl::pmr::memory_resource& memor
 ///
 void tryPublisherScenario(Executor& executor, cetl::pmr::memory_resource& memory, const Daemon::Ptr& daemon)
 {
-    using ocvsmd::sdk::RawPublisher;
+    using ocvsmd::sdk::Publisher;
     using SyncMessage   = uavcan::time::Synchronization_1_0;
-    using MakePublisher = Daemon::MakeRawPublisher;
+    using MakePublisher = Daemon::MakePublisher;
 
     spdlog::info("tryPublisherScenario -----------------");
 
-    auto pub_sender = daemon->makeRawPublisher(SyncMessage::_traits_::FixedPortId);
+    auto pub_sender = daemon->makePublisher(SyncMessage::_traits_::FixedPortId);
     auto pub_result = sync_wait<MakePublisher::Result>(executor, std::move(pub_sender), 2s);
     if (const auto* const failure = cetl::get_if<MakePublisher::Failure>(&pub_result))
     {

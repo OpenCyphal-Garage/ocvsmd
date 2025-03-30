@@ -33,7 +33,7 @@ public:
     using Ptr  = std::shared_ptr<RawPublisherClient>;
     using Spec = common::svc::relay::RawPublisherSpec;
 
-    using Success = RawPublisher::Ptr;
+    using Success = Publisher::Ptr;
     using Failure = Error;
     using Result  = cetl::variant<Success, Failure>;
 

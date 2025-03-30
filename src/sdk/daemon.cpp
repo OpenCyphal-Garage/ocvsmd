@@ -96,7 +96,7 @@ public:
         return node_registry_client_;
     }
 
-    SenderOf<MakeRawPublisher::Result>::Ptr makeRawPublisher(const CyphalPortId subject_id) override
+    SenderOf<MakePublisher::Result>::Ptr makePublisher(const CyphalPortId subject_id) override
     {
         using RawPublisherClient = svc::relay::RawPublisherClient;
         using Request            = common::svc::relay::RawPublisherSpec::Request;
@@ -108,14 +108,14 @@ public:
         create_req.subject_id = subject_id;
         auto svc_client       = RawPublisherClient::make(memory_, ipc_router_, request);
 
-        return std::make_unique<svc::AsSender<MakeRawPublisher::Result, decltype(svc_client)>>(  //
-            "Daemon::makeRawPublisher",
+        return std::make_unique<svc::AsSender<MakePublisher::Result, decltype(svc_client)>>(  //
+            "Daemon::makePublisher",
             std::move(svc_client),
             logger_);
     }
 
-    SenderOf<MakeRawSubscriber::Result>::Ptr makeRawSubscriber(  //
-        const CyphalPortId subject_id,                           // NOLINT bugprone-easily-swappable-parameters
+    SenderOf<MakeSubscriber::Result>::Ptr makeSubscriber(  //
+        const CyphalPortId subject_id,                     // NOLINT bugprone-easily-swappable-parameters
         const std::size_t  extent_bytes) override
     {
         using RawSubscriberClient = svc::relay::RawSubscriberClient;
@@ -129,8 +129,8 @@ public:
         create_req.extent_size = extent_bytes;
         auto svc_client        = RawSubscriberClient::make(memory_, ipc_router_, request);
 
-        return std::make_unique<svc::AsSender<MakeRawSubscriber::Result, decltype(svc_client)>>(  //
-            "Daemon::makeRawSubscriber",
+        return std::make_unique<svc::AsSender<MakeSubscriber::Result, decltype(svc_client)>>(  //
+            "Daemon::makeSubscriber",
             std::move(svc_client),
             logger_);
     }

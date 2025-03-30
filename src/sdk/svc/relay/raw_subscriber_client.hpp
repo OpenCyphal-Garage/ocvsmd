@@ -33,7 +33,7 @@ public:
     using Ptr  = std::shared_ptr<RawSubscriberClient>;
     using Spec = common::svc::relay::RawSubscriberSpec;
 
-    using Success = RawSubscriber::Ptr;
+    using Success = Subscriber::Ptr;
     using Failure = Error;
     using Result  = cetl::variant<Success, Failure>;
 

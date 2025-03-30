@@ -57,10 +57,10 @@ public:
 private:
     using Channel = common::ipc::Channel<Spec::Response, Spec::Request>;
 
-    class RawSubscriberImpl final : public std::enable_shared_from_this<RawSubscriberImpl>, public RawSubscriber
+    class SubscriberImpl final : public std::enable_shared_from_this<SubscriberImpl>, public Subscriber
     {
     public:
-        RawSubscriberImpl(common::LoggerPtr logger, Channel&& channel)
+        SubscriberImpl(common::LoggerPtr logger, Channel&& channel)
             : logger_(std::move(logger))
             , channel_{std::move(channel)}
         {
@@ -86,7 +86,7 @@ private:
         {
             if (const auto error = completion_error_)
             {
-                logger_->warn("RawSubscriber::submit() Already completed with error (err={}).", *error);
+                logger_->warn("Subscriber::submit() Already completed with error (err={}).", *error);
                 receiver(Failure{*error});
                 return;
             }
@@ -99,7 +99,7 @@ private:
         SenderOf<RawReceive::Result>::Ptr rawReceive() override
         {
             return std::make_unique<AsSender<RawReceive::Result, decltype(shared_from_this())>>(  //
-                "RawSubscriber::rawReceive",
+                "Subscriber::rawReceive",
                 shared_from_this(),
                 logger_);
         }
@@ -107,7 +107,7 @@ private:
     private:
         void handleEvent(const Channel::Input& input, const common::io::Payload payload)
         {
-            logger_->trace("RawSubscriber::handleEvent(Input).");
+            logger_->trace("Subscriber::handleEvent(Input).");
 
             cetl::visit(                //
                 cetl::make_overloaded(  //
@@ -121,7 +121,7 @@ private:
 
         void handleEvent(const Channel::Completed& completed)
         {
-            logger_->debug("RawSubscriberClient::handleEvent({}).", completed);
+            logger_->debug("Subscriber::handleEvent({}).", completed);
             completion_error_ = completed.opt_error.value_or(Error{Error::Code::Canceled});
             notifyReceived(Failure{*completion_error_});
         }
@@ -152,7 +152,7 @@ private:
 #if defined(__cpp_exceptions)
             } catch (const std::bad_alloc&)
             {
-                logger_->warn("RawSubscriber::handleInputEvent() Cannot allocate message buffer.");
+                logger_->warn("Subscriber::handleInputEvent() Cannot allocate message buffer.");
                 notifyReceived(RawReceive::Failure{Error::Code::OutOfMemory});
             }
 #endif
@@ -171,7 +171,7 @@ private:
         OptError                                  completion_error_;
         std::function<void(RawReceive::Result&&)> receiver_;
 
-    };  // RawSubscriberImpl
+    };  // SubscriberImpl
 
     void handleEvent(const Channel::Connected& connected)
     {
@@ -192,7 +192,7 @@ private:
 
         logger_->trace("RawSubscriberClient::handleEvent(Input).");
 
-        auto raw_subscriber = std::make_shared<RawSubscriberImpl>(logger_, std::move(channel_));
+        auto raw_subscriber = std::make_shared<SubscriberImpl>(logger_, std::move(channel_));
         receiver_(Success{std::move(raw_subscriber)});
     }
 

@@ -54,10 +54,10 @@ public:
 private:
     using Channel = common::ipc::Channel<Spec::Response, Spec::Request>;
 
-    class RawPublisherImpl final : public std::enable_shared_from_this<RawPublisherImpl>, public RawPublisher
+    class PublisherImpl final : public std::enable_shared_from_this<PublisherImpl>, public Publisher
     {
     public:
-        RawPublisherImpl(cetl::pmr::memory_resource& memory, common::LoggerPtr logger, Channel&& channel)
+        PublisherImpl(cetl::pmr::memory_resource& memory, common::LoggerPtr logger, Channel&& channel)
             : memory_{memory}
             , logger_(std::move(logger))
             , channel_{std::move(channel)}
@@ -85,7 +85,7 @@ private:
         {
             if (const auto error = completion_error_)
             {
-                logger_->warn("RawPublisher::submit() Already completed with error (err={}).", *error);
+                logger_->warn("Publisher::submit() Already completed with error (err={}).", *error);
                 receiver(OptError{error});
                 return;
             }
@@ -102,7 +102,7 @@ private:
 
             if (const auto error = opt_send_error)
             {
-                logger_->warn("RawPublisher::submit() Failed to send 'publish' request (err={}).", *error);
+                logger_->warn("Publisher::submit() Failed to send 'publish' request (err={}).", *error);
                 receiver(OptError{error});
                 return;
             }
@@ -110,15 +110,16 @@ private:
             receiver_ = std::forward<Receiver>(receiver);
         }
 
-        // RawPublisher
+        // Publisher
 
-        SenderOf<OptError>::Ptr publish(OwnMutablePayload&& raw_msg, const std::chrono::microseconds timeout) override
+        SenderOf<OptError>::Ptr rawPublish(OwnMutablePayload&&             raw_payload,
+                                           const std::chrono::microseconds timeout) override
         {
-            published_.payload            = std::move(raw_msg);
+            published_.payload            = std::move(raw_payload);
             published_.request.timeout_us = std::max<std::uint64_t>(0, timeout.count());
 
             return std::make_unique<AsSender<OptError, decltype(shared_from_this())>>(  //
-                "RawPublisher::publish",
+                "Publisher::rawPublish",
                 shared_from_this(),
                 logger_);
         }
@@ -127,7 +128,7 @@ private:
         {
             if (const auto error = completion_error_)
             {
-                logger_->warn("RawPublisher::setPriority() Already completed with error (err={}).", *error);
+                logger_->warn("Publisher::setPriority() Already completed with error (err={}).", *error);
                 return error;
             }
 
@@ -138,7 +139,7 @@ private:
             const auto opt_error = channel_.send(request);
             if (opt_error)
             {
-                logger_->warn("RawPublisher::setPriority() Failed to send 'config' request (err={}).", *opt_error);
+                logger_->warn("Publisher::setPriority() Failed to send 'config' request (err={}).", *opt_error);
             }
             return opt_error;
         }
@@ -156,7 +157,7 @@ private:
 
         void handleEvent(const Channel::Input& input)
         {
-            logger_->trace("RawPublisher::handleEvent(Input).");
+            logger_->trace("Publisher::handleEvent(Input).");
 
             cetl::visit(                //
                 cetl::make_overloaded(  //
@@ -170,7 +171,7 @@ private:
 
         void handleEvent(const Channel::Completed& completed)
         {
-            logger_->debug("RawPublisher::handleEvent({}).", completed);
+            logger_->debug("Publisher::handleEvent({}).", completed);
             completion_error_ = completed.opt_error.value_or(Error{Error::Code::Canceled});
             notifyPublished(completion_error_);
         }
@@ -195,7 +196,7 @@ private:
         OptError                      completion_error_;
         std::function<void(OptError)> receiver_;
 
-    };  // RawPublisherImpl
+    };  // PublisherImpl
 
     void handleEvent(const Channel::Connected& connected)
     {
@@ -216,7 +217,7 @@ private:
 
         logger_->trace("RawPublisherClient::handleEvent(Input).");
 
-        auto raw_publisher = std::make_shared<RawPublisherImpl>(memory_, logger_, std::move(channel_));
+        auto raw_publisher = std::make_shared<PublisherImpl>(memory_, logger_, std::move(channel_));
         receiver_(Success{std::move(raw_publisher)});
     }
 
