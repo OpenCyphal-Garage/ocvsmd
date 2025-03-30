@@ -96,10 +96,10 @@ private:
 
         // RawSubscriber
 
-        SenderOf<Receive::Result>::Ptr receive() override
+        SenderOf<RawReceive::Result>::Ptr rawReceive() override
         {
-            return std::make_unique<AsSender<Receive::Result, decltype(shared_from_this())>>(  //
-                "RawSubscriber::receive",
+            return std::make_unique<AsSender<RawReceive::Result, decltype(shared_from_this())>>(  //
+                "RawSubscriber::rawReceive",
                 shared_from_this(),
                 logger_);
         }
@@ -126,7 +126,7 @@ private:
             notifyReceived(Failure{*completion_error_});
         }
 
-        void handleInputEvent(const common::svc::relay::RawSubscriberReceive_0_1& receive,
+        void handleInputEvent(const common::svc::relay::RawSubscriberReceive_0_1& raw_receive,
                               const common::io::Payload                           payload) const
         {
 #if defined(__cpp_exceptions)
@@ -136,29 +136,29 @@ private:
                 // The tail of the payload is the raw message data.
                 // Copy the data as we pass it to the receiver, which might handle it asynchronously.
                 //
-                const auto raw_msg_payload = payload.subspan(payload.size() - receive.payload_size);
+                const auto raw_msg_payload = payload.subspan(payload.size() - raw_receive.payload_size);
                 // NOLINTNEXTLINE(*-avoid-c-arrays)
                 auto raw_msg_buff = std::make_unique<cetl::byte[]>(raw_msg_payload.size());
                 std::memmove(raw_msg_buff.get(), raw_msg_payload.data(), raw_msg_payload.size());
 
-                const auto opt_node_id = receive.remote_node_id.empty()
+                const auto opt_node_id = raw_receive.remote_node_id.empty()
                                              ? cetl::nullopt
-                                             : cetl::optional<CyphalNodeId>{receive.remote_node_id.front()};
+                                             : cetl::optional<CyphalNodeId>{raw_receive.remote_node_id.front()};
 
-                notifyReceived(Receive::Success{{raw_msg_payload.size(), std::move(raw_msg_buff)},
-                                                static_cast<CyphalPriority>(receive.priority),
-                                                opt_node_id});
+                notifyReceived(RawReceive::Success{{raw_msg_payload.size(), std::move(raw_msg_buff)},
+                                                   static_cast<CyphalPriority>(raw_receive.priority),
+                                                   opt_node_id});
 
 #if defined(__cpp_exceptions)
             } catch (const std::bad_alloc&)
             {
                 logger_->warn("RawSubscriber::handleInputEvent() Cannot allocate message buffer.");
-                notifyReceived(Receive::Failure{Error::Code::OutOfMemory});
+                notifyReceived(RawReceive::Failure{Error::Code::OutOfMemory});
             }
 #endif
         }
 
-        void notifyReceived(Receive::Result&& result) const
+        void notifyReceived(RawReceive::Result&& result) const
         {
             if (receiver_)
             {
@@ -166,10 +166,10 @@ private:
             }
         }
 
-        common::LoggerPtr                      logger_;
-        Channel                                channel_;
-        OptError                               completion_error_;
-        std::function<void(Receive::Result&&)> receiver_;
+        common::LoggerPtr                         logger_;
+        Channel                                   channel_;
+        OptError                                  completion_error_;
+        std::function<void(RawReceive::Result&&)> receiver_;
 
     };  // RawSubscriberImpl
 

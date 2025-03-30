@@ -140,12 +140,12 @@ public:
     RawSubscriber& operator=(RawSubscriber&&)      = delete;
     RawSubscriber& operator=(const RawSubscriber&) = delete;
 
-    /// Defines the result type of the raw subscriber message reception.
+    /// Defines the result type of the subscriber raw message reception.
     ///
     /// On success, the result is a raw data buffer, its size, and extra metadata.
     /// On failure, the result is an SDK error.
     ///
-    struct Receive final
+    struct RawReceive final
     {
         struct Success
         {
@@ -169,7 +169,72 @@ public:
     ///
     /// @return An execution sender which emits the async result of the operation.
     ///
-    virtual SenderOf<Receive::Result>::Ptr receive() = 0;
+    virtual SenderOf<RawReceive::Result>::Ptr rawReceive() = 0;
+
+    /// Defines the result type of the subscriber message reception.
+    ///
+    /// On success, the result is a deserialized message, and its extra metadata.
+    /// On failure, the result is an SDK error.
+    ///
+    struct Receive final
+    {
+        template <typename Message>
+        struct Success
+        {
+            Message                      message;
+            CyphalPriority               priority;
+            cetl::optional<CyphalNodeId> publisher_node_id;
+        };
+
+        using Failure = Error;
+
+        template <typename Message>
+        using Result = cetl::variant<Success<Message>, Failure>;
+    };
+    /// Receives the next message from this subscriber.
+    ///
+    /// The server-side (the daemon) will forward the observed raw data on the corresponding Cyphal network subscriber.
+    /// The received raw data is then deserialized into the strong-typed message.
+    ///
+    /// Note, only one `receive` operation can be active at a time (per subscriber).
+    /// In the case of multiple "concurrent" operations, only the last one will receive the result.
+    /// Any previous still existing operations will be "stalled" and never complete.
+    /// Also, to not miss any new message, user should immediately initiate
+    /// a new `receive` operation after getting the success result of the previous one.
+    ///
+    /// @return An execution sender which emits the async result of the operation.
+    ///
+    template <typename Message>
+    typename SenderOf<Receive::Result<Message>>::Ptr receive(cetl::pmr::memory_resource& memory)
+    {
+        using ResultMsg = Receive::Result<Message>;
+
+        return then<ResultMsg, RawReceive::Result>(rawReceive(), [&memory](auto raw_result) -> ResultMsg {
+            //
+            if (const auto* const failure = cetl::get_if<RawReceive::Failure>(&raw_result))
+            {
+                return *failure;
+            }
+            auto raw_msg = cetl::get<RawReceive::Success>(std::move(raw_result));
+
+            // No lint b/c of integration with Nunavut.
+            // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+            const auto* const raw_payload = reinterpret_cast<const std::uint8_t*>(raw_msg.payload.data.get());
+            Message           message{&memory};
+            const auto        deser_result = deserialize(message, {raw_payload, raw_msg.payload.size});
+            if (!deser_result)
+            {
+                // Invalid message payload.
+                return Error{Error::Code::InvalidArgument};
+            }
+
+            return Receive::Success<Message>{
+                std::move(message),
+                raw_msg.priority,
+                raw_msg.publisher_node_id,
+            };
+        });
+    }
 
 protected:
     RawSubscriber() = default;
