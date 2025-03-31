@@ -7,8 +7,8 @@
 
 #include "common_helpers.hpp"
 #include "ipc/channel.hpp"
-#include "ipc/client_router.hpp"
 #include "logging.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/node/list_registers_spec.hpp"
 
 #include <cetl/cetl.hpp>
@@ -32,13 +32,11 @@ namespace
 class ListRegistersClientImpl final : public ListRegistersClient
 {
 public:
-    ListRegistersClientImpl(cetl::pmr::memory_resource&           memory,
-                            const common::ipc::ClientRouter::Ptr& ipc_router,
-                            const CyphalNodeIds                   node_ids,
-                            const std::chrono::microseconds       timeout)
-        : memory_{memory}
-        , logger_{common::getLogger("svc")}
-        , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
+    ListRegistersClientImpl(const ClientContext&            context,
+                            const CyphalNodeIds             node_ids,
+                            const std::chrono::microseconds timeout)
+        : context_{context}
+        , channel_{context.ipc_router.makeChannel<Channel>(Spec::svc_full_name())}
     {
         buildRequests(node_ids, timeout);
     }
@@ -66,7 +64,7 @@ private:
         constexpr std::size_t chunk_size = Spec::Request::_traits_::ArrayCapacity::node_ids;
         for (std::size_t offset = 0; offset < node_ids.size(); offset += chunk_size)
         {
-            Spec::Request request{&memory_};
+            Spec::Request request{&context_.memory};
             request.timeout_us   = timeout_us;
             const auto ids_chunk = node_ids.subspan(offset, std::min(chunk_size, node_ids.size() - offset));
             std::copy(ids_chunk.begin(), ids_chunk.end(), std::back_inserter(request.node_ids));
@@ -77,7 +75,7 @@ private:
 
     void handleEvent(const Channel::Connected& connected)
     {
-        logger_->trace("ListRegistersClient::handleEvent({}).", connected);
+        context_.logger->trace("ListRegistersClient::handleEvent({}).", connected);
 
         for (const auto& request : requests_)
         {
@@ -100,13 +98,13 @@ private:
 
     void handleEvent(const Channel::Input& input)
     {
-        logger_->trace("ListRegistersClient::handleEvent(Input).");
+        context_.logger->trace("ListRegistersClient::handleEvent(Input).");
 
         if (const auto opt_error = dsdlErrorToOptError(input._error))
         {
-            logger_->warn("ListRegistersClient::handleEvent(Input) - Node {} has failed (err={}).",
-                          input.node_id,
-                          *opt_error);
+            context_.logger->warn("ListRegistersClient::handleEvent(Input) - Node {} has failed (err={}).",
+                                  input.node_id,
+                                  *opt_error);
 
             node_id_to_registers_.emplace(input.node_id, NodeRegisters::Failure{*opt_error});
             return;
@@ -128,13 +126,12 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        logger_->debug("ListRegistersClient::handleEvent({}).", completed);
+        context_.logger->debug("ListRegistersClient::handleEvent({}).", completed);
         receiver_(completed.opt_error ? Result{Failure{*completed.opt_error}}
                                       : Success{std::move(node_id_to_registers_)});
     }
 
-    cetl::pmr::memory_resource&   memory_;
-    common::LoggerPtr             logger_;
+    const ClientContext           context_;
     std::vector<Spec::Request>    requests_;
     Channel                       channel_;
     std::function<void(Result&&)> receiver_;
@@ -145,12 +142,11 @@ private:
 }  // namespace
 
 ListRegistersClient::Ptr ListRegistersClient::make(  //
-    cetl::pmr::memory_resource&           memory,
-    const common::ipc::ClientRouter::Ptr& ipc_router,
-    const CyphalNodeIds                   node_ids,
-    const std::chrono::microseconds       timeout)
+    const ClientContext&            context,
+    const CyphalNodeIds             node_ids,
+    const std::chrono::microseconds timeout)
 {
-    return std::make_shared<ListRegistersClientImpl>(memory, ipc_router, node_ids, timeout);
+    return std::make_shared<ListRegistersClientImpl>(context, node_ids, timeout);
 }
 
 }  // namespace node

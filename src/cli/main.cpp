@@ -479,7 +479,7 @@ void tryPublisherScenario(Executor& executor, cetl::pmr::memory_resource& memory
 
     if (const auto opt_error = publisher->setPriority(ocvsmd::sdk::CyphalPriority::Low))
     {
-        spdlog::warn("Failed to set 'low' priority publisher (err={}).", *opt_error);
+        spdlog::warn("Failed to set 'low' priority publishing (err={}).", *opt_error);
     }
 
     uavcan::time::Synchronization_1_0 sync_msg{&memory};
@@ -495,7 +495,7 @@ void tryPublisherScenario(Executor& executor, cetl::pmr::memory_resource& memory
         {
             if (const auto opt_error = publisher->setPriority(ocvsmd::sdk::CyphalPriority::High))
             {
-                spdlog::warn("Failed to set 'high' priority publisher (err={}).", *opt_error);
+                spdlog::warn("Failed to set 'high' priority publishing (err={}).", *opt_error);
             }
         }
 

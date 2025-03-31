@@ -6,9 +6,9 @@
 #include "list_roots_client.hpp"
 
 #include "ipc/channel.hpp"
-#include "ipc/client_router.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/defines.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/file_server/list_roots_spec.hpp"
 
 #include <cetl/cetl.hpp>
@@ -36,13 +36,10 @@ namespace
 class ListRootsClientImpl final : public ListRootsClient
 {
 public:
-    ListRootsClientImpl(cetl::pmr::memory_resource&           memory,
-                        const common::ipc::ClientRouter::Ptr& ipc_router,
-                        const Spec::Request&                  request)
-        : memory_{memory}
-        , logger_{common::getLogger("svc")}
+    ListRootsClientImpl(const ClientContext& context, const Spec::Request& request)
+        : context_{context}
         , request_{request}
-        , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
+        , channel_{context.ipc_router.makeChannel<Channel>(Spec::svc_full_name())}
     {
     }
 
@@ -61,7 +58,7 @@ private:
 
     void handleEvent(const Channel::Connected& connected)
     {
-        logger_->trace("ListRootsClient::handleEvent({}).", connected);
+        context_.logger->trace("ListRootsClient::handleEvent({}).", connected);
 
         if (const auto opt_error = channel_.send(request_))
         {
@@ -73,7 +70,7 @@ private:
 
     void handleEvent(const Channel::Input& input)
     {
-        logger_->trace("ListRootsClient::handleEvent(Input).");
+        context_.logger->trace("ListRootsClient::handleEvent(Input).");
 
         items_.emplace_back(input.item.path.begin(), input.item.path.end());
     }
@@ -82,12 +79,11 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        logger_->debug("ListRootsClient::handleEvent({}).", completed);
+        context_.logger->debug("ListRootsClient::handleEvent({}).", completed);
         receiver_(completed.opt_error ? Result{Failure{*completed.opt_error}} : Success{std::move(items_)});
     }
 
-    cetl::pmr::memory_resource&   memory_;
-    common::LoggerPtr             logger_;
+    const ClientContext           context_;
     Spec::Request                 request_;
     Channel                       channel_;
     std::function<void(Result&&)> receiver_;
@@ -97,12 +93,9 @@ private:
 
 }  // namespace
 
-ListRootsClient::Ptr ListRootsClient::make(  //
-    cetl::pmr::memory_resource&           memory,
-    const common::ipc::ClientRouter::Ptr& ipc_router,
-    const Spec::Request&                  request)
+ListRootsClient::Ptr ListRootsClient::make(const ClientContext& context, const Spec::Request& request)
 {
-    return std::make_shared<ListRootsClientImpl>(memory, ipc_router, request);
+    return std::make_shared<ListRootsClientImpl>(context, request);
 }
 
 }  // namespace file_server

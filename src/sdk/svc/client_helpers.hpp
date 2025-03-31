@@ -3,12 +3,15 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef OCVSMD_SDK_SVC_AS_SENDER_HPP_INCLUDED
-#define OCVSMD_SDK_SVC_AS_SENDER_HPP_INCLUDED
+#ifndef OCVSMD_SDK_CLIENT_HELPERS_HPP_INCLUDED
+#define OCVSMD_SDK_CLIENT_HELPERS_HPP_INCLUDED
 
+#include "ipc/client_router.hpp"
 #include "logging.hpp"
 
 #include <ocvsmd/sdk/execution.hpp>
+
+#include <cetl/pf17/cetlpf.hpp>
 
 namespace ocvsmd
 {
@@ -16,6 +19,19 @@ namespace sdk
 {
 namespace svc
 {
+
+/// Defines common context for all client-side services.
+///
+/// Contains references to the core components.
+/// Most (if not all) services require these.
+///
+struct ClientContext
+{
+    cetl::pmr::memory_resource& memory;
+    common::ipc::ClientRouter&  ipc_router;
+    common::LoggerPtr           logger{common::getLogger("svc")};
+
+};  // ClientContext
 
 /// Adapter for an IPC service client to be used as a sender.
 ///
@@ -52,4 +68,4 @@ private:
 }  // namespace sdk
 }  // namespace ocvsmd
 
-#endif  // OCVSMD_SDK_SVC_AS_SENDER_HPP_INCLUDED
+#endif  // OCVSMD_SDK_CLIENT_HELPERS_HPP_INCLUDED

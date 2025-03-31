@@ -6,8 +6,8 @@
 #ifndef OCVSMD_SDK_SVC_NODE_LIST_REGISTERS_CLIENT_HPP_INCLUDED
 #define OCVSMD_SDK_SVC_NODE_LIST_REGISTERS_CLIENT_HPP_INCLUDED
 
-#include "ipc/client_router.hpp"
 #include "ocvsmd/sdk/node_registry_client.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/node/list_registers_spec.hpp"
 
 #include <cetl/cetl.hpp>
@@ -36,10 +36,9 @@ public:
     using Success = NodeRegistryClient::List::Success;
     using Failure = NodeRegistryClient::List::Failure;
 
-    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
-                                   const common::ipc::ClientRouter::Ptr& ipc_router,
-                                   const CyphalNodeIds                   node_ids,
-                                   const std::chrono::microseconds       timeout);
+    CETL_NODISCARD static Ptr make(const ClientContext&            context,
+                                   const CyphalNodeIds             node_ids,
+                                   const std::chrono::microseconds timeout);
 
     ListRegistersClient(ListRegistersClient&&)                 = delete;
     ListRegistersClient(const ListRegistersClient&)            = delete;

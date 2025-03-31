@@ -129,9 +129,9 @@ protected:
     StrictMock<ipc::ServerRouterMock>               ipc_router_mock_{mr_};
     const std::string                               svc_name_{ExecCmdSpec::svc_full_name()};
     const ipc::detail::ServiceDesc svc_desc_{ipc::AnyChannel::getServiceDesc<ExecCmdSpec::Request>(svc_name_)};
-
     // NOLINTEND
-};
+
+};  // TestExecCmdService
 
 // MARK: - Tests:
 

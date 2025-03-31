@@ -5,11 +5,10 @@
 
 #include "raw_publisher_client.hpp"
 
-#include "ipc/client_router.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/execution.hpp"
 #include "ocvsmd/sdk/node_pub_sub.hpp"
-#include "svc/as_sender.hpp"
+#include "svc/client_helpers.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
@@ -31,13 +30,10 @@ namespace
 class RawPublisherClientImpl final : public RawPublisherClient
 {
 public:
-    RawPublisherClientImpl(cetl::pmr::memory_resource&           memory,
-                           const common::ipc::ClientRouter::Ptr& ipc_router,
-                           Spec::Request                         request)
-        : memory_{memory}
-        , logger_{common::getLogger("svc")}
+    RawPublisherClientImpl(const ClientContext& context, Spec::Request request)
+        : context_{context}
         , request_{std::move(request)}
-        , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
+        , channel_{context.ipc_router.makeChannel<Channel>(Spec::svc_full_name())}
     {
     }
 
@@ -57,11 +53,10 @@ private:
     class PublisherImpl final : public std::enable_shared_from_this<PublisherImpl>, public Publisher
     {
     public:
-        PublisherImpl(cetl::pmr::memory_resource& memory, common::LoggerPtr logger, Channel&& channel)
-            : memory_{memory}
-            , logger_(std::move(logger))
+        PublisherImpl(const ClientContext& context, Channel&& channel)
+            : context_{context}
             , channel_{std::move(channel)}
-            , published_{PublishRequest{&memory}, {}}
+            , published_{PublishRequest{&context.memory}, {}}
         {
             channel_.subscribe([this](const auto& event_var, const auto) {
                 //
@@ -85,12 +80,12 @@ private:
         {
             if (const auto error = completion_error_)
             {
-                logger_->warn("Publisher::submit() Already completed with error (err={}).", *error);
+                context_.logger->warn("Publisher::submit() Already completed with error (err={}).", *error);
                 receiver(OptError{error});
                 return;
             }
 
-            Spec::Request request{&memory_};
+            Spec::Request request{&context_.memory};
             auto&         publish = request.set_publish(published_.request);
             publish.payload_size  = published_.payload.size;
             SocketBuffer sock_buff{{published_.payload.data.get(), publish.payload_size}};
@@ -102,7 +97,7 @@ private:
 
             if (const auto error = opt_send_error)
             {
-                logger_->warn("Publisher::submit() Failed to send 'publish' request (err={}).", *error);
+                context_.logger->warn("Publisher::submit() Failed to send 'publish' request (err={}).", *error);
                 receiver(OptError{error});
                 return;
             }
@@ -121,25 +116,25 @@ private:
             return std::make_unique<AsSender<OptError, decltype(shared_from_this())>>(  //
                 "Publisher::rawPublish",
                 shared_from_this(),
-                logger_);
+                context_.logger);
         }
 
         OptError setPriority(const CyphalPriority priority) override
         {
             if (const auto error = completion_error_)
             {
-                logger_->warn("Publisher::setPriority() Already completed with error (err={}).", *error);
+                context_.logger->warn("Publisher::setPriority() Already completed with error (err={}).", *error);
                 return error;
             }
 
-            Spec::Request request{&memory_};
+            Spec::Request request{&context_.memory};
             auto&         config = request.set_config();
             config.priority.push_back(static_cast<std::uint8_t>(priority));
 
             const auto opt_error = channel_.send(request);
             if (opt_error)
             {
-                logger_->warn("Publisher::setPriority() Failed to send 'config' request (err={}).", *opt_error);
+                context_.logger->warn("Publisher::setPriority() Failed to send 'config' request (err={}).", *opt_error);
             }
             return opt_error;
         }
@@ -157,7 +152,7 @@ private:
 
         void handleEvent(const Channel::Input& input)
         {
-            logger_->trace("Publisher::handleEvent(Input).");
+            context_.logger->trace("Publisher::handleEvent(Input).");
 
             cetl::visit(                //
                 cetl::make_overloaded(  //
@@ -171,7 +166,7 @@ private:
 
         void handleEvent(const Channel::Completed& completed)
         {
-            logger_->debug("Publisher::handleEvent({}).", completed);
+            context_.logger->debug("Publisher::handleEvent({}).", completed);
             completion_error_ = completed.opt_error.value_or(Error{Error::Code::Canceled});
             notifyPublished(completion_error_);
         }
@@ -189,8 +184,7 @@ private:
             }
         }
 
-        cetl::pmr::memory_resource&   memory_;
-        common::LoggerPtr             logger_;
+        const ClientContext           context_;
         Channel                       channel_;
         Published                     published_;
         OptError                      completion_error_;
@@ -202,11 +196,11 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        logger_->trace("RawPublisherClient::handleEvent({}).", connected);
+        context_.logger->trace("RawPublisherClient::handleEvent({}).", connected);
 
         if (const auto opt_error = channel_.send(request_))
         {
-            logger_->warn("RawPublisherClient::handleEvent() Failed to send request (err={}).", *opt_error);
+            context_.logger->warn("RawPublisherClient::handleEvent() Failed to send request (err={}).", *opt_error);
             receiver_(Failure{*opt_error});
         }
     }
@@ -215,9 +209,9 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        logger_->trace("RawPublisherClient::handleEvent(Input).");
+        context_.logger->trace("RawPublisherClient::handleEvent(Input).");
 
-        auto raw_publisher = std::make_shared<PublisherImpl>(memory_, logger_, std::move(channel_));
+        auto raw_publisher = std::make_shared<PublisherImpl>(context_, std::move(channel_));
         receiver_(Success{std::move(raw_publisher)});
     }
 
@@ -225,13 +219,12 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        logger_->debug("RawPublisherClient::handleEvent({}).", completed);
+        context_.logger->debug("RawPublisherClient::handleEvent({}).", completed);
 
         receiver_(Failure{completed.opt_error.value_or(Error{Error::Code::Canceled})});
     }
 
-    cetl::pmr::memory_resource&   memory_;
-    common::LoggerPtr             logger_;
+    const ClientContext           context_;
     Spec::Request                 request_;
     Channel                       channel_;
     std::function<void(Result&&)> receiver_;
@@ -240,12 +233,9 @@ private:
 
 }  // namespace
 
-RawPublisherClient::Ptr RawPublisherClient::make(  //
-    cetl::pmr::memory_resource&           memory,
-    const common::ipc::ClientRouter::Ptr& ipc_router,
-    const Spec::Request&                  request)
+RawPublisherClient::Ptr RawPublisherClient::make(const ClientContext& context, const Spec::Request& request)
 {
-    return std::make_shared<RawPublisherClientImpl>(memory, ipc_router, request);
+    return std::make_shared<RawPublisherClientImpl>(context, request);
 }
 
 }  // namespace relay

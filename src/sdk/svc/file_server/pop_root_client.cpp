@@ -6,9 +6,9 @@
 #include "pop_root_client.hpp"
 
 #include "ipc/channel.hpp"
-#include "ipc/client_router.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/defines.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/file_server/pop_root_spec.hpp"
 
 #include <cetl/cetl.hpp>
@@ -16,7 +16,6 @@
 
 #include <functional>
 #include <memory>
-#include <string>
 #include <utility>
 
 namespace ocvsmd
@@ -35,13 +34,10 @@ namespace
 class PopRootClientImpl final : public PopRootClient
 {
 public:
-    PopRootClientImpl(cetl::pmr::memory_resource&           memory,
-                      const common::ipc::ClientRouter::Ptr& ipc_router,
-                      Spec::Request                         request)
-        : memory_{memory}
-        , logger_{common::getLogger("svc")}
+    PopRootClientImpl(const ClientContext& context, Spec::Request request)
+        : context_{context}
         , request_{std::move(request)}
-        , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
+        , channel_{context.ipc_router.makeChannel<Channel>(Spec::svc_full_name())}
     {
     }
 
@@ -60,7 +56,7 @@ private:
 
     void handleEvent(const Channel::Connected& connected)
     {
-        logger_->trace("PopRootClient::handleEvent({}).", connected);
+        context_.logger->trace("PopRootClient::handleEvent({}).", connected);
 
         if (const auto opt_error = channel_.send(request_))
         {
@@ -70,9 +66,9 @@ private:
         }
     }
 
-    void handleEvent(const Channel::Input&)
+    void handleEvent(const Channel::Input&) const
     {
-        logger_->trace("PopRootClient::handleEvent(Input).");
+        context_.logger->trace("PopRootClient::handleEvent(Input).");
     }
 
     void handleEvent(const Channel::Completed& completed)
@@ -82,8 +78,7 @@ private:
         receiver_(completed.opt_error ? Result{Failure{*completed.opt_error}} : Success{});
     }
 
-    cetl::pmr::memory_resource&   memory_;
-    common::LoggerPtr             logger_;
+    const ClientContext           context_;
     Spec::Request                 request_;
     Channel                       channel_;
     std::function<void(Result&&)> receiver_;
@@ -92,12 +87,9 @@ private:
 
 }  // namespace
 
-PopRootClient::Ptr PopRootClient::make(  //
-    cetl::pmr::memory_resource&           memory,
-    const common::ipc::ClientRouter::Ptr& ipc_router,
-    const Spec::Request&                  request)
+PopRootClient::Ptr PopRootClient::make(const ClientContext& context, const Spec::Request& request)
 {
-    return std::make_shared<PopRootClientImpl>(memory, ipc_router, request);
+    return std::make_shared<PopRootClientImpl>(context, request);
 }
 
 }  // namespace file_server

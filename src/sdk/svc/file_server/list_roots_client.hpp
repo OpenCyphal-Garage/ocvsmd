@@ -6,8 +6,8 @@
 #ifndef OCVSMD_SDK_SVC_FILE_SERVER_LIST_ROOTS_CLIENT_HPP_INCLUDED
 #define OCVSMD_SDK_SVC_FILE_SERVER_LIST_ROOTS_CLIENT_HPP_INCLUDED
 
-#include "ipc/client_router.hpp"
 #include "ocvsmd/sdk/defines.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/file_server/list_roots_spec.hpp"
 
 #include <cetl/cetl.hpp>
@@ -40,9 +40,7 @@ public:
     using Failure = Error;
     using Result  = cetl::variant<Success, Failure>;
 
-    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
-                                   const common::ipc::ClientRouter::Ptr& ipc_router,
-                                   const Spec::Request&                  request);
+    CETL_NODISCARD static Ptr make(const ClientContext& context, const Spec::Request& request);
 
     ListRootsClient(ListRootsClient&&)                 = delete;
     ListRootsClient(const ListRootsClient&)            = delete;
