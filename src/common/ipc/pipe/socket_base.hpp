@@ -45,7 +45,7 @@ public:
         };
         using MsgPart = cetl::variant<MsgHeader, MsgPayload>;
 
-        io::OwnFd                                 fd;
+        io::OwnedFd                               fd;
         std::size_t                               rx_partial_size{0};
         MsgPart                                   rx_msg_part{MsgHeader{}};
         std::function<sdk::OptError(io::Payload)> on_rx_msg_payload;

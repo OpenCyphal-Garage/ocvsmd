@@ -107,7 +107,7 @@ private:
 
         // Publisher
 
-        SenderOf<OptError>::Ptr rawPublish(OwnMutablePayload&&             raw_payload,
+        SenderOf<OptError>::Ptr rawPublish(OwnedMutablePayload&&           raw_payload,
                                            const std::chrono::microseconds timeout) override
         {
             published_.payload            = std::move(raw_payload);
@@ -146,8 +146,8 @@ private:
 
         struct Published
         {
-            PublishRequest    request;
-            OwnMutablePayload payload;  // NOLINT(*-avoid-c-arrays)
+            PublishRequest      request;
+            OwnedMutablePayload payload;  // NOLINT(*-avoid-c-arrays)
         };
 
         void handleEvent(const Channel::Input& input)

@@ -57,17 +57,17 @@ public:
     struct SocketResult
     {
         using Failure = sdk::Error;
-        using Success = OwnFd;
+        using Success = OwnedFd;
         using Var     = cetl::variant<Success, Failure>;
     };
     SocketResult::Var socket(const int socket_type) const;
 
-    sdk::OptError         bind(const OwnFd& socket_fd) const;
-    sdk::OptError         connect(const OwnFd& socket_fd) const;
-    cetl::optional<OwnFd> accept(const OwnFd& server_fd);
+    sdk::OptError           bind(const OwnedFd& socket_fd) const;
+    sdk::OptError           connect(const OwnedFd& socket_fd) const;
+    cetl::optional<OwnedFd> accept(const OwnedFd& server_fd);
 
 private:
-    static void                             configureNoDelay(const OwnFd& fd);
+    static void                             configureNoDelay(const OwnedFd& fd);
     static cetl::optional<ParseResult::Var> tryParseAsUnixDomain(const std::string& conn_str);
     static cetl::optional<ParseResult::Var> tryParseAsAbstractUnixDomain(const std::string& conn_str);
     static cetl::optional<ParseResult::Var> tryParseAsTcpAddress(const std::string&  conn_str,

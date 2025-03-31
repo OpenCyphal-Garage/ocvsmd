@@ -14,7 +14,7 @@ namespace common
 namespace io
 {
 
-void OwnFd::reset() noexcept
+void OwnedFd::reset() noexcept
 {
     if (fd_ >= 0)
     {
@@ -24,7 +24,7 @@ void OwnFd::reset() noexcept
     }
 }
 
-OwnFd::~OwnFd()
+OwnedFd::~OwnedFd()
 {
     reset();
 }

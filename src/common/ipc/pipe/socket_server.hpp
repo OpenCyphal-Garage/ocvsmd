@@ -52,7 +52,7 @@ private:
     CETL_NODISCARD sdk::OptError start(EventHandler event_handler) override;
     CETL_NODISCARD sdk::OptError send(const ClientId client_id, io::SocketBuffer& sock_buff) override;
 
-    io::OwnFd                                        server_fd_;
+    io::OwnedFd                                      server_fd_;
     io::SocketAddress                                socket_address_;
     platform::IPosixExecutorExtension* const         posix_executor_ext_;
     ClientId                                         unique_client_id_counter_;

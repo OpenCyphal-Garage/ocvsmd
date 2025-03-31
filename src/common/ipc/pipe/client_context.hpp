@@ -32,7 +32,7 @@ class ClientContext final
 public:
     using Ptr = std::unique_ptr<ClientContext>;
 
-    ClientContext(const ServerPipe::ClientId id, io::OwnFd&& fd, Logger& logger)
+    ClientContext(const ServerPipe::ClientId id, io::OwnedFd&& fd, Logger& logger)
         : id_{id}
         , logger_{logger}
     {

@@ -121,7 +121,7 @@ std::string SocketAddress::toString() const
 
 SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) const
 {
-    OwnFd out_fd;
+    OwnedFd out_fd;
 
     const auto& addr_generic = asGenericAddr();
     if (const int err = platform::posixSyscallError([this, socket_type, &addr_generic, &out_fd] {
@@ -129,7 +129,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) co
             const int fd = ::socket(addr_generic.sa_family, socket_type, 0);
             if (fd != -1)
             {
-                out_fd = OwnFd{fd};
+                out_fd = OwnedFd{fd};
             }
             return fd;
         }))
@@ -158,7 +158,7 @@ SocketAddress::SocketResult::Var SocketAddress::socket(const int socket_type) co
     return out_fd;
 }
 
-sdk::OptError SocketAddress::bind(const OwnFd& socket_fd) const
+sdk::OptError SocketAddress::bind(const OwnedFd& socket_fd) const
 {
     const int raw_fd = socket_fd.get();
     CETL_DEBUG_ASSERT(raw_fd != -1, "");
@@ -190,7 +190,7 @@ sdk::OptError SocketAddress::bind(const OwnFd& socket_fd) const
     return sdk::OptError{};
 }
 
-sdk::OptError SocketAddress::connect(const OwnFd& socket_fd) const
+sdk::OptError SocketAddress::connect(const OwnedFd& socket_fd) const
 {
     const int raw_fd = socket_fd.get();
     CETL_DEBUG_ASSERT(raw_fd != -1, "");
@@ -212,14 +212,14 @@ sdk::OptError SocketAddress::connect(const OwnFd& socket_fd) const
     }
 }
 
-cetl::optional<OwnFd> SocketAddress::accept(const OwnFd& server_fd)
+cetl::optional<OwnedFd> SocketAddress::accept(const OwnedFd& server_fd)
 {
     CETL_DEBUG_ASSERT(server_fd.get() != -1, "");
 
     while (true)
     {
         addr_len_ = sizeof(addr_storage_);
-        OwnFd client_fd{::accept(server_fd.get(), &asGenericAddr(), &addr_len_)};
+        OwnedFd client_fd{::accept(server_fd.get(), &asGenericAddr(), &addr_len_)};
         if (client_fd.get() >= 0)
         {
             if (const int err = platform::posixSyscallError([&client_fd] {
@@ -289,7 +289,7 @@ cetl::optional<OwnFd> SocketAddress::accept(const OwnFd& server_fd)
 
 /// Disables Nagle's algorithm for TCP sockets, so that our small IPC packets are sent immediately.
 ///
-void SocketAddress::configureNoDelay(const OwnFd& fd)
+void SocketAddress::configureNoDelay(const OwnedFd& fd)
 {
     if (const int err = platform::posixSyscallError([&fd] {
             //
