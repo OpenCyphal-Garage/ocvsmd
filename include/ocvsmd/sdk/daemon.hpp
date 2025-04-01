@@ -80,29 +80,51 @@ public:
     ///
     virtual NodeRegistryClient::Ptr getNodeRegistryClient() const = 0;
 
-    /// Defines the result type of the raw subscriber creation.
+    /// Defines the result type of the publisher creation.
     ///
-    /// On success, the result is a smart pointer to a raw subscriber with the required parameters.
+    /// On success, the result is a smart pointer to a publisher with the required parameters.
     /// On failure, the result is an SDK error.
     ///
-    struct MakeRawSubscriber final
+    struct MakePublisher final
     {
-        using Success = RawSubscriber::Ptr;
+        using Success = Publisher::Ptr;
         using Failure = Error;
         using Result  = cetl::variant<Success, Failure>;
     };
-    /// Makes a new raw subscriber for the specified subject.
+    /// Makes a new publisher for the specified subject.
     ///
-    /// The server-side (the daemon) of SDK will create the corresponding Cyphal network subscriber,
-    /// subscribe to its raw (aka `void`) messages, and then forward them to the client-side of SDK.
-    /// See also `RawSubscriber` docs for how to consume the incoming messages.
+    /// The server-side (the daemon) of SDK will create the corresponding Cyphal network publisher,
+    /// and then publish messages which are passed from to the client-side of SDK.
+    /// See also `Publisher` docs for how to publish the outgoing messages.
     ///
-    /// @param subject_id The subject ID to subscribe to.
-    /// @param extent_bytes The "extent" size of raw messages (see Cyphal spec).
+    /// @param subject_id The subject ID to publish to.
     /// @return An execution sender which emits the async result of the operation.
     ///
-    virtual SenderOf<MakeRawSubscriber::Result>::Ptr makeRawSubscriber(const CyphalPortId subject_id,
-                                                                       const std::size_t  extent_bytes) = 0;
+    virtual SenderOf<MakePublisher::Result>::Ptr makePublisher(const CyphalPortId subject_id) = 0;
+
+    /// Defines the result type of the subscriber creation.
+    ///
+    /// On success, the result is a smart pointer to a subscriber with the required parameters.
+    /// On failure, the result is an SDK error.
+    ///
+    struct MakeSubscriber final
+    {
+        using Success = Subscriber::Ptr;
+        using Failure = Error;
+        using Result  = cetl::variant<Success, Failure>;
+    };
+    /// Makes a new subscriber for the specified subject.
+    ///
+    /// The server-side (the daemon) of SDK will create the corresponding Cyphal network subscriber,
+    /// subscribe to its messages, and then forward them to the client-side of SDK.
+    /// See also `Subscriber` docs for how to consume the incoming messages.
+    ///
+    /// @param subject_id The subject ID to subscribe to.
+    /// @param extent_bytes The "extent" size of messages (see Cyphal spec).
+    /// @return An execution sender which emits the async result of the operation.
+    ///
+    virtual SenderOf<MakeSubscriber::Result>::Ptr makeSubscriber(const CyphalPortId subject_id,
+                                                                 const std::size_t  extent_bytes) = 0;
 
 protected:
     Daemon() = default;
