@@ -8,7 +8,7 @@
 #include "ipc/client_router.hpp"
 #include "logging.hpp"
 #include "sdk_factory.hpp"
-#include "svc/as_sender.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/node/access_registers_client.hpp"
 #include "svc/node/access_registers_spec.hpp"
 #include "svc/node/list_registers_client.hpp"
@@ -46,7 +46,7 @@ public:
 
         logger_->trace("NodeRegistryClient: Making sender of `list()`.");
 
-        auto svc_client = ListRegistersClient::make(memory_, ipc_router_, node_ids, timeout);
+        auto svc_client = ListRegistersClient::make({memory_, *ipc_router_}, node_ids, timeout);
 
         return std::make_unique<svc::AsSender<ListRegistersClient::Result, decltype(svc_client)>>(  //
             "NodeRegistryClient::list",
@@ -72,7 +72,7 @@ public:
             }
         }
 
-        auto svc_client = AccessRegistersClient::make(memory_, ipc_router_, node_ids, registers, timeout);
+        auto svc_client = AccessRegistersClient::make({memory_, *ipc_router_}, node_ids, registers, timeout);
 
         return std::make_unique<svc::AsSender<AccessRegistersClient::Result, decltype(svc_client)>>(  //
             "NodeRegistryClient::read",
@@ -98,7 +98,7 @@ public:
             }
         }
 
-        auto svc_client = AccessRegistersClient::make(memory_, ipc_router_, node_ids, registers, timeout);
+        auto svc_client = AccessRegistersClient::make({memory_, *ipc_router_}, node_ids, registers, timeout);
 
         return std::make_unique<svc::AsSender<AccessRegistersClient::Result, decltype(svc_client)>>(  //
             "NodeRegistryClient::write",

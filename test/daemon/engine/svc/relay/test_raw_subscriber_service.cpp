@@ -130,9 +130,9 @@ protected:
     StrictMock<ipc::ServerRouterMock>               ipc_router_mock_{mr_};
     const std::string                               svc_name_{Spec::svc_full_name()};
     const ipc::detail::ServiceDesc svc_desc_{ipc::AnyChannel::getServiceDesc<Spec::Request>(svc_name_)};
-
     // NOLINTEND
-};
+
+};  // TestRawSubscriberService
 
 // MARK: - Tests:
 
@@ -252,7 +252,7 @@ namespace relay
 static void PrintTo(const RawSubscriberReceive_0_1& raw_msg, std::ostream* os)  // NOLINT
 {
     const auto node_id = raw_msg.remote_node_id.empty() ? 65535 : raw_msg.remote_node_id.front();
-    *os << "relay::RawMessage_0_1{priority=" << static_cast<int>(raw_msg.priority) << ", node_id=" << node_id
+    *os << "relay::RawSubscriberReceive_0_1{priority=" << static_cast<int>(raw_msg.priority) << ", node_id=" << node_id
         << ", payload_size=" << raw_msg.payload_size << "}";
 }
 static bool operator==(const RawSubscriberReceive_0_1& lhs, const RawSubscriberReceive_0_1& rhs)  // NOLINT

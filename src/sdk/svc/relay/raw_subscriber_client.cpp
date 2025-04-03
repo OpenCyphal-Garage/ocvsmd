@@ -6,10 +6,9 @@
 #include "raw_subscriber_client.hpp"
 
 #include "io/socket_buffer.hpp"
-#include "ipc/client_router.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/node_pub_sub.hpp"
-#include "svc/as_sender.hpp"
+#include "svc/client_helpers.hpp"
 
 #include <ocvsmd/common/svc/relay/RawSubscriberReceive_0_1.hpp>
 #include <uavcan/primitive/Empty_1_0.hpp>
@@ -34,13 +33,10 @@ namespace
 class RawSubscriberClientImpl final : public RawSubscriberClient
 {
 public:
-    RawSubscriberClientImpl(cetl::pmr::memory_resource&           memory,
-                            const common::ipc::ClientRouter::Ptr& ipc_router,
-                            Spec::Request                         request)
-        : memory_{memory}
-        , logger_{common::getLogger("svc")}
+    RawSubscriberClientImpl(const ClientContext& context, Spec::Request request)
+        : context_{context}
         , request_{std::move(request)}
-        , channel_{ipc_router->makeChannel<Channel>(Spec::svc_full_name())}
+        , channel_{context.ipc_router.makeChannel<Channel>(Spec::svc_full_name())}
     {
     }
 
@@ -166,7 +162,7 @@ private:
             }
         }
 
-        common::LoggerPtr                         logger_;
+        const common::LoggerPtr                   logger_;
         Channel                                   channel_;
         OptError                                  completion_error_;
         std::function<void(RawReceive::Result&&)> receiver_;
@@ -177,11 +173,11 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        logger_->trace("RawSubscriberClient::handleEvent({}).", connected);
+        context_.logger->trace("RawSubscriberClient::handleEvent({}).", connected);
 
         if (const auto opt_error = channel_.send(request_))
         {
-            logger_->warn("RawSubscriberClient::handleEvent() Failed to send request (err={}).", *opt_error);
+            context_.logger->warn("RawSubscriberClient::handleEvent() Failed to send request (err={}).", *opt_error);
             receiver_(Failure{*opt_error});
         }
     }
@@ -190,9 +186,9 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        logger_->trace("RawSubscriberClient::handleEvent(Input).");
+        context_.logger->trace("RawSubscriberClient::handleEvent(Input).");
 
-        auto raw_subscriber = std::make_shared<SubscriberImpl>(logger_, std::move(channel_));
+        auto raw_subscriber = std::make_shared<SubscriberImpl>(context_.logger, std::move(channel_));
         receiver_(Success{std::move(raw_subscriber)});
     }
 
@@ -200,13 +196,12 @@ private:
     {
         CETL_DEBUG_ASSERT(receiver_, "");
 
-        logger_->debug("RawSubscriberClient::handleEvent({}).", completed);
+        context_.logger->debug("RawSubscriberClient::handleEvent({}).", completed);
 
         receiver_(Failure{completed.opt_error.value_or(Error{Error::Code::Canceled})});
     }
 
-    cetl::pmr::memory_resource&   memory_;
-    common::LoggerPtr             logger_;
+    const ClientContext           context_;
     Spec::Request                 request_;
     Channel                       channel_;
     std::function<void(Result&&)> receiver_;
@@ -215,12 +210,9 @@ private:
 
 }  // namespace
 
-RawSubscriberClient::Ptr RawSubscriberClient::make(  //
-    cetl::pmr::memory_resource&           memory,
-    const common::ipc::ClientRouter::Ptr& ipc_router,
-    const Spec::Request&                  request)
+RawSubscriberClient::Ptr RawSubscriberClient::make(const ClientContext& context, const Spec::Request& request)
 {
-    return std::make_shared<RawSubscriberClientImpl>(memory, ipc_router, request);
+    return std::make_shared<RawSubscriberClientImpl>(context, request);
 }
 
 }  // namespace relay

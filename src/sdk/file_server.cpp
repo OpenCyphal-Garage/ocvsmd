@@ -5,7 +5,7 @@
 
 #include <ocvsmd/sdk/file_server.hpp>
 
-#include "svc/as_sender.hpp"
+#include "svc/client_helpers.hpp"
 
 #include "ipc/channel.hpp"
 #include "ipc/client_router.hpp"
@@ -47,7 +47,7 @@ public:
         logger_->trace("FileServer: Making sender of `listRoots()`.");
 
         const Request request{&memory_};
-        auto          svc_client = ListRootsClient::make(memory_, ipc_router_, request);
+        auto          svc_client = ListRootsClient::make({memory_, *ipc_router_}, request);
 
         return std::make_unique<svc::AsSender<ListRoots::Result, decltype(svc_client)>>(  //
             "FileServer::listRoots",
@@ -71,7 +71,7 @@ public:
         common::svc::file_server::PopRootSpec::Request request{&memory_};
         std::copy(path.cbegin(), path.cend(), std::back_inserter(request.item.path));
         request.is_back = back;
-        auto svc_client = PopRootClient::make(memory_, ipc_router_, request);
+        auto svc_client = PopRootClient::make({memory_, *ipc_router_}, request);
 
         return std::make_unique<svc::AsSender<PopRoot::Result, decltype(svc_client)>>(  //
             "FileServer::popRoot",
@@ -95,7 +95,7 @@ public:
         Request request{&memory_};
         std::copy(path.cbegin(), path.cend(), std::back_inserter(request.item.path));
         request.is_back = back;
-        auto svc_client = PushRootClient::make(memory_, ipc_router_, request);
+        auto svc_client = PushRootClient::make({memory_, *ipc_router_}, request);
 
         return std::make_unique<svc::AsSender<PushRoot::Result, decltype(svc_client)>>(  //
             "FileServer::pushRoot",

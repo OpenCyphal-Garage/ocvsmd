@@ -7,6 +7,7 @@
 #define OCVSMD_COMMON_IPC_SERVER_ROUTER_MOCK_HPP_INCLUDED
 
 #include "ipc/server_router.hpp"
+
 #include "ocvsmd/sdk/defines.hpp"
 
 #include <gmock/gmock.h>

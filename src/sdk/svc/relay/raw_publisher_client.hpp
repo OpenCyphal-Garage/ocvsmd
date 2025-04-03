@@ -6,9 +6,9 @@
 #ifndef OCVSMD_SDK_SVC_RELAY_RAW_PUBLISHER_CLIENT_HPP_INCLUDED
 #define OCVSMD_SDK_SVC_RELAY_RAW_PUBLISHER_CLIENT_HPP_INCLUDED
 
-#include "ipc/client_router.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 #include "ocvsmd/sdk/node_pub_sub.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/relay/raw_publisher_spec.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -37,9 +37,7 @@ public:
     using Failure = Error;
     using Result  = cetl::variant<Success, Failure>;
 
-    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
-                                   const common::ipc::ClientRouter::Ptr& ipc_router,
-                                   const Spec::Request&                  request);
+    CETL_NODISCARD static Ptr make(const ClientContext& context, const Spec::Request& request);
 
     RawPublisherClient(RawPublisherClient&&)                 = delete;
     RawPublisherClient(const RawPublisherClient&)            = delete;

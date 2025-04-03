@@ -17,40 +17,40 @@ namespace io
 
 /// RAII wrapper for a file descriptor.
 ///
-class OwnFd final
+class OwnedFd final
 {
 public:
-    OwnFd()
+    OwnedFd()
         : fd_{-1}
     {
     }
 
-    explicit OwnFd(const int fd)
+    explicit OwnedFd(const int fd)
         : fd_{fd}
     {
     }
 
-    OwnFd(OwnFd&& other) noexcept
+    OwnedFd(OwnedFd&& other) noexcept
         : fd_{std::exchange(other.fd_, -1)}
     {
     }
 
-    OwnFd& operator=(OwnFd&& other) noexcept
+    OwnedFd& operator=(OwnedFd&& other) noexcept
     {
-        const OwnFd old{std::move(*this)};
+        const OwnedFd old{std::move(*this)};
         fd_ = std::exchange(other.fd_, -1);
         return *this;
     }
 
-    OwnFd& operator=(std::nullptr_t)
+    OwnedFd& operator=(std::nullptr_t)
     {
-        const OwnFd old{std::move(*this)};
+        const OwnedFd old{std::move(*this)};
         return *this;
     }
 
     // Disallow copy.
-    OwnFd(const OwnFd&)            = delete;
-    OwnFd& operator=(const OwnFd&) = delete;
+    OwnedFd(const OwnedFd&)            = delete;
+    OwnedFd& operator=(const OwnedFd&) = delete;
 
     int get() const
     {
@@ -59,12 +59,12 @@ public:
 
     void reset() noexcept;
 
-    ~OwnFd();
+    ~OwnedFd();
 
 private:
     int fd_;
 
-};  // OwnFd
+};  // OwnedFd
 
 }  // namespace io
 }  // namespace common

@@ -121,9 +121,9 @@ protected:
     StrictMock<ipc::ServerRouterMock>               ipc_router_mock_{mr_};
     const std::string                               svc_name_{Spec::svc_full_name()};
     const ipc::detail::ServiceDesc svc_desc_{ipc::AnyChannel::getServiceDesc<Spec::Request>(svc_name_)};
-
     // NOLINTEND
-};
+
+};  // TestRawPublisherService
 
 // MARK: - Tests:
 

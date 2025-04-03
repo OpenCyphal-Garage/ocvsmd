@@ -6,8 +6,8 @@
 #ifndef OCVSMD_SDK_SVC_NODE_ACCESS_REGISTERS_CLIENT_HPP_INCLUDED
 #define OCVSMD_SDK_SVC_NODE_ACCESS_REGISTERS_CLIENT_HPP_INCLUDED
 
-#include "ipc/client_router.hpp"
 #include "ocvsmd/sdk/node_registry_client.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/node/access_registers_spec.hpp"
 
 #include <cetl/cetl.hpp>
@@ -39,17 +39,15 @@ public:
     using Failure     = NodeRegistryClient::Access::Failure;
     using RegKeyValue = NodeRegistryClient::Access::RegKeyValue;
 
-    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&               memory,
-                                   const common::ipc::ClientRouter::Ptr&     ipc_router,
+    CETL_NODISCARD static Ptr make(const ClientContext&                      context,
                                    const CyphalNodeIds                       node_ids,
                                    const cetl::span<const cetl::string_view> registers,
                                    const std::chrono::microseconds           timeout);
 
-    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
-                                   const common::ipc::ClientRouter::Ptr& ipc_router,
-                                   const CyphalNodeIds                   node_ids,
-                                   const cetl::span<const RegKeyValue>   registers,
-                                   const std::chrono::microseconds       timeout);
+    CETL_NODISCARD static Ptr make(const ClientContext&                context,
+                                   const CyphalNodeIds                 node_ids,
+                                   const cetl::span<const RegKeyValue> registers,
+                                   const std::chrono::microseconds     timeout);
 
     AccessRegistersClient(AccessRegistersClient&&)                 = delete;
     AccessRegistersClient(const AccessRegistersClient&)            = delete;

@@ -52,7 +52,7 @@ public:
     {
         logger_->trace("NodeCommandClient: Making sender of `sendCommand()`.");
 
-        auto svc_client = ExecCmdClient::make(memory_, ipc_router_, node_ids, node_request, timeout);
+        auto svc_client = ExecCmdClient::make({memory_, *ipc_router_}, node_ids, node_request, timeout);
 
         return std::make_unique<CommandSender>(std::move(svc_client));
     }

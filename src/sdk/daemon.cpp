@@ -13,7 +13,7 @@
 #include "ocvsmd/sdk/node_command_client.hpp"
 #include "ocvsmd/sdk/node_registry_client.hpp"
 #include "sdk_factory.hpp"
-#include "svc/as_sender.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/relay/raw_publisher_client.hpp"
 #include "svc/relay/raw_publisher_spec.hpp"
 #include "svc/relay/raw_subscriber_client.hpp"
@@ -106,7 +106,7 @@ public:
         Request request{&memory_};
         auto&   create_req    = request.set_create();
         create_req.subject_id = subject_id;
-        auto svc_client       = RawPublisherClient::make(memory_, ipc_router_, request);
+        auto svc_client       = RawPublisherClient::make({memory_, *ipc_router_}, request);
 
         return std::make_unique<svc::AsSender<MakePublisher::Result, decltype(svc_client)>>(  //
             "Daemon::makePublisher",
@@ -127,7 +127,7 @@ public:
         auto&   create_req     = request.set_create();
         create_req.subject_id  = subject_id;
         create_req.extent_size = extent_bytes;
-        auto svc_client        = RawSubscriberClient::make(memory_, ipc_router_, request);
+        auto svc_client        = RawSubscriberClient::make({memory_, *ipc_router_}, request);
 
         return std::make_unique<svc::AsSender<MakeSubscriber::Result, decltype(svc_client)>>(  //
             "Daemon::makeSubscriber",

@@ -6,15 +6,14 @@
 #ifndef OCVSMD_SDK_SVC_NODE_EXEC_CMD_CLIENT_HPP_INCLUDED
 #define OCVSMD_SDK_SVC_NODE_EXEC_CMD_CLIENT_HPP_INCLUDED
 
-#include "ipc/client_router.hpp"
 #include "ocvsmd/sdk/defines.hpp"
 #include "ocvsmd/sdk/node_command_client.hpp"
+#include "svc/client_helpers.hpp"
 #include "svc/node/exec_cmd_spec.hpp"
 
 #include <uavcan/node/ExecuteCommand_1_3.hpp>
 
 #include <cetl/cetl.hpp>
-#include <cetl/pf17/cetlpf.hpp>
 
 #include <memory>
 #include <unordered_map>
@@ -43,11 +42,10 @@ public:
     using NodeRequest  = NodeCommandClient::Command::NodeRequest;
     using NodeResponse = NodeCommandClient::Command::NodeResponse;
 
-    CETL_NODISCARD static Ptr make(cetl::pmr::memory_resource&           memory,
-                                   const common::ipc::ClientRouter::Ptr& ipc_router,
-                                   const CyphalNodeIds                   node_ids,
-                                   const NodeRequest&                    node_request,
-                                   const std::chrono::microseconds       timeout);
+    CETL_NODISCARD static Ptr make(const ClientContext&            context,
+                                   const CyphalNodeIds             node_ids,
+                                   const NodeRequest&              node_request,
+                                   const std::chrono::microseconds timeout);
 
     ExecCmdClient(ExecCmdClient&&)                 = delete;
     ExecCmdClient(const ExecCmdClient&)            = delete;

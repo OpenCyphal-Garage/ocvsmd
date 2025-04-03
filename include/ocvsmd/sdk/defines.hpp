@@ -124,7 +124,7 @@ enum class CyphalPriority : std::uint8_t
 
 /// Defines helper which owns mutable raw data buffer.
 ///
-struct OwnMutablePayload
+struct OwnedMutablePayload
 {
     /// Holds the size of the raw data buffer. It could be less than it was allocated.
     std::size_t size;
