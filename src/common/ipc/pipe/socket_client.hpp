@@ -42,9 +42,9 @@ public:
 private:
     sdk::OptError makeSocketHandle();
     sdk::OptError connectSocket(const int fd, const void* const addr_ptr, const std::size_t addr_size) const;
-    void          handle_connect();
-    void          handle_receive();
-    void          handle_disconnect();
+    void          handleConnect();
+    void          handleReceive();
+    void          handleDisconnect();
 
     // ClientPipe
     //
