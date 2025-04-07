@@ -257,7 +257,7 @@ sequenceDiagram
 The `RouteChannelMsg` routing type is used to deliver custom user messages via the established connection.
 Normally, there is only one socket connection per client process.
 So, the very same connection is used to send multiple messages back and forth,
-so communication is not limited to a single request/response.
+and communication is not limited to a single request/response.
 Moreover, several IPC client/service pairs are communicating over the same connection.
 
 To distinguish between different clients, and properly route and de/multiplex user messages,
@@ -323,7 +323,7 @@ Note that both client and server IPC routers automatically post a channel termin
 For example, consider the following scenario:
 1. user creates an IPC client (which implicitly creates a new channel)
 2. user makes a request via this channel
-3. loses the last reference to the client (which implicitly destroys the channel) without waiting for the response
+3. user releases the last reference to the client (which implicitly destroys the channel) without waiting for the response
 
 As a result of the channel destruction (step # 3), the server will receive a "channel end" notification with `keep_alive == false` and `Cancelled` error.
 The corresponding service gateway instance will be notified about the channel end event,
