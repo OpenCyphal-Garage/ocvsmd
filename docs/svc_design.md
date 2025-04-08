@@ -302,6 +302,7 @@ sequenceDiagram
     participant CyPublisher as LibCyphal<br/>RawPublisher
     actor NodeX
 
+    Note over Publisher, CyPublisher: Creating of a Cyphal Network Publisher.
     User ->>+ RawPublisherClient: submit(subj_id)
     RawPublisherClient --)+ RawPublisherService: Route{ChMsg{}}<br/>RawPublisher.Request_0_1{Create{subj_id}}
     RawPublisherClient ->>- User : return
@@ -318,7 +319,7 @@ sequenceDiagram
     deactivate RawPublisherService
     RawPublisherClient -)- User: publisher_or_failure
     
-    Note over Publisher, CyPublisher: Publishing messages via the Daemon to Cyphal Network...
+    Note over Publisher, CyPublisher: Publishing messages to Cyphal Network. Changing message priorities.
     loop
         alt publishing
             User ->>+ Publisher: publish<Msg>(msg, timeout)
@@ -342,7 +343,8 @@ sequenceDiagram
             deactivate RawPublisherService
         end
     end
-    
+
+    Note over Publisher, CyPublisher: Releasing the Cyphal Network Publisher.
     User -x+ Publisher: release
     Publisher --)+ RawPublisherService: Route{ChEnd{alive=false}}
     deactivate Publisher
