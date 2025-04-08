@@ -51,7 +51,7 @@ sequenceDiagram
         end
     end
     ExecCmdClient --)+ ExecCmdService: Route{ChEnd{alive=true}}
-    ExecCmdClient ->>- User : return
+    ExecCmdClient ->>- User : return sender
 
     loop for each distinct node id
         ExecCmdService ->> LibCyphal: makeClient(node_id)
@@ -72,7 +72,7 @@ sequenceDiagram
     end
     
     ExecCmdService --) ExecCmdClient: Route{ChEnd{alive=false}}
-    ExecCmdClient -) User: result{map}
+    ExecCmdClient -) User: receiver(map)
 
     box SDK Client
         actor User
@@ -119,7 +119,7 @@ sequenceDiagram
         end
     end
     ListRegistersClient --) ListRegistersService: Route{ChEnd{alive=true}}
-    ListRegistersClient ->>- User : return
+    ListRegistersClient ->>- User : return sender
     
     par in parallel for each distinct node id
         ListRegistersService ->> LibCyphal: node_cnxt.client = makeClient(node_id)
@@ -151,7 +151,7 @@ sequenceDiagram
     end
     
     ListRegistersService --) ListRegistersClient: Route{ChEnd{alive=false}}
-    ListRegistersClient -) User: result{map<vector>}
+    ListRegistersClient -) User: receiver(map<vector>)
 
     box SDK Client
         actor User
@@ -216,7 +216,7 @@ sequenceDiagram
         AccessRegistersService ->> AccessRegistersService: registers.append(key_value)
     end
     AccessRegistersClient --) AccessRegistersService: Route{ChEnd{alive=true}}
-    AccessRegistersClient ->>- User : return
+    AccessRegistersClient ->>- User : return sender
     
     par in parallel for each distinct node id
         AccessRegistersService ->> LibCyphal: node_cnxt.client = makeClient(node_id)
@@ -241,7 +241,7 @@ sequenceDiagram
     end
     
     AccessRegistersService --) AccessRegistersClient: Route{ChEnd{alive=false}}
-    AccessRegistersClient -) User: result{map<vector>}
+    AccessRegistersClient -) User: receiver(map<vector>)
 
     box SDK Client
         actor User
@@ -305,7 +305,7 @@ sequenceDiagram
     Note over Publisher, CyPublisher: Creating of a Cyphal Network Publisher.
     User ->>+ RawPublisherClient: submit(subj_id)
     RawPublisherClient --)+ RawPublisherService: Route{ChMsg{}}<br/>RawPublisher.Request_0_1{Create{subj_id}}
-    RawPublisherClient ->>- User : return
+    RawPublisherClient ->>- User : return sender
     
     RawPublisherService ->> CyPublisher: pub = create.publisher<void>(subj_id)
     activate RawPublisherClient
@@ -317,22 +317,22 @@ sequenceDiagram
         RawPublisherService --) RawPublisherClient: Route{ChEnd{alive=false, error}}
     end
     deactivate RawPublisherService
-    RawPublisherClient -)- User: publisher_or_failure
+    RawPublisherClient -)- User: receiver(publisher_or_failure)
     
     Note over Publisher, CyPublisher: Publishing messages to Cyphal Network. Changing message priorities.
-    loop
+    loop while keeping the publisher alive
         alt publishing
             User ->>+ Publisher: publish<Msg>(msg, timeout)
             Publisher ->> Publisher: rawPublish(raw_payload, timeout)
             Publisher --)+ RawPublisherService: Route{ChMsg{}}<br/>RawPublisher.Request_0_1{Publish{payload_size, timeout}}<br/>raw_payload
-            deactivate Publisher
+            Publisher ->>- User: return sender
             RawPublisherService ->>+ CyPublisher: pub.publish(raw_payload, timeout)
             CyPublisher --) NodeX: Message<subj_id>{}
             Note left of NodeX: Cyphal network subscriber(s)<br/>receive the message
             CyPublisher ->>- RawPublisherService: result
             RawPublisherService --)+ Publisher: Route{ChMsg{}}<br/>RawPublisher.Response_0_1{opt_error}
             deactivate RawPublisherService
-            Publisher -)- User: opt_error
+            Publisher -)- User: receiver(opt_error)
         else configuring priority
             User ->>+ Publisher: setPriority(priority)
             Publisher --)+ RawPublisherService: Route{ChMsg{}}<br/>RawPublisher.Request_0_1{Config{priority}}
@@ -366,6 +366,101 @@ sequenceDiagram
 ```
 
 ## `RawSubscriber`
+
+**DSDL definitions:**
+- `RawSubscriber.0.1.dsdl`
+```
+@union
+uavcan.primitive.Empty.1.0 empty
+RawSubscriberCreate.0.1 create
+@sealed
+---
+@union
+uavcan.primitive.Empty.1.0 empty
+RawSubscriberReceive.0.1 receive
+@sealed
+```
+- `RawSubscriberCreate.0.1.dsdl`
+```
+uint64 extent_size
+uint16 subject_id
+@extent 32 * 8
+```
+- `RawSubscriberReceive.0.1.dsdl`
+```
+uint8 priority
+uint16[<=1] remote_node_id
+uint64 payload_size
+@extent 64 * 8
+```
+
+**Sequence diagram**
+```mermaid
+sequenceDiagram
+    actor User
+    participant Subscriber
+    participant RawSubscriberClient
+    participant RawSubscriberService
+    participant CySubscriber as LibCyphal<br/>RawSubscriber
+    actor NodeX
+
+    Note over Subscriber, CySubscriber: Creating of a Cyphal Network Subscriber.
+    User ->>+ RawSubscriberClient: submit(subj_id, extent_size)
+    RawSubscriberClient --)+ RawSubscriberService: Route{ChMsg{}}<br/>RawSubscriber.Request_0_1{Create{subj_id, extent}}
+    RawSubscriberClient ->>- User : return sender
+    
+    RawSubscriberService ->> CySubscriber: sub = create.subscriber<void>(subj_id, extent)
+    activate RawSubscriberClient
+    alt success
+        RawSubscriberService --) RawSubscriberClient: Route{ChMsg{}}<br/>RawSubscriber.Response_0_1{empty}
+        RawSubscriberClient ->> Subscriber: create(move(channel))
+        Note right of RawSubscriberClient: The client has fulfilled its "factory" role, and<br/>now the Subscriber continues with the channel.
+    else failure
+        RawSubscriberService --) RawSubscriberClient: Route{ChEnd{alive=false, error}}
+    end
+    deactivate RawSubscriberService
+    RawSubscriberClient -)- User: receiver(subscriber_or_failure)
+    
+    Note over Subscriber, CySubscriber: Receiving Cyphal Network messages...
+    loop while keeping the subscriber alive
+        opt    
+            User ->>+ Subscriber: receive<Msg>()
+            Subscriber ->> Subscriber: rawReceive()
+            Subscriber ->>- User: return sender<Msg>
+        end
+        NodeX --)+ CySubscriber: Message<subj_id>{}
+        Note left of NodeX: A cyphal network publisher<br/>has posted a message
+        CySubscriber ->>- RawSubscriberService: handleNodeMessage(raw_payload)
+        activate RawSubscriberService
+        RawSubscriberService --)+ Subscriber: Route{ChMsg{}}<br/>RawSubscriber.Response_0_1{Receive{size, meta}}<br/>raw_payload
+        deactivate RawSubscriberService
+        Subscriber ->> Subscriber: msg.deserialize(raw_payload)
+        opt there is a receiver
+            Note right of Subscriber: `msg` will be dropped<br/>if there is no receiver
+            Subscriber -)- User: receiver<Msg>(msg, meta)
+        end
+    end
+
+    Note over Subscriber, CySubscriber: Releasing the Cyphal Network Subscriber.
+    User -x+ Subscriber: release
+    Subscriber --)+ RawSubscriberService: Route{ChEnd{alive=false}}
+    deactivate Subscriber
+    RawSubscriberService -x CySubscriber: release sub
+    deactivate RawSubscriberService
+
+    box SDK Client
+        actor User
+        participant Subscriber
+        participant RawSubscriberClient
+    end
+    box Daemon
+        participant RawSubscriberService
+        participant CySubscriber
+    end
+    box Cyphal Network
+        actor NodeX
+    end
+```
 
 # File Server services
 
