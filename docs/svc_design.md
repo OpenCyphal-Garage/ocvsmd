@@ -29,35 +29,35 @@ sequenceDiagram
     participant LibCyphal as LibCyphal and<br/>RPC Client
     actor NodeX
     
-    User ->>+ ExecCmdClient: submit(node_ids,cmd,timeout)
+    User ->>+ ExecCmdClient: submit(node_ids, cmd, timeout)
     loop for every 128 node ids
-        ExecCmdClient --)+ ExecCmdService: ExecCmd.Request(part_of_node_ids, payload, timeout)
+        ExecCmdClient --)+ ExecCmdService: Route{ChMsg{}}<br/>ExecCmd.Request_0_2(part_of_node_ids, payload, timeout)
         loop for each node_id
-            ExecCmdService ->>- ExecCmdService: map[node_id] = (payload, timeout)
+            ExecCmdService ->>- ExecCmdService: map[node_id] = NodeContext{payload, timeout}
         end
     end
-    
-    ExecCmdClient --)+ ExecCmdService: RouteChEnd{alive=true}
-    ExecCmdClient ->>- User : 
-    loop for each node id
+    ExecCmdClient --)+ ExecCmdService: Route{ChEnd{alive=true}}
+    ExecCmdClient ->>- User : return
+
+    loop for each distinct node id
         ExecCmdService ->> LibCyphal: makeClient(node_id)
         ExecCmdService ->>- LibCyphal: client.request(deadline, payload)
         LibCyphal --) NodeX: ExecuteCommand_1_3.Request{cmd}
     end
-    Note over LibCyphal: waiting for responses (success or timeout)...
+    Note over LibCyphal: waiting for responses from all nodes (success or timeout)...
     loop for each node id
         alt
             NodeX --) LibCyphal: ExecuteCommand_1_3.Response{status}
         else
-            LibCyphal -) LibCyphal: timeout
+            LibCyphal -) LibCyphal: timeout or failure
         end
         LibCyphal -)+ ExecCmdService: promise.result
-        ExecCmdService --)+ ExecCmdClient: ExecCmd.Response{node_id, err, payload}
+        ExecCmdService --)+ ExecCmdClient: Route{ChMsg{}}<br/>ExecCmd.Response_0_2{node_id, err, payload}
         ExecCmdService -x- LibCyphal: release client
         ExecCmdClient ->>- ExecCmdClient: map[node_id] = response
     end
     
-    ExecCmdService --) ExecCmdClient: RouteChEnd{alive=false}
+    ExecCmdService --) ExecCmdClient: Route{ChEnd{alive=false}}
     ExecCmdClient -) User: result{map}
 
     box SDK Client
@@ -74,6 +74,83 @@ sequenceDiagram
 ```
 
 ### `ListRegisters`
+
+#### DSDL definitions
+
+##### `ListRegisters.0.1.dsdl`
+```
+uint64 timeout_us
+uint16[<=128] node_ids
+@extent 600 * 8
+---
+ocvsmd.common.Error.0.1 error
+uint16 node_id
+uavcan.register.Name.1.0 item
+@extent 600 * 8
+```
+#### Sequence diagram
+```mermaid
+sequenceDiagram
+    actor User
+    participant ListRegistersClient
+    participant ListRegistersService
+    participant LibCyphal as LibCyphal and<br/>RPC Client
+    actor NodeX
+    
+    User ->>+ ListRegistersClient: submit(node_ids, timeout)
+    loop for every 128 node ids
+        ListRegistersClient --) ListRegistersService: Route{ChMsg{}}<br/>ListRegisters.Request_0_1(part_of_node_ids, timeout)
+        loop for each node_id
+            ListRegistersService ->> ListRegistersService: map[node_id] = NodeContext{timeout}
+        end
+    end
+    ListRegistersClient --) ListRegistersService: Route{ChEnd{alive=true}}
+    ListRegistersClient ->>- User : return
+    
+    par in parallel for each distinct node id
+        ListRegistersService ->> LibCyphal: node_cnxt.client = makeClient(node_id)
+        Note over ListRegistersClient, LibCyphal: Repeat Cyphal "uavcan.register.List.1.0" requests incrementing register index<br/>until empty register name result, timeout or failure. Post responses to the client.
+        loop while previous result reg name is not empty
+            ListRegistersService ->> LibCyphal: client.request(deadline, node_cnxt.reg_index)
+            LibCyphal --) NodeX: List::Request_1_0{reg_index}
+            alt
+                NodeX --) LibCyphal: List::Response_1_0{reg_name}
+                LibCyphal -)+ ListRegistersService: promise.result with<br/>non-empty reg name
+                ListRegistersService --)+ ListRegistersClient: Route{ChMsg{}}<br/>ListRegisters.Response_0_1{node_id, reg_name}
+                ListRegistersClient ->>- ListRegistersClient: map[node_id].append(reg_name)
+                ListRegistersService ->>- ListRegistersService: node_cnxt.reg_index++
+                Note right of ListRegistersService: continue the async loop for this node
+            else
+                NodeX --) LibCyphal: List::Response_1_0{""}
+                LibCyphal -)+ ListRegistersService: promise.result with<br/>empty reg name
+                ListRegistersService -x- LibCyphal: release client
+                Note right of ListRegistersService: break the async loop for this node 
+            else
+                LibCyphal -) LibCyphal: timeout or failure
+                LibCyphal -)+ ListRegistersService: promise failure
+                ListRegistersService --)+ ListRegistersClient: Route{ChMsg{}}<br/>ListRegisters.Response_0_1{node_id, error}
+                ListRegistersClient ->>- ListRegistersClient: map[node_id].emplace(failure)
+                ListRegistersService -x- LibCyphal: release client
+                Note right of ListRegistersService: break the async loop for this node
+            end
+        end
+    end
+    
+    ListRegistersService --) ListRegistersClient: Route{ChEnd{alive=false}}
+    ListRegistersClient -) User: result{map<vector>}
+
+    box SDK Client
+        actor User
+        participant ListRegistersClient
+    end
+    box Daemon
+        participant ListRegistersService
+        participant LibCyphal
+    end
+    box Cyphal Network
+        actor NodeX
+    end
+```
 
 ### `AccessRegisters`
 
