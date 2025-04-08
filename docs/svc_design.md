@@ -21,7 +21,6 @@ This document describes IPC contracts between various clients and corresponding 
 ## `ExecCmd`
 
 **DSDL definitions:**
-
 - `ExecCmd.0.2.dsdl`
 ```
 uint64 timeout_us
@@ -34,6 +33,7 @@ uint16 node_id
 UavcanNodeExecCmdRes.0.1 payload
 @extent 128 * 8
 ```
+
 **Sequence diagram**
 ```mermaid
 sequenceDiagram
@@ -90,7 +90,6 @@ sequenceDiagram
 ## `ListRegisters`
 
 **DSDL definitions:**
-
 - `ListRegisters.0.1.dsdl`
 ```
 uint64 timeout_us
@@ -102,6 +101,7 @@ uint16 node_id
 uavcan.register.Name.1.0 item
 @extent 600 * 8
 ```
+
 **Sequence diagram**
 ```mermaid
 sequenceDiagram
@@ -127,19 +127,19 @@ sequenceDiagram
         loop while previous result reg name is not empty
             ListRegistersService ->> LibCyphal: client.request(deadline, node_cnxt.reg_index)
             LibCyphal --) NodeX: List::Request_1_0{reg_index}
-            alt
+            alt success
                 NodeX --) LibCyphal: List::Response_1_0{reg_name}
                 LibCyphal -)+ ListRegistersService: promise result with<br/>non-empty reg name
                 ListRegistersService --)+ ListRegistersClient: Route{ChMsg{}}<br/>ListRegisters.Response_0_1{node_id, reg_name}
                 ListRegistersClient ->>- ListRegistersClient: map[node_id].append(reg_name)
                 ListRegistersService ->>- ListRegistersService: node_cnxt.reg_index++
                 Note right of ListRegistersService: continue the async loop for this node
-            else
+            else end of list
                 NodeX --) LibCyphal: List::Response_1_0{""}
                 LibCyphal -)+ ListRegistersService: promise result with<br/>empty reg name
                 ListRegistersService -x- LibCyphal: release client
                 Note right of ListRegistersService: break the async loop for this node 
-            else
+            else failure
                 LibCyphal -) LibCyphal: timeout or failure
                 LibCyphal -)+ ListRegistersService: promise failure
                 ListRegistersService --)+ ListRegistersClient: Route{ChMsg{}}<br/>ListRegisters.Response_0_1{node_id, error}
@@ -169,7 +169,6 @@ sequenceDiagram
 ## `AccessRegisters`
 
 **DSDL definitions:**
-
 - `AccessRegisters.0.1.dsdl`
 ```
 @union
@@ -197,7 +196,6 @@ uavcan.register.Value.1.0 value
 ```
 
 **Sequence diagram**
-
 ```mermaid
 sequenceDiagram
     actor User
@@ -226,12 +224,12 @@ sequenceDiagram
         loop for each register key & value
             AccessRegistersService ->> LibCyphal: client.request(deadline, reg_key_value)
             LibCyphal --) NodeX: Access::Request_1_0{reg_key, reg_value}
-            alt
+            alt success
                 NodeX --) LibCyphal: Access::Response_1_0{reg_value}
                 LibCyphal -) AccessRegistersService: promise result
                 AccessRegistersService --)+ AccessRegistersClient: Route{ChMsg{}}<br/>AccessRegisters.Response_0_1{node_id, KeyValue{key, value}}
                 AccessRegistersClient ->>- AccessRegistersClient: map[node_id].emplace_back(reg_key, reg_value)
-            else
+            else failure
                 LibCyphal -) LibCyphal: timeout or failure
                 LibCyphal -) AccessRegistersService: promise failure
                 AccessRegistersService --)+ AccessRegistersClient: Route{ChMsg{}}<br/>AccessRegisters.Response_0_1{node_id, error, KeyValue{key, <<empty>>}}
@@ -261,6 +259,109 @@ sequenceDiagram
 # Relay services
 
 ## `RawPublisher`
+
+**DSDL definitions:**
+- `RawPublisher.0.1.dsdl`
+```
+@union
+uavcan.primitive.Empty.1.0 empty
+RawPublisherCreate.0.1 create
+RawPublisherConfig.0.1 config
+RawPublisherPublish.0.1 publish
+@sealed
+---
+@union
+uavcan.primitive.Empty.1.0 empty
+ocvsmd.common.Error.0.1 publish_error
+@sealed
+```
+- `RawPublisherCreate.0.1.dsdl`
+```
+uint16 subject_id
+@extent 16 * 8
+```
+- `RawPublisherConfig.0.1.dsdl`
+```
+uint8[<=1] priority
+@extent 32 * 8
+```
+- `RawPublisherPublish.0.1.dsdl`
+```
+uint64 timeout_us
+uint64 payload_size
+@extent 32 * 8
+```
+
+**Sequence diagram**
+```mermaid
+sequenceDiagram
+    actor User
+    participant Publisher
+    participant RawPublisherClient
+    participant RawPublisherService
+    participant CyPublisher as LibCyphal<br/>RawPublisher
+    actor NodeX
+
+    User ->>+ RawPublisherClient: submit(subj_id)
+    RawPublisherClient --)+ RawPublisherService: Route{ChMsg{}}<br/>RawPublisher.Request_0_1{Create{subj_id}}
+    RawPublisherClient ->>- User : return
+    
+    RawPublisherService ->> CyPublisher: pub = create.publisher<void>(subj_id)
+    activate RawPublisherClient
+    alt success
+        RawPublisherService --) RawPublisherClient: Route{ChMsg{}}<br/>RawPublisher.Response_0_1{empty}
+        RawPublisherClient ->> Publisher: create(move(channel))
+        Note right of RawPublisherClient: The client has fulfilled its "factory" role, and<br/>now the Publisher continues with the channel.
+    else failure
+        RawPublisherService --) RawPublisherClient: Route{ChEnd{alive=false, error}}
+    end
+    deactivate RawPublisherService
+    RawPublisherClient -)- User: publisher_or_failure
+    
+    Note over Publisher, CyPublisher: Publishing messages via the Daemon to Cyphal Network...
+    loop
+        alt publishing
+            User ->>+ Publisher: publish<Msg>(msg, timeout)
+            Publisher ->> Publisher: rawPublish(raw_payload, timeout)
+            Publisher --)+ RawPublisherService: Route{ChMsg{}}<br/>RawPublisher.Request_0_1{Publish{payload_size, timeout}}<br/>raw_payload
+            deactivate Publisher
+            RawPublisherService ->>+ CyPublisher: pub.publish(raw_payload, timeout)
+            CyPublisher --) NodeX: Message<subj_id>{}
+            Note left of NodeX: Cyphal network subscriber(s)<br/>receive the message
+            CyPublisher ->>- RawPublisherService: result
+            RawPublisherService --)+ Publisher: Route{ChMsg{}}<br/>RawPublisher.Response_0_1{opt_error}
+            deactivate RawPublisherService
+            Publisher -)- User: opt_error
+        else configuring priority
+            User ->>+ Publisher: setPriority(priority)
+            Publisher --)+ RawPublisherService: Route{ChMsg{}}<br/>RawPublisher.Request_0_1{Config{priority}}
+            Publisher ->>- User: opt_error
+            opt !priority.empty
+                RawPublisherService ->> CyPublisher: pub.setPriority(priority.front)
+            end
+            deactivate RawPublisherService
+        end
+    end
+    
+    User -x+ Publisher: release
+    Publisher --)+ RawPublisherService: Route{ChEnd{alive=false}}
+    deactivate Publisher
+    RawPublisherService -x CyPublisher: release pub
+    deactivate RawPublisherService
+
+    box SDK Client
+        actor User
+        participant Publisher
+        participant RawPublisherClient
+    end
+    box Daemon
+        participant RawPublisherService
+        participant CyPublisher
+    end
+    box Cyphal Network
+        actor NodeX
+    end
+```
 
 ## `RawSubscriber`
 
