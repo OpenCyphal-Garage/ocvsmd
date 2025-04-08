@@ -1,14 +1,28 @@
-# Services Design
+Services Design
+==============
 
 This document describes IPC contracts between various clients and corresponding services of the OCVSMD.
 
-## Node services
+- [Services Design](#services-design)
+- [Node services](#node-services)
+  - [`ExecCmd`](#execcmd)
+  - [`ListRegisters`](#listregisters)
+  - [`AccessRegisters`](#accessregisters)
+- [Relay services](#relay-services)
+  - [`RawPublisher`](#rawpublisher)
+  - [`RawSubscriber`](#rawsubscriber)
+- [File Server services](#file-server-services)
+  - [`ListRoots`](#listroots)
+  - [`PopRoot`](#poproot)
+  - [`PushRoot`](#pushroot)
 
-### `ExecCmd` service
+# Node services
 
-#### DSDL definitions
+## `ExecCmd`
 
-##### `ExecCmd.0.2.dsdl`
+**DSDL definitions**
+
+`ExecCmd.0.2.dsdl`
 ```
 uint64 timeout_us
 uint16[<=128] node_ids
@@ -20,7 +34,7 @@ uint16 node_id
 UavcanNodeExecCmdRes.0.1 payload
 @extent 128 * 8
 ```
-#### Sequence diagram
+**Sequence diagram**
 ```mermaid
 sequenceDiagram
     actor User
@@ -73,11 +87,11 @@ sequenceDiagram
     end
 ```
 
-### `ListRegisters`
+## `ListRegisters`
 
-#### DSDL definitions
+**DSDL definitions**
 
-##### `ListRegisters.0.1.dsdl`
+`ListRegisters.0.1.dsdl`
 ```
 uint64 timeout_us
 uint16[<=128] node_ids
@@ -88,7 +102,7 @@ uint16 node_id
 uavcan.register.Name.1.0 item
 @extent 600 * 8
 ```
-#### Sequence diagram
+**Sequence diagram**
 ```mermaid
 sequenceDiagram
     actor User
@@ -152,18 +166,18 @@ sequenceDiagram
     end
 ```
 
-### `AccessRegisters`
+## `AccessRegisters`
 
-## Relay services
+# Relay services
 
-### `RawPublisher`
+## `RawPublisher`
 
-### `RasSubscriber`
+## `RawSubscriber`
 
-## File Server services
+# File Server services
 
-### `ListRoots`
+## `ListRoots`
 
-### `PopRoot`
+## `PopRoot`
 
-### `PushRoot`
+## `PushRoot`
