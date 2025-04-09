@@ -41,7 +41,7 @@ sequenceDiagram
     participant ExecCmdClient as ExecCmdClient<br/><<sender>>>
     participant ExecCmdService
     participant LibCyphal as LibCyphal and<br/>RPC Client
-    actor NodeX
+    actor NodeX as NodeX<br/><<cyphal node>>
     
     User ->>+ ExecCmdClient: submit(node_ids, cmd, timeout)
     loop for every 128 node ids
@@ -78,11 +78,11 @@ sequenceDiagram
         actor User
         participant ExecCmdClient
     end
-    box Daemon
+    box Daemon process<br/>《cyphal node》
         participant ExecCmdService
         participant LibCyphal
     end
-    box Cyphal Network
+    box Cyphal Network Nodes
         actor NodeX
     end
 ```
@@ -109,7 +109,7 @@ sequenceDiagram
     participant ListRegistersClient as ListRegistersClient<br/><<sender>>>
     participant ListRegistersService
     participant LibCyphal as LibCyphal and<br/>RPC Client
-    actor NodeX
+    actor NodeX as NodeX<br/><<cyphal node>>
     
     User ->>+ ListRegistersClient: submit(node_ids, timeout)
     loop for every 128 node ids
@@ -157,11 +157,11 @@ sequenceDiagram
         actor User
         participant ListRegistersClient
     end
-    box Daemon
+    box Daemon process<br/>《cyphal node》
         participant ListRegistersService
         participant LibCyphal
     end
-    box Cyphal Network
+    box Cyphal Network Nodes
         actor NodeX
     end
 ```
@@ -202,7 +202,7 @@ sequenceDiagram
     participant AccessRegistersClient as AccessRegistersClient<br/><<sender>>>
     participant AccessRegistersService
     participant LibCyphal as LibCyphal and<br/>RPC Client
-    actor NodeX
+    actor NodeX as NodeX<br/><<cyphal node>>
     
     User ->>+ AccessRegistersClient: submit(node_ids, regs, timeout)
     loop for every 128 node ids
@@ -247,11 +247,11 @@ sequenceDiagram
         actor User
         participant AccessRegistersClient
     end
-    box Daemon
+    box Daemon process<br/>《cyphal node》
         participant AccessRegistersService
         participant LibCyphal
     end
-    box Cyphal Network
+    box Cyphal Network Nodes
         actor NodeX
     end
 ```
@@ -300,7 +300,7 @@ sequenceDiagram
     participant RawPublisherClient as RawPublisherClient<br/><<sender>>>
     participant RawPublisherService
     participant CyPublisher as LibCyphal<br/>RawPublisher
-    actor NodeX
+    actor NodeX as NodeX<br/><<cyphal node>>
 
     Note over Publisher, CyPublisher: Creating of a Cyphal Network Publisher.
     User ->>+ RawPublisherClient: submit(subj_id)
@@ -356,11 +356,11 @@ sequenceDiagram
         participant Publisher
         participant RawPublisherClient
     end
-    box Daemon
+    box Daemon process<br/>《cyphal node》
         participant RawPublisherService
         participant CyPublisher
     end
-    box Cyphal Network
+    box Cyphal Network Nodes
         actor NodeX
     end
 ```
@@ -402,7 +402,7 @@ sequenceDiagram
     participant RawSubscriberClient as RawSubscriberClient<br/><<sender>>>
     participant RawSubscriberService
     participant CySubscriber as LibCyphal<br/>RawSubscriber
-    actor NodeX
+    actor NodeX as NodeX<br/><<cyphal node>>
 
     Note over Subscriber, CySubscriber: Creating of a Cyphal Network Subscriber.
     User ->>+ RawSubscriberClient: submit(subj_id, extent_size)
@@ -453,11 +453,11 @@ sequenceDiagram
         participant Subscriber
         participant RawSubscriberClient
     end
-    box Daemon
+    box Daemon process<br/>《cyphal node》
         participant RawSubscriberService
         participant CySubscriber
     end
-    box Cyphal Network
+    box Cyphal Network Nodes
         actor NodeX
     end
 ```
@@ -500,7 +500,7 @@ sequenceDiagram
         actor User
         participant ListRootsClient
     end
-    box Daemon
+    box Daemon process<br/>《cyphal node》
         participant ListRootsService
         participant FileProvider
     end    
@@ -539,7 +539,7 @@ sequenceDiagram
         actor User
         participant PopRootClient
     end
-    box Daemon
+    box Daemon process<br/>《cyphal node》
         participant PopRootService
         participant FileProvider
     end    
@@ -578,7 +578,7 @@ sequenceDiagram
         actor User
         participant PushRootClient
     end
-    box Daemon
+    box Daemon process<br/>《cyphal node》
         participant PushRootService
         participant FileProvider
     end    
