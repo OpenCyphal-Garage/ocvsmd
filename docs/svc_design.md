@@ -508,4 +508,78 @@ sequenceDiagram
 
 ## `PopRoot`
 
+**DSDL definitions:**
+- `PopRoot.0.1.dsdl`
+```
+uavcan.file.Path.2.0 item   # The path to the root directory to be pop from the list of roots.
+bool is_back                # Determines whether the path is searched from the front or the back of the list.
+@extent 512 * 8
+---
+@extent 512 * 8
+```
+
+**Sequence diagram**
+```mermaid
+sequenceDiagram
+    actor User
+    participant PopRootClient as PopRootClient<br/><<sender>>>
+    participant PopRootService
+    participant FileProvider
+
+    User ->>+ PopRootClient: submit(path, is_back)
+    PopRootClient --)+ PopRootService: Route{ChMsg{}}<br/>PopRoot.Request_0_1{path, is_back}}
+    PopRootClient ->>- User : return
+    
+    PopRootService ->> FileProvider: popRoot(path, is_back)
+    PopRootService --)+ PopRootClient: Route{ChEnd{alive=false}}
+    deactivate PopRootService
+    PopRootClient -)- User: receiver(paths)
+    
+    box SDK Client
+        actor User
+        participant PopRootClient
+    end
+    box Daemon
+        participant PopRootService
+        participant FileProvider
+    end    
+```
+
 ## `PushRoot`
+
+**DSDL definitions:**
+- `PushRoot.0.1.dsdl`
+```
+uavcan.file.Path.2.0 item   # The path to the root directory to be pushed into the list of roots.
+bool is_back                # Determines whether the path is searched from the front or the back of the list.
+@extent 512 * 8
+---
+@extent 512 * 8
+```
+
+**Sequence diagram**
+```mermaid
+sequenceDiagram
+    actor User
+    participant PushRootClient as PushRootClient<br/><<sender>>>
+    participant PushRootService
+    participant FileProvider
+
+    User ->>+ PushRootClient: submit(path, is_back)
+    PushRootClient --)+ PushRootService: Route{ChMsg{}}<br/>PushRoot.Request_0_1{path, is_back}}
+    PushRootClient ->>- User : return
+    
+    PushRootService ->> FileProvider: pushRoot(path, is_back)
+    PushRootService --)+ PushRootClient: Route{ChEnd{alive=false}}
+    deactivate PushRootService
+    PushRootClient -)- User: receiver(paths)
+    
+    box SDK Client
+        actor User
+        participant PushRootClient
+    end
+    box Daemon
+        participant PushRootService
+        participant FileProvider
+    end    
+```
