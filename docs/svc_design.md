@@ -38,7 +38,7 @@ UavcanNodeExecCmdRes.0.1 payload
 ```mermaid
 sequenceDiagram
     actor User
-    participant ExecCmdClient
+    participant ExecCmdClient as ExecCmdClient<br/><<sender>>>
     participant ExecCmdService
     participant LibCyphal as LibCyphal and<br/>RPC Client
     actor NodeX
@@ -51,7 +51,7 @@ sequenceDiagram
         end
     end
     ExecCmdClient --)+ ExecCmdService: Route{ChEnd{alive=true}}
-    ExecCmdClient ->>- User : return sender
+    ExecCmdClient ->>- User : return
 
     loop for each distinct node id
         ExecCmdService ->> LibCyphal: makeClient(node_id)
@@ -106,7 +106,7 @@ uavcan.register.Name.1.0 item
 ```mermaid
 sequenceDiagram
     actor User
-    participant ListRegistersClient
+    participant ListRegistersClient as ListRegistersClient<br/><<sender>>>
     participant ListRegistersService
     participant LibCyphal as LibCyphal and<br/>RPC Client
     actor NodeX
@@ -119,7 +119,7 @@ sequenceDiagram
         end
     end
     ListRegistersClient --) ListRegistersService: Route{ChEnd{alive=true}}
-    ListRegistersClient ->>- User : return sender
+    ListRegistersClient ->>- User : return
     
     par in parallel for each distinct node id
         ListRegistersService ->> LibCyphal: node_cnxt.client = makeClient(node_id)
@@ -199,7 +199,7 @@ uavcan.register.Value.1.0 value
 ```mermaid
 sequenceDiagram
     actor User
-    participant AccessRegistersClient
+    participant AccessRegistersClient as AccessRegistersClient<br/><<sender>>>
     participant AccessRegistersService
     participant LibCyphal as LibCyphal and<br/>RPC Client
     actor NodeX
@@ -216,7 +216,7 @@ sequenceDiagram
         AccessRegistersService ->> AccessRegistersService: registers.append(key_value)
     end
     AccessRegistersClient --) AccessRegistersService: Route{ChEnd{alive=true}}
-    AccessRegistersClient ->>- User : return sender
+    AccessRegistersClient ->>- User : return
     
     par in parallel for each distinct node id
         AccessRegistersService ->> LibCyphal: node_cnxt.client = makeClient(node_id)
@@ -296,8 +296,8 @@ uint64 payload_size
 ```mermaid
 sequenceDiagram
     actor User
-    participant Publisher
-    participant RawPublisherClient
+    participant Publisher as Publisher<br/><<sender>>>
+    participant RawPublisherClient as RawPublisherClient<br/><<sender>>>
     participant RawPublisherService
     participant CyPublisher as LibCyphal<br/>RawPublisher
     actor NodeX
@@ -305,7 +305,7 @@ sequenceDiagram
     Note over Publisher, CyPublisher: Creating of a Cyphal Network Publisher.
     User ->>+ RawPublisherClient: submit(subj_id)
     RawPublisherClient --)+ RawPublisherService: Route{ChMsg{}}<br/>RawPublisher.Request_0_1{Create{subj_id}}
-    RawPublisherClient ->>- User : return sender
+    RawPublisherClient ->>- User : return
     
     RawPublisherService ->> CyPublisher: pub = create.publisher<void>(subj_id)
     activate RawPublisherClient
@@ -325,7 +325,7 @@ sequenceDiagram
             User ->>+ Publisher: publish<Msg>(msg, timeout)
             Publisher ->> Publisher: rawPublish(raw_payload, timeout)
             Publisher --)+ RawPublisherService: Route{ChMsg{}}<br/>RawPublisher.Request_0_1{Publish{payload_size, timeout}}<br/>raw_payload
-            Publisher ->>- User: return sender
+            Publisher ->>- User: return
             RawPublisherService ->>+ CyPublisher: pub.publish(raw_payload, timeout)
             CyPublisher --) NodeX: Message<subj_id>{}
             Note left of NodeX: Cyphal network subscriber(s)<br/>receive the message
@@ -398,8 +398,8 @@ uint64 payload_size
 ```mermaid
 sequenceDiagram
     actor User
-    participant Subscriber
-    participant RawSubscriberClient
+    participant Subscriber as Subscriber<br/><<sender>>>
+    participant RawSubscriberClient as RawSubscriberClient<br/><<sender>>>
     participant RawSubscriberService
     participant CySubscriber as LibCyphal<br/>RawSubscriber
     actor NodeX
@@ -407,7 +407,7 @@ sequenceDiagram
     Note over Subscriber, CySubscriber: Creating of a Cyphal Network Subscriber.
     User ->>+ RawSubscriberClient: submit(subj_id, extent_size)
     RawSubscriberClient --)+ RawSubscriberService: Route{ChMsg{}}<br/>RawSubscriber.Request_0_1{Create{subj_id, extent}}
-    RawSubscriberClient ->>- User : return sender
+    RawSubscriberClient ->>- User : return
     
     RawSubscriberService ->> CySubscriber: sub = create.subscriber<void>(subj_id, extent)
     activate RawSubscriberClient
@@ -426,7 +426,7 @@ sequenceDiagram
         opt    
             User ->>+ Subscriber: receive<Msg>()
             Subscriber ->> Subscriber: rawReceive()
-            Subscriber ->>- User: return sender<Msg>
+            Subscriber ->>- User: return<Msg>
         end
         NodeX --)+ CySubscriber: Message<subj_id>{}
         Note left of NodeX: A cyphal network publisher<br/>has posted a message
@@ -465,6 +465,46 @@ sequenceDiagram
 # File Server services
 
 ## `ListRoots`
+
+**DSDL definitions:**
+- `ListRoots.0.1.dsdl`
+```
+@extent 512 * 8
+---
+uavcan.file.Path.2.0 item
+@extent 512 * 8
+```
+
+**Sequence diagram**
+```mermaid
+sequenceDiagram
+    actor User
+    participant ListRootsClient as ListRootsClient<br/><<sender>>>
+    participant ListRootsService
+    participant FileProvider
+
+    User ->>+ ListRootsClient: submit()
+    ListRootsClient --)+ ListRootsService: Route{ChMsg{}}<br/>ListRoots.Request_0_1{}}
+    ListRootsClient ->>- User : return
+    
+    ListRootsService ->> FileProvider: getListOfRoots()
+    loop for each root path
+        ListRootsService --)+ ListRootsClient: Route{ChMsg{}}<br/>ListRoots.Response_0_1{path}
+        ListRootsClient ->>- ListRootsClient: paths.emplace_back(path)
+    end
+    ListRootsService --)+ ListRootsClient: Route{ChEnd{alive=false}}
+    deactivate ListRootsService
+    ListRootsClient -)- User: receiver(paths)
+    
+    box SDK Client
+        actor User
+        participant ListRootsClient
+    end
+    box Daemon
+        participant ListRootsService
+        participant FileProvider
+    end    
+```
 
 ## `PopRoot`
 
