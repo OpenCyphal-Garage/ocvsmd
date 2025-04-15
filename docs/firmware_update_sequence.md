@@ -59,8 +59,8 @@ Here are descriptions for arrows in the diagram:
 1. `User` sends a command to the `NodeCommandClient` to begin the firmware update on the specified nodes, with the specified path to the firmware file.
 2. `NodeCommandClient` sends corresponding IPC request(s) to the `ExecCmdService` to build full scope of the update process.
 3. `NodeCommandClient` triggers the update process on the remote `ExecCmdService` by marking the end of the channel (with keeping it alive).
-4. For each target node id a new Cyphal RTP client is created for standard `435.ExecuteCommand` RPC service.
-5. These RTP clients are used to request the command (from step #2) execution on remote target nodes.
+4. For each target node id a new Cyphal RPC client is created for standard `435.ExecuteCommand` RPC service.
+5. These RPC clients are used to request the command (from step #2) execution on remote target nodes.
 6. The command is delivered to the `435.ExecuteCommand` RPC server on target node.
 7. The target node confirms the command execution and switches to "update" mode.
 The node also remembers the path to the firmware file and the source node id from where the command had arrived -
