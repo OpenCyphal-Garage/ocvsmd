@@ -92,6 +92,11 @@ public:
         return find_or(root_, "cyphal", "transport", "interfaces", std::vector<std::string>{});
     }
 
+    auto getCyphalTransportMtu() const -> cetl::optional<std::size_t> override
+    {
+        return findImpl<std::size_t>("cyphal", "transport", "mtu");
+    }
+
     auto getFileServerRoots() const -> std::vector<std::string> override
     {
         return find_or(root_, "file_server", "roots", std::vector<std::string>{});

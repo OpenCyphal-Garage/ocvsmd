@@ -12,6 +12,8 @@
 #include "platform/can/can_media.hpp"
 #include "transport_helpers.hpp"
 
+#include <canard.h>
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
@@ -65,12 +67,15 @@ public:
                 can_ifaces += ",";
             }
         }
-        common::getLogger("io")->trace("Attempting to create CAN transport (ifaces=[{}])…", can_ifaces);
+        const auto can_mtu = config->getCyphalTransportMtu().value_or(CANARD_MTU_CAN_CLASSIC);
+        common::getLogger("io")->trace("Attempting to create CAN transport (ifaces=[{}], mtu={})…",
+                                       can_ifaces,
+                                       can_mtu);
 
         auto transport_bag = std::make_unique<CanTransportBag>(Spec{}, memory, executor);
 
         auto& media_collection = transport_bag->media_collection_;
-        media_collection.parse(can_ifaces);
+        media_collection.parse(can_ifaces, can_mtu);
         if (media_collection.count() == 0)
         {
             return nullptr;

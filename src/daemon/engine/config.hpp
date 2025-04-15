@@ -49,6 +49,7 @@ public:
     virtual void                setCyphalAppUniqueId(const CyphalApp::UniqueId& unique_id)          = 0;
 
     CETL_NODISCARD virtual auto getCyphalTransportInterfaces() const -> std::vector<std::string> = 0;
+    CETL_NODISCARD virtual auto getCyphalTransportMtu() const -> cetl::optional<std::size_t>     = 0;
 
     CETL_NODISCARD virtual auto getFileServerRoots() const -> std::vector<std::string>    = 0;
     virtual void                setFileServerRoots(const std::vector<std::string>& roots) = 0;
