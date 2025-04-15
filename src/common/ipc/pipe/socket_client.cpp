@@ -59,7 +59,7 @@ sdk::OptError SocketClient::start(EventHandler event_handler)
     socket_callback_ = posix_executor_ext_->registerAwaitableCallback(  //
         [this](const auto&) {
             //
-            handle_connect();
+            handleConnect();
         },
         platform::IPosixExecutorExtension::Trigger::Writable{io_state_.fd.get()});
 
@@ -114,7 +114,7 @@ sdk::OptError SocketClient::connectSocket(const int fd, const void* const addr_p
     return sdk::OptError{};
 }
 
-void SocketClient::handle_connect()
+void SocketClient::handleConnect()
 {
     socket_callback_.reset();
 
@@ -131,21 +131,21 @@ void SocketClient::handle_connect()
     if (so_error != 0)
     {
         logger().error("Failed to connect to server: {}.", std::strerror(so_error));
-        handle_disconnect();
+        handleDisconnect();
         return;
     }
 
     socket_callback_ = posix_executor_ext_->registerAwaitableCallback(  //
         [this](const auto&) {
             //
-            handle_receive();
+            handleReceive();
         },
         platform::IPosixExecutorExtension::Trigger::Readable{io_state_.fd.get()});
 
     event_handler_(Event::Connected{});
 }
 
-void SocketClient::handle_receive()
+void SocketClient::handleReceive()
 {
     if (const auto opt_error = receiveData(io_state_))
     {
@@ -158,11 +158,11 @@ void SocketClient::handle_receive()
             logger().warn("Failed to handle server response - closing connection (err={}).", *opt_error);
         }
 
-        handle_disconnect();
+        handleDisconnect();
     }
 }
 
-void SocketClient::handle_disconnect()
+void SocketClient::handleDisconnect()
 {
     socket_callback_.reset();
 
