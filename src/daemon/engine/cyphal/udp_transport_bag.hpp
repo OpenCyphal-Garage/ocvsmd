@@ -12,6 +12,8 @@
 #include "platform/udp/udp_media.hpp"
 #include "transport_helpers.hpp"
 
+#include <udpard.h>
+
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
@@ -66,12 +68,15 @@ public:
                 udp_ifaces += ",";
             }
         }
-        common::getLogger("io")->trace("Attempting to create UDP transport (ifaces=[{}])…", udp_ifaces);
+        const auto opt_udp_mtu = config->getCyphalTransportMtu();
+        common::getLogger("io")->trace("Attempting to create UDP transport (ifaces=[{}], mtu={})…",
+                                       udp_ifaces,
+                                       opt_udp_mtu.value_or(UDPARD_MTU_DEFAULT));
 
         auto transport_bag = std::make_unique<UdpTransportBag>(Spec{}, memory, executor);
 
         auto& media_collection = transport_bag->media_collection_;
-        media_collection.parse(udp_ifaces);
+        media_collection.parse(udp_ifaces, opt_udp_mtu);
         if (media_collection.count() == 0)
         {
             return nullptr;
