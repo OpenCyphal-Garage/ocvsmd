@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(ocvsmd
         LANGUAGES C CXX
-        HOMEPAGE_URL https://github.com/OpenCyphal-Garage/opencyphal-vehicle-system-management-daemon
+        HOMEPAGE_URL https://github.com/OpenCyphal-Garage/ocvsmd
 )
 
 enable_testing()
