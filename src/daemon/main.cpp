@@ -301,7 +301,7 @@ ocvsmd::daemon::engine::Config::Ptr loadConfig(const int          err_fd,
                                                const char** const argv)
 {
     static const std::string cfg_file_name      = "ocvsmd.toml";
-    static const std::string config_file_prefix = "CONFIG_FILE=";
+    static const std::string config_file_prefix = "--config-file=";
 
     const std::string cfg_file_dir  = is_daemonized ? "/etc/ocvsmd/" : "./";
     auto              cfg_file_path = cfg_file_dir + cfg_file_name;
@@ -338,7 +338,7 @@ int main(const int argc, const char** const argv)
     bool should_daemonize = true;
     for (int i = 1; i < argc; ++i)
     {
-        if (::strcmp(argv[i], "--dev") == 0)  // NOLINT
+        if (::strcmp(argv[i], "--no-daemon") == 0)  // NOLINT
         {
             should_daemonize = false;
         }
