@@ -10,6 +10,7 @@ This document describes IPC contracts between various clients and corresponding 
   - [`AccessRegisters`](#accessregisters)
 - [Relay services](#relay-services)
   - [`RawPublisher`](#rawpublisher)
+  - [`RawRpcClient`](#rawrpcclient)
   - [`RawSubscriber`](#rawsubscriber)
 - [File Server services](#file-server-services)
   - [`ListRoots`](#listroots)
@@ -359,6 +360,155 @@ sequenceDiagram
     box Daemon process<br/>《cyphal node》
         participant RawPublisherService
         participant CyPublisher
+    end
+    box Cyphal Network Nodes
+        actor NodeX
+    end
+```
+
+## `RawRpcClient`
+
+**DSDL definitions:**
+- `RawRpcClient.0.1.dsdl`
+```
+@union
+uavcan.primitive.Empty.1.0 empty
+RawRpcClientCreate.0.1 create
+RawRpcClientConfig.0.1 config
+RawRpcClientSend.0.1 send
+@sealed
+---
+@union
+uavcan.primitive.Empty.1.0 empty
+RawRpcClientReceive.0.1 receive
+ocvsmd.common.Error.0.1 send_error
+ocvsmd.common.Error.0.1 receive_error
+@sealed
+```
+- `RawRpcClientCreate.0.1.dsdl`
+```
+uint64 extent_size
+uint16 service_id
+uint16 server_node_id
+@extent 32 * 8
+```
+- `RawRpcClientConfig.0.1.dsdl`
+```
+uint8[<=1] priority
+@extent 32 * 8
+```
+- `RawRpcClientSend.0.1.dsdl`
+```
+uint64 request_timeout_us
+uint64 response_timeout_us
+uint64 payload_size
+@extent 64 * 8
+```
+- `RawRpcClientReceive.0.1.dsdl`
+```
+uint8 priority
+uint16 remote_node_id
+uint64 payload_size
+@extent 32 * 8
+```
+
+**Sequence diagram**
+```mermaid
+sequenceDiagram
+    actor User
+    participant RpcClient as RpcClient<br/><<sender>>>
+    participant RawRpcClient as RawRpcClient<br/><<sender>>>
+    participant RawRpcClientService
+    participant CyServiceClient as LibCyphal<br/>RawServiceClient
+    actor NodeX as NodeX<br/><<cyphal node>>
+
+    Note over RpcClient, CyServiceClient: Creating of a Cyphal Network RpcClient.
+    User ->>+ RawRpcClient: submit(service_id, extent, srv_node_id)
+    RawRpcClient --)+ RawRpcClientService: Route{ChMsg{}}<br/>RawRpcClient.Request_0_1{Create{service_id, extent, srv_node_id}}
+    RawRpcClient ->>- User : return
+    
+    RawRpcClientService ->> CyServiceClient: client = create.makeClient(srv_node_id, service_id, extent)
+    activate RawRpcClient
+    alt success
+        RawRpcClientService --) RawRpcClient: Route{ChMsg{}}<br/>RawRpcClient.Response_0_1{empty}
+        RawRpcClient ->> RpcClient: create(move(channel))
+        Note right of RawRpcClient: The client has fulfilled its "factory" role, and<br/>now the RpcClient continues with the channel.
+    else failure
+        RawRpcClientService --) RawRpcClient: Route{ChEnd{alive=false, error}}
+    end
+    deactivate RawRpcClientService
+    RawRpcClient -)- User: receiver(rpc_client_or_failure)
+    
+    Note over RpcClient, CyServiceClient: Making requests to Cyphal Network, receiving responses, and changing request priorities.
+    loop while keeping the rpc client alive
+        alt making requests
+        
+            %% Request
+            %%
+            Note over RawRpcClient, RawRpcClientService: Making a request
+            User ->>+ RpcClient: request<Msg>(msg, timeouts)
+            RpcClient ->> RpcClient: rawRequest(raw_payload, timeouts)
+            RpcClient --)+ RawRpcClientService: Route{ChMsg{}}<br/>RawRpcClient.Request_0_1{Send{payload_size, timeouts}}<br/>raw_payload
+            RpcClient ->>- User: return
+            RawRpcClientService ->>+ CyServiceClient: promise = client.request(raw_payload, timeouts)
+            CyServiceClient --) NodeX: SvcRequest<service_id>{}
+            Note left of NodeX: Cyphal network servers(s)<br/>receive the service request.
+            CyServiceClient ->>- RawRpcClientService: promise
+            opt if error
+            RawRpcClientService --)+ RpcClient: Route{ChMsg{}}<br/>RawRpcClient.Response_0_1{request_error}
+            deactivate RawRpcClientService
+            opt there is a receiver
+                Note right of RpcClient: failure will be dropped<br/>if there is no receiver
+                RpcClient -)- User: receiver<Result>(failure)
+            end
+            end
+
+            %% Response
+            %%
+            Note over RawRpcClient, RawRpcClientService: Waiting for response...
+            alt
+                NodeX --) CyServiceClient: SvcResponse<service_id>{}
+            else
+                CyServiceClient -) CyServiceClient: timeout or failure
+            end            
+            CyServiceClient ->>+ RawRpcClientService: promise result
+            alt success
+                RawRpcClientService --)+ RpcClient: Route{ChMsg{}}<br/>RawRpcClient.Response_0_1{Receive{size, meta}}}<br/>raw_payload
+                RpcClient ->> RpcClient: response.deserialize(raw_payload)
+            else failure
+                RawRpcClientService --) RpcClient: Route{ChMsg{}}<br/>RawRpcClient.Response_0_1{response_error}}
+            end
+            deactivate RawRpcClientService
+            opt there is a receiver
+                Note right of RpcClient: result will be dropped<br/>if there is no receiver
+                RpcClient -)- User: receiver<Result>(result)
+            end            
+        else configuring priority
+            User ->>+ RpcClient: setPriority(priority)
+            RpcClient --)+ RawRpcClientService: Route{ChMsg{}}<br/>RawRpcClient.Request_0_1{Config{priority}}
+            RpcClient ->>- User: opt_error
+            opt !priority.empty
+                RawRpcClientService ->> CyServiceClient: client.setPriority(priority.front)
+            end
+            deactivate RawRpcClientService
+        end
+    end
+
+    Note over RpcClient, CyServiceClient: Releasing the Cyphal Network RpcClient.
+    User -x+ RpcClient: release
+    RpcClient --)+ RawRpcClientService: Route{ChEnd{alive=false}}
+    deactivate RpcClient
+    RawRpcClientService -x CyServiceClient: release client
+    deactivate RawRpcClientService
+
+    box SDK Client
+        actor User
+        participant RpcClient
+        participant RawRpcClient
+    end
+    box Daemon process<br/>《cyphal node》
+        participant RawRpcClientService
+        participant CyServiceClient
     end
     box Cyphal Network Nodes
         actor NodeX

@@ -1,0 +1,19 @@
+@union
+
+uavcan.primitive.Empty.1.0 empty
+RawRpcClientCreate.0.1 create
+RawRpcClientConfig.0.1 config
+RawRpcClientSend.0.1 send
+
+@sealed
+
+---
+
+@union
+
+uavcan.primitive.Empty.1.0 empty
+RawRpcClientReceive.0.1 receive
+ocvsmd.common.Error.0.1 send_error
+ocvsmd.common.Error.0.1 receive_error
+
+@sealed
