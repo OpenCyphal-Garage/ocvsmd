@@ -3,7 +3,7 @@
 uavcan.primitive.Empty.1.0 empty
 RawRpcClientCreate.0.1 create
 RawRpcClientConfig.0.1 config
-RawRpcClientSend.0.1 send
+RawRpcClientCall.0.1 call
 
 @sealed
 

@@ -230,10 +230,10 @@ TEST_F(TestRawRpcClientService, request_config)
     scheduler_.scheduleAt(4s, [&](const auto&) {
         //
         // Emulate service 'send' request with empty payload.
-        auto& send               = request.set_send();
-        send.request_timeout_us  = 345;
-        send.response_timeout_us = 741;
-        send.payload_size        = 0;
+        auto& call               = request.set_call();
+        call.request_timeout_us  = 345;
+        call.response_timeout_us = 741;
+        call.payload_size        = 0;
         EXPECT_CALL(cy_sess_cntx.req_tx_mock, send(TransferTxMetadataEq({{0, CyPriority::High}, now() + 345us}), _))
             .WillOnce(Return(cetl::nullopt));
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
@@ -258,10 +258,10 @@ TEST_F(TestRawRpcClientService, request_config)
     scheduler_.scheduleAt(5s, [&](const auto&) {
         //
         // Emulate service 'send' request with non-empty (3-bytes) payload.
-        auto& send               = request.set_send();
-        send.request_timeout_us  = 345;
-        send.response_timeout_us = 741;
-        send.payload_size        = test_raw_bytes.size();
+        auto& call               = request.set_call();
+        call.request_timeout_us  = 345;
+        call.response_timeout_us = 741;
+        call.payload_size        = test_raw_bytes.size();
         EXPECT_CALL(cy_sess_cntx.req_tx_mock, send(TransferTxMetadataEq({{1, CyPriority::High}, now() + 345us}), _))
             .WillOnce(Return(cetl::nullopt));
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
@@ -417,10 +417,10 @@ TEST_F(TestRawRpcClientService, request_failure_on_cy_request)
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         // Emulate service 'send' request with empty payload, which fails on Cyphal RPC client TX transfer.
-        auto& send               = request.set_send();
-        send.request_timeout_us  = 345;
-        send.response_timeout_us = 741;
-        send.payload_size        = 0;
+        auto& call               = request.set_call();
+        call.request_timeout_us  = 345;
+        call.response_timeout_us = 741;
+        call.payload_size        = 0;
         EXPECT_CALL(cy_sess_cntx.req_tx_mock, send(_, _)).WillOnce(Return(libcyphal::ArgumentError{}));
         EXPECT_CALL(gateway_mock, send(_, io::PayloadVariantWith<Spec::Response>(mr_, expected_error_matcher)))
             .WillOnce(Return(OptError{}));
@@ -433,10 +433,10 @@ TEST_F(TestRawRpcClientService, request_failure_on_cy_request)
     scheduler_.scheduleAt(3s, [&](const auto&) {
         //
         // Emulate service 'send' request with empty payload, which fails on Cyphal RPC client RX timeout.
-        auto& send               = request.set_send();
-        send.request_timeout_us  = 345;
-        send.response_timeout_us = 741;
-        send.payload_size        = 0;
+        auto& call               = request.set_call();
+        call.request_timeout_us  = 345;
+        call.response_timeout_us = 741;
+        call.payload_size        = 0;
         EXPECT_CALL(cy_sess_cntx.req_tx_mock, send(_, _)).WillOnce(Return(cetl::nullopt));
         const auto result = tryPerformOnSerialized(request, [&](const auto payload) {
             //

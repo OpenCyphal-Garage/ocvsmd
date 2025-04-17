@@ -16,6 +16,8 @@
 #include "svc/client_helpers.hpp"
 #include "svc/relay/raw_publisher_client.hpp"
 #include "svc/relay/raw_publisher_spec.hpp"
+#include "svc/relay/raw_rpc_client.hpp"
+#include "svc/relay/raw_rpc_client_spec.hpp"
 #include "svc/relay/raw_subscriber_client.hpp"
 #include "svc/relay/raw_subscriber_spec.hpp"
 
@@ -131,6 +133,29 @@ public:
 
         return std::make_unique<svc::AsSender<MakeSubscriber::Result, decltype(svc_client)>>(  //
             "Daemon::makeSubscriber",
+            std::move(svc_client),
+            logger_);
+    }
+
+    SenderOf<MakeRpcClient::Result>::Ptr makeRpcClient(  //
+        const CyphalPortId service_id,                   // NOLINT bugprone-easily-swappable-parameters
+        const CyphalNodeId server_node_id,
+        const std::size_t  extent_bytes) override
+    {
+        using RawRpcClient = svc::relay::RawRpcClient;
+        using Request      = common::svc::relay::RawRpcClientSpec::Request;
+
+        logger_->trace("Making sender of `makeRawSubscriber()`.");
+
+        Request request{&memory_};
+        auto&   create_req        = request.set_create();
+        create_req.service_id     = service_id;
+        create_req.server_node_id = server_node_id;
+        create_req.extent_size    = extent_bytes;
+        auto svc_client           = RawRpcClient::make({memory_, *ipc_router_}, request);
+
+        return std::make_unique<svc::AsSender<MakeRpcClient::Result, decltype(svc_client)>>(  //
+            "Daemon::makeRpcClient",
             std::move(svc_client),
             logger_);
     }

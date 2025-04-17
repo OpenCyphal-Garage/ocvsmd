@@ -128,7 +128,7 @@ private:
     private:
         using RawRpcClientCreate = common::svc::relay::RawRpcClientCreate_0_1;
         using RawRpcClientConfig = common::svc::relay::RawRpcClientConfig_0_1;
-        using RawRpcClientSend   = common::svc::relay::RawRpcClientSend_0_1;
+        using RawRpcClientCall   = common::svc::relay::RawRpcClientCall_0_1;
 
         using CyPayloadFragment = libcyphal::transport::PayloadFragment;
         using CyRawSvcClient    = libcyphal::presentation::RawServiceClient;
@@ -155,9 +155,9 @@ private:
                         //
                         handleInputEvent(config);
                     },
-                    [this, payload](const RawRpcClientSend& send) {
+                    [this, payload](const RawRpcClientCall& call) {
                         //
-                        handleInputEvent(send, payload);
+                        handleInputEvent(call, payload);
                     },
                     [](const RawRpcClientCreate&) {},
                     [](const uavcan::primitive::Empty_1_0&) {}),
@@ -189,7 +189,7 @@ private:
             }
         }
 
-        void handleInputEvent(const common::svc::relay::RawRpcClientSend_0_1& send, const common::io::Payload payload)
+        void handleInputEvent(const common::svc::relay::RawRpcClientCall_0_1& call, const common::io::Payload payload)
         {
             CETL_DEBUG_ASSERT(cy_raw_svc_client_, "");
             if (!cy_raw_svc_client_)
@@ -200,13 +200,13 @@ private:
 
             const auto now               = service_.context_.executor.now();
             const auto request_deadline  = now + std::chrono::duration_cast<libcyphal::Duration>(  //
-                                                    std::chrono::microseconds{send.request_timeout_us});
+                                                    std::chrono::microseconds{call.request_timeout_us});
             const auto response_deadline = now + std::chrono::duration_cast<libcyphal::Duration>(
-                                                     std::chrono::microseconds{send.response_timeout_us});
+                                                     std::chrono::microseconds{call.response_timeout_us});
 
             // The tail of the payload is the raw message data.
             //
-            const auto                       raw_msg_payload = payload.subspan(payload.size() - send.payload_size);
+            const auto                       raw_msg_payload = payload.subspan(payload.size() - call.payload_size);
             std::array<CyPayloadFragment, 1> fragments{{{raw_msg_payload.data(), raw_msg_payload.size()}}};
 
             auto cy_req_result = cy_raw_svc_client_->request(request_deadline,

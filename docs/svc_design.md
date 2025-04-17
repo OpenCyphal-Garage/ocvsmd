@@ -375,7 +375,7 @@ sequenceDiagram
 uavcan.primitive.Empty.1.0 empty
 RawRpcClientCreate.0.1 create
 RawRpcClientConfig.0.1 config
-RawRpcClientSend.0.1 send
+RawRpcClientCall.0.1 call
 @sealed
 ---
 @union
@@ -396,7 +396,7 @@ uint16 server_node_id
 uint8[<=1] priority
 @extent 32 * 8
 ```
-- `RawRpcClientSend.0.1.dsdl`
+- `RawRpcClientCall.0.1.dsdl`
 ```
 uint64 request_timeout_us
 uint64 response_timeout_us
@@ -426,7 +426,7 @@ sequenceDiagram
     RawRpcClient --)+ RawRpcClientService: Route{ChMsg{}}<br/>RawRpcClient.Request_0_1{Create{service_id, extent, srv_node_id}}
     RawRpcClient ->>- User : return
     
-    RawRpcClientService ->> CyServiceClient: client = create.makeClient(srv_node_id, service_id, extent)
+    RawRpcClientService ->> CyServiceClient: client = makeClient(srv_node_id, service_id, extent)
     activate RawRpcClient
     alt success
         RawRpcClientService --) RawRpcClient: Route{ChMsg{}}<br/>RawRpcClient.Response_0_1{empty}
@@ -447,11 +447,11 @@ sequenceDiagram
             Note over RawRpcClient, RawRpcClientService: Making a request
             User ->>+ RpcClient: request<Msg>(msg, timeouts)
             RpcClient ->> RpcClient: rawRequest(raw_payload, timeouts)
-            RpcClient --)+ RawRpcClientService: Route{ChMsg{}}<br/>RawRpcClient.Request_0_1{Send{payload_size, timeouts}}<br/>raw_payload
+            RpcClient --)+ RawRpcClientService: Route{ChMsg{}}<br/>RawRpcClient.Request_0_1{Call{payload_size, timeouts}}<br/>raw_payload
             RpcClient ->>- User: return
             RawRpcClientService ->>+ CyServiceClient: promise = client.request(raw_payload, timeouts)
             CyServiceClient --) NodeX: SvcRequest<service_id>{}
-            Note left of NodeX: Cyphal network servers(s)<br/>receive the service request.
+            Note left of NodeX: A cyphal network server<br/>receive the service request.
             CyServiceClient ->>- RawRpcClientService: promise
             opt if error
             RawRpcClientService --)+ RpcClient: Route{ChMsg{}}<br/>RawRpcClient.Response_0_1{request_error}
