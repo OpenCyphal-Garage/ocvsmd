@@ -198,25 +198,28 @@ private:
                 return;
             }
 
-            const auto now              = service_.context_.executor.now();
-            const auto request_timeout  = std::chrono::duration_cast<libcyphal::Duration>(  //
-                std::chrono::microseconds{send.request_timeout_us});
-            const auto request_deadline = now + request_timeout;
+            const auto now               = service_.context_.executor.now();
+            const auto request_deadline  = now + std::chrono::duration_cast<libcyphal::Duration>(  //
+                                                    std::chrono::microseconds{send.request_timeout_us});
+            const auto response_deadline = now + std::chrono::duration_cast<libcyphal::Duration>(
+                                                     std::chrono::microseconds{send.response_timeout_us});
 
             // The tail of the payload is the raw message data.
             //
             const auto                       raw_msg_payload = payload.subspan(payload.size() - send.payload_size);
             std::array<CyPayloadFragment, 1> fragments{{{raw_msg_payload.data(), raw_msg_payload.size()}}};
 
-            auto cy_req_result = cy_raw_svc_client_->request(request_deadline, fragments);
+            auto cy_req_result = cy_raw_svc_client_->request(request_deadline,
+                                                             fragments,
+                                                             cetl::optional<libcyphal::TimePoint>{response_deadline});
             if (auto* const cy_failure = cetl::get_if<CyRawSvcClient::Failure>(&cy_req_result))
             {
                 const auto opt_error = cyFailureToOptError(*cy_failure);
                 logger().warn("RawRpcClientSvc: failed to send raw request (err={}, fsm_id={})", opt_error, id_);
 
                 Spec::Response ipc_response{&memory()};
-                auto&          send_error = ipc_response.set_send_error();
-                optErrorToDsdlError(opt_error, send_error);
+                auto&          error = ipc_response.set__error();
+                optErrorToDsdlError(opt_error, error);
                 reply(ipc_response);
                 return;
             }
@@ -274,8 +277,8 @@ private:
                 logger().warn("RawRpcClientSvc: RPC promise failure (err={}, fsm_id={}).", opt_error, id_);
 
                 Spec::Response ipc_response{&memory()};
-                auto&          receive_error = ipc_response.set_receive_error();
-                optErrorToDsdlError(opt_error, receive_error);
+                auto&          error = ipc_response.set__error();
+                optErrorToDsdlError(opt_error, error);
                 reply(ipc_response);
             }
         }

@@ -381,8 +381,7 @@ RawRpcClientSend.0.1 send
 @union
 uavcan.primitive.Empty.1.0 empty
 RawRpcClientReceive.0.1 receive
-ocvsmd.common.Error.0.1 send_error
-ocvsmd.common.Error.0.1 receive_error
+ocvsmd.common.Error.0.1 error
 @sealed
 ```
 - `RawRpcClientCreate.0.1.dsdl`
