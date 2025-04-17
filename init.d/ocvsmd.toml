@@ -18,6 +18,14 @@ unique_id = []
 interfaces = [
     'udp://127.0.0.1',
 ]
+# MTU (Maximum Transmission Unit) for transport.
+# If specified, it will override the default MTU for the transport type.
+#   Type:       MTU:    Details:
+# ------------------------------------------------
+# - udp         1408    default
+# - socketcan   8       for CAN CLASSIC; default
+# - socketcan   64      for CAN FD
+mtu = 1408
 
 # File Server settings.
 [file_server]

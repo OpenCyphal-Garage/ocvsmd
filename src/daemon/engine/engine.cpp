@@ -75,7 +75,12 @@ cetl::optional<std::string> Engine::init()
     }
     if (const auto node_id = config_->getCyphalAppNodeId())
     {
+        logger_->info("Setting Cyphal node ID to {}.", *node_id);
         any_transport_bag_->getTransport().setLocalNodeId(node_id.value());
+    }
+    else
+    {
+        logger_->warn("No Cyphal node ID configured!");
     }
 
     // 2. Create the presentation layer object.

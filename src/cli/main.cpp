@@ -90,12 +90,12 @@ void logCommandResult(const ocvsmd::sdk::NodeCommandClient::Command::Result& cmd
     const auto& responds = cetl::get<Command::Success>(cmd_result);
     for (const auto& node_and_respond : responds)
     {
-        if (const auto* const failure = cetl::get_if<1>(&node_and_respond.second))
+        if (const auto* const failure = cetl::get_if<Command::NodeResponse::Failure>(&node_and_respond.second))
         {
             spdlog::warn("{:4} → err={}", node_and_respond.first, *failure);
             continue;
         }
-        const auto& response = cetl::get<0>(node_and_respond.second);
+        const auto& response = cetl::get<Command::NodeResponse::Success>(node_and_respond.second);
         spdlog::info("{:4} → status={}.", node_and_respond.first, response.status);
     }
 }
@@ -124,6 +124,7 @@ void logRegistryListNodeResult(  //
 void logRegistryAccessNodeResult(const ocvsmd::sdk::CyphalNodeId                                       node_id,
                                  const ocvsmd::sdk::NodeRegistryClient::Access::NodeRegisters::Result& result)
 {
+    using RegValue = ocvsmd::sdk::NodeRegistryClient::Access::RegValue;
     using NodeRegs = ocvsmd::sdk::NodeRegistryClient::Access::NodeRegisters;
 
     if (const auto* const failure = cetl::get_if<NodeRegs::Failure>(&result))
@@ -135,12 +136,12 @@ void logRegistryAccessNodeResult(const ocvsmd::sdk::CyphalNodeId                
 
     for (const auto& reg_key_val : node_reg_vals)
     {
-        if (const auto* const failure = cetl::get_if<1>(&reg_key_val.value_or_err))
+        if (const auto* const failure = cetl::get_if<Error>(&reg_key_val.value_or_err))
         {
             spdlog::warn("{:4} → '{}' err={}", node_id, reg_key_val.key, *failure);
             continue;
         }
-        const auto& reg_val = cetl::get<0>(reg_key_val.value_or_err);
+        const auto& reg_val = cetl::get<RegValue>(reg_key_val.value_or_err);
 
         spdlog::info("{:4} → '{}'={}", node_id, reg_key_val.key, reg_val);
     }

@@ -8,6 +8,8 @@
 
 #include "udp_sockets.hpp"
 
+#include <udpard.h>
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
@@ -40,6 +42,7 @@ public:
         : general_mr_{general_mr}
         , executor_{executor}
         , iface_address_{iface_address.data(), iface_address.size()}
+        , iface_mtu_{UDPARD_MTU_DEFAULT}
         , tx_mr_{tx_mr}
     {
     }
@@ -54,6 +57,7 @@ public:
         : general_mr_{other.general_mr_}
         , executor_{other.executor_}
         , iface_address_{std::move(other.iface_address_)}
+        , iface_mtu_{other.iface_mtu_}
         , tx_mr_{other.tx_mr_}
     {
     }
@@ -63,17 +67,22 @@ public:
         iface_address_ = std::string{iface_address.data(), iface_address.size()};
     }
 
+    void setMtu(const std::size_t mtu)
+    {
+        iface_mtu_ = mtu;
+    }
+
 private:
     // MARK: - IMedia
 
     MakeTxSocketResult::Type makeTxSocket() override
     {
-        return UdpTxSocket::make(general_mr_, executor_, iface_address_.data());
+        return UdpTxSocket::make(general_mr_, executor_, iface_address_, iface_mtu_);
     }
 
     MakeRxSocketResult::Type makeRxSocket(const libcyphal::transport::udp::IpEndpoint& multicast_endpoint) override
     {
-        return UdpRxSocket::make(general_mr_, executor_, iface_address_.data(), multicast_endpoint);
+        return UdpRxSocket::make(general_mr_, executor_, iface_address_, multicast_endpoint);
     }
 
     cetl::pmr::memory_resource& getTxMemoryResource() override
@@ -86,6 +95,7 @@ private:
     cetl::pmr::memory_resource& general_mr_;
     libcyphal::IExecutor&       executor_;
     std::string                 iface_address_;
+    std::size_t                 iface_mtu_;
     cetl::pmr::memory_resource& tx_mr_;
 
 };  // UdpMedia
@@ -104,7 +114,7 @@ struct UdpMediaCollection
     {
     }
 
-    void parse(const cetl::string_view iface_addresses)
+    void parse(const cetl::string_view iface_addresses, const cetl::optional<std::size_t> opt_iface_mtu)
     {
         // Split addresses by commas.
         //
@@ -116,7 +126,13 @@ struct UdpMediaCollection
             const auto iface_address = iface_addresses.substr(curr, next - curr);
             if (!iface_address.empty())
             {
-                media_array_[index].setAddress(iface_address);  // NOLINT
+                auto& media = media_array_[index];  // NOLINT
+
+                media.setAddress(iface_address);
+                if (opt_iface_mtu)
+                {
+                    media.setMtu(*opt_iface_mtu);
+                }
                 index++;
             }
 
