@@ -14,6 +14,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/subscriber.hpp>
+#include <libcyphal/transport/scattered_buffer.hpp>
 
 namespace ocvsmd
 {
