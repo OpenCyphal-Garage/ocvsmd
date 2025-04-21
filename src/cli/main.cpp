@@ -11,6 +11,8 @@
 #include <ocvsmd/sdk/defines.hpp>
 #include <ocvsmd/sdk/execution.hpp>
 #include <ocvsmd/sdk/node_command_client.hpp>
+#include <ocvsmd/sdk/node_pub_sub.hpp>
+#include <ocvsmd/sdk/node_rpc_client.hpp>
 
 #include <uavcan/node/Heartbeat_1_0.hpp>
 #include <uavcan/time/Synchronization_1_0.hpp>
@@ -42,7 +44,8 @@ using ocvsmd::sdk::Daemon;
 using ocvsmd::sdk::sync_wait;
 using Executor = ocvsmd::platform::SingleThreadedExecutor;
 
-using std::literals::chrono_literals::operator""s;  // NOLINT(misc-unused-using-decls)
+using std::literals::chrono_literals::operator""s;   // NOLINT(misc-unused-using-decls)
+using std::literals::chrono_literals::operator""ms;  // NOLINT(misc-unused-using-decls)
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 volatile sig_atomic_t g_running = 1;
@@ -184,6 +187,17 @@ void logHeartbeat(const uavcan::node::Heartbeat_1_0&               hb,
             static_cast<int>(hb.vendor_specific_status_code),
             static_cast<int>(priority));
     }
+}
+
+void logExeCmdResponse(const uavcan::node::ExecuteCommand::Response_1_3& response,
+                       const ocvsmd::sdk::CyphalNodeId                   node_id,
+                       const ocvsmd::sdk::CyphalPriority                 priority)
+{
+    spdlog::info(  //
+        "🆔 response from {} node: status={} (cy_priority={}).",
+        node_id,
+        response.status,
+        static_cast<int>(priority));
 }
 
 // MARK: - Test Scenarios:
@@ -516,6 +530,48 @@ void tryPublisherScenario(Executor& executor, cetl::pmr::memory_resource& memory
     }
 }
 
+/// Demo of daemon's RPC client - calls `uavcan::node::ExecuteCommand_1_3` service.
+///
+void tryRpcClientScenario(Executor& executor, cetl::pmr::memory_resource& memory, const Daemon::Ptr& daemon)
+{
+    using ocvsmd::sdk::NodeRpcClient;
+    using MakeRpcClient  = Daemon::MakeRpcClient;
+    using ExecuteCommand = uavcan::node::ExecuteCommand_1_3;
+    using RpcCall        = NodeRpcClient::Call;
+    using RpcCallResult  = RpcCall::Result<ExecuteCommand::Response>;
+    using RpcCallSuccess = RpcCall::Success<ExecuteCommand::Response>;
+
+    spdlog::info("tryRpcClientScenario -----------------");
+
+    auto rpc_client_sender = daemon->makeRpcClient(ExecuteCommand::Request::_traits_::FixedPortId,
+                                                   42,  // target node_id
+                                                   ExecuteCommand::Response::_traits_::ExtentBytes);
+    auto rpc_client_result = sync_wait<MakeRpcClient::Result>(executor, std::move(rpc_client_sender), 2s);
+    if (const auto* const failure = cetl::get_if<MakeRpcClient::Failure>(&rpc_client_result))
+    {
+        spdlog::error("Failed to make RPC client (err={}).", *failure);
+        return;
+    }
+    const auto rpc_client = cetl::get<MakeRpcClient::Success>(std::move(rpc_client_result));
+
+    if (const auto opt_error = rpc_client->setPriority(ocvsmd::sdk::CyphalPriority::Low))
+    {
+        spdlog::warn("Failed to set 'low' priority calling (err={}).", *opt_error);
+    }
+
+    ExecuteCommand::Request request{&memory};
+    request.command  = ExecuteCommand::Request::COMMAND_IDENTIFY;
+    auto call_sender = rpc_client->call<ExecuteCommand::Response>(memory, request, 1s, 2s - 10ms);
+    auto call_result = sync_wait<RpcCallResult>(executor, std::move(call_sender), 2s);
+    if (const auto* const failure = cetl::get_if<RpcCall::Failure>(&call_result))
+    {
+        spdlog::error("Failed to make RPC client call (err={}).", *failure);
+        return;
+    }
+    const auto called = cetl::get<RpcCallSuccess>(std::move(call_result));
+    logExeCmdResponse(called.response, called.server_node_id, called.priority);
+}
+
 }  // namespace
 
 int main(const int argc, const char** const argv)
@@ -555,6 +611,7 @@ int main(const int argc, const char** const argv)
         tryListReadWriteRegsOfSingleNodeScenario(executor, memory, daemon);
         trySubscriberScenario(executor, memory, daemon);
         tryPublisherScenario(executor, memory, daemon);
+        tryRpcClientScenario(executor, memory, daemon);
 
         if (g_running == 0)
         {

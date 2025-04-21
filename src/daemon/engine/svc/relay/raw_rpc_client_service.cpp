@@ -176,6 +176,8 @@ private:
 
         void handleInputEvent(const common::svc::relay::RawRpcClientConfig_0_1& config)
         {
+            logger().trace("RawRpcClientSvc::handleInputEvent config (fsm_id={}).", id_);
+
             CETL_DEBUG_ASSERT(cy_raw_svc_client_, "");
             if (!cy_raw_svc_client_)
             {
@@ -185,12 +187,16 @@ private:
 
             if (!config.priority.empty())
             {
-                cy_raw_svc_client_->setPriority(convertToCyPriority(config.priority.front()));
+                const auto priority = config.priority.front();
+                logger().debug("RawRpcClientSvc::handleInputEvent: setPriority={} (fsm_id={}).", priority, id_);
+                cy_raw_svc_client_->setPriority(convertToCyPriority(priority));
             }
         }
 
         void handleInputEvent(const common::svc::relay::RawRpcClientCall_0_1& call, const common::io::Payload payload)
         {
+            logger().trace("RawRpcClientSvc::handleInputEvent call (fsm_id={}).", id_);
+
             CETL_DEBUG_ASSERT(cy_raw_svc_client_, "");
             if (!cy_raw_svc_client_)
             {

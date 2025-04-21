@@ -145,7 +145,7 @@ public:
         using RawRpcClient = svc::relay::RawRpcClient;
         using Request      = common::svc::relay::RawRpcClientSpec::Request;
 
-        logger_->trace("Making sender of `makeRawSubscriber()`.");
+        logger_->trace("Making sender of `makeRpcClient()`.");
 
         Request request{&memory_};
         auto&   create_req        = request.set_create();

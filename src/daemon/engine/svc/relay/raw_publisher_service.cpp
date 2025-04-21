@@ -173,6 +173,8 @@ private:
 
         void handleInputEvent(const common::svc::relay::RawPublisherConfig_0_1& config)
         {
+            logger().trace("RawPublisherSvc::handleInputEvent config (fsm_id={}).", id_);
+
             CETL_DEBUG_ASSERT(cy_raw_publisher_, "");
             if (!cy_raw_publisher_)
             {
@@ -182,13 +184,17 @@ private:
 
             if (!config.priority.empty())
             {
-                cy_raw_publisher_->setPriority(convertToCyPriority(config.priority.front()));
+                const auto priority = config.priority.front();
+                logger().debug("RawPublisherSvc::handleInputEvent: setPriority={} (fsm_id={}).", priority, id_);
+                cy_raw_publisher_->setPriority(convertToCyPriority(priority));
             }
         }
 
         void handleInputEvent(const common::svc::relay::RawPublisherPublish_0_1 publish,
                               const common::io::Payload                         payload)
         {
+            logger().trace("RawPublisherSvc::handleInputEvent publish (fsm_id={}).", id_);
+
             CETL_DEBUG_ASSERT(cy_raw_publisher_, "");
             if (!cy_raw_publisher_)
             {

@@ -111,15 +111,15 @@ private:
 
         // NodeRpcClient
 
-        SenderOf<RawResponse::Result>::Ptr rawRequest(OwnedMutablePayload&&           raw_request_payload,
-                                                      const std::chrono::microseconds request_timeout,
-                                                      const std::chrono::microseconds response_timeout) override
+        SenderOf<RawCall::Result>::Ptr rawCall(OwnedMutablePayload&&           raw_request_payload,
+                                               const std::chrono::microseconds request_timeout,
+                                               const std::chrono::microseconds response_timeout) override
         {
             requested_.payload                  = std::move(raw_request_payload);
             requested_.call.request_timeout_us  = std::max<std::uint64_t>(0, request_timeout.count());
             requested_.call.response_timeout_us = std::max<std::uint64_t>(0, response_timeout.count());
 
-            return std::make_unique<AsSender<RawResponse::Result, decltype(shared_from_this())>>(  //
+            return std::make_unique<AsSender<RawCall::Result, decltype(shared_from_this())>>(  //
                 "NodeRpcClient::rawRequest",
                 shared_from_this(),
                 context_.logger);
@@ -193,15 +193,15 @@ private:
                 auto raw_msg_buff = std::make_unique<cetl::byte[]>(raw_msg_payload.size());
                 std::memmove(raw_msg_buff.get(), raw_msg_payload.data(), raw_msg_payload.size());
 
-                notifyReceived(RawResponse::Success{{raw_msg_payload.size(), std::move(raw_msg_buff)},
-                                                    static_cast<CyphalPriority>(raw_receive.priority),
-                                                    raw_receive.remote_node_id});
+                notifyReceived(RawCall::Success{{raw_msg_payload.size(), std::move(raw_msg_buff)},
+                                                static_cast<CyphalPriority>(raw_receive.priority),
+                                                raw_receive.remote_node_id});
 
 #if defined(__cpp_exceptions)
             } catch (const std::bad_alloc&)
             {
                 context_.logger->warn("NodeRpcClient::handleInputEvent() Cannot allocate message buffer.");
-                notifyReceived(RawResponse::Failure{Error::Code::OutOfMemory});
+                notifyReceived(RawCall::Failure{Error::Code::OutOfMemory});
             }
 #endif
         }
@@ -209,10 +209,10 @@ private:
         void handleInputEvent(const ErrorResponse& response_error, const common::io::Payload) const
         {
             const auto opt_error = common::dsdlErrorToOptError(response_error);
-            notifyReceived(RawResponse::Failure{opt_error.value_or(Error{Error::Code::Other})});
+            notifyReceived(RawCall::Failure{opt_error.value_or(Error{Error::Code::Other})});
         }
 
-        void notifyReceived(RawResponse::Result&& result) const
+        void notifyReceived(RawCall::Result&& result) const
         {
             if (receiver_)
             {
@@ -220,11 +220,11 @@ private:
             }
         }
 
-        const ClientContext                        context_;
-        Channel                                    channel_;
-        Requested                                  requested_;
-        OptError                                   completion_error_;
-        std::function<void(RawResponse::Result&&)> receiver_;
+        const ClientContext                    context_;
+        Channel                                channel_;
+        Requested                              requested_;
+        OptError                               completion_error_;
+        std::function<void(RawCall::Result&&)> receiver_;
 
     };  // NodeRpcClientImpl
 

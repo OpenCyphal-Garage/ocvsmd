@@ -256,6 +256,48 @@ typename SenderOf<Result>::Ptr then(typename SenderOf<Input>::Ptr input_sender, 
     return std::make_unique<ThenSender>(std::move(input_sender), std::forward<Func>(transform_func));
 }
 
+/// Internal implementation details.
+/// Not supposed to be used directly by the users of the SDK.
+///
+namespace detail
+{
+
+/// Helper function to serialize a message and perform an action on the serialized payload.
+///
+template <typename Result, typename Message, typename Action>
+CETL_NODISCARD static typename SenderOf<Result>::Ptr tryPerformOnSerialized(const Message& msg, Action&& action)
+{
+#if defined(__cpp_exceptions)
+    try
+    {
+#endif
+        // Try to serialize the message to raw payload buffer.
+        //
+        constexpr std::size_t BufferSize = Message::_traits_::SerializationBufferSizeBytes;
+        // NOLINTNEXTLINE(*-avoid-c-arrays)
+        OwnedMutablePayload payload{BufferSize, std::make_unique<cetl::byte[]>(BufferSize)};
+        //
+        // No lint b/c of integration with Nunavut.
+        // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+        auto* const payload_data = reinterpret_cast<std::uint8_t*>(payload.data.get());
+        const auto  result_size  = serialize(msg, {payload_data, payload.size});
+        if (result_size)
+        {
+            payload.size = result_size.value();
+            return std::forward<Action>(action)(std::move(payload));
+        }
+        return just<Result>(Error{Error::Code::InvalidArgument});
+
+#if defined(__cpp_exceptions)
+    } catch (const std::bad_alloc&)
+    {
+        return just<Result>(Error{Error::Code::OutOfMemory});
+    }
+#endif
+}
+
+}  // namespace detail
+
 }  // namespace sdk
 }  // namespace ocvsmd
 
