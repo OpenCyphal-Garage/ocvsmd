@@ -6,6 +6,7 @@
 #include "services.hpp"
 
 #include "raw_publisher_service.hpp"
+#include "raw_rpc_client_service.hpp"
 #include "raw_subscriber_service.hpp"
 #include "svc/svc_helpers.hpp"
 
@@ -23,6 +24,7 @@ namespace relay
 void registerAllServices(const ScvContext& context)
 {
     RawPublisherService::registerWithContext(context);
+    RawRpcClientService::registerWithContext(context);
     RawSubscriberService::registerWithContext(context);
 }
 

@@ -173,7 +173,9 @@ private:
             }
             if (!router_.isRegisteredGateway(endpoint_))
             {
-                return sdk::Error{sdk::Error::Code::Shutdown};
+                // The client-side has already given up on us,
+                // so it's fine to skip the completion sending and return "success".
+                return sdk::OptError{};
             }
 
             completion_opt_error_ = opt_error;

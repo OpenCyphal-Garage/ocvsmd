@@ -5,6 +5,7 @@
 
 #include "raw_publisher_client.hpp"
 
+#include "common_helpers.hpp"
 #include "logging.hpp"
 #include "ocvsmd/sdk/execution.hpp"
 #include "ocvsmd/sdk/node_pub_sub.hpp"
@@ -140,14 +141,14 @@ private:
         }
 
     private:
-        using SocketBuffer    = common::io::SocketBuffer;
-        using PublishRequest  = Spec::Request::_traits_::TypeOf::publish;
-        using PublishResponse = Spec::Response::_traits_::TypeOf::publish_error;
+        using SocketBuffer         = common::io::SocketBuffer;
+        using PublishRequest       = Spec::Request::_traits_::TypeOf::publish;
+        using PublishErrorResponse = Spec::Response::_traits_::TypeOf::publish_error;
 
         struct Published
         {
             PublishRequest      request;
-            OwnedMutablePayload payload;  // NOLINT(*-avoid-c-arrays)
+            OwnedMutablePayload payload;
         };
 
         void handleEvent(const Channel::Input& input)
@@ -168,15 +169,15 @@ private:
         {
             context_.logger->debug("Publisher::handleEvent({}).", completed);
             completion_error_ = completed.opt_error.value_or(Error{Error::Code::Canceled});
-            notifyPublished(completion_error_);
+            notifyReceived(completion_error_);
         }
 
-        void handleInputEvent(const PublishResponse& publish_error) const
+        void handleInputEvent(const PublishErrorResponse& publish_error) const
         {
-            notifyPublished(dsdlErrorToOptError(publish_error));
+            notifyReceived(dsdlErrorToOptError(publish_error));
         }
 
-        void notifyPublished(const OptError opt_error) const
+        void notifyReceived(const OptError opt_error) const
         {
             if (receiver_)
             {

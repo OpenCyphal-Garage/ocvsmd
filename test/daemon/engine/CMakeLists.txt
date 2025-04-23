@@ -9,6 +9,7 @@ add_executable(engine_tests
         main.cpp
         svc/node/test_exec_cmd_service.cpp
         svc/relay/test_raw_publisher_service.cpp
+        svc/relay/test_raw_rpc_client_service.cpp
         svc/relay/test_raw_subscriber_service.cpp
 )
 target_link_libraries(engine_tests

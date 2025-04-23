@@ -19,6 +19,8 @@ namespace ocvsmd
 namespace sdk
 {
 
+/// Defines the type of the SDK error.
+///
 struct Error
 {
     /// Defines platform-independent error codes.

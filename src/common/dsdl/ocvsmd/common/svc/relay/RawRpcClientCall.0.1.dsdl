@@ -1,0 +1,5 @@
+uint64 request_timeout_us
+uint64 response_timeout_us
+uint64 payload_size
+
+@extent 64 * 8

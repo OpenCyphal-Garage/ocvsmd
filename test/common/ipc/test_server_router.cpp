@@ -331,7 +331,7 @@ TEST_F(TestServerRouter, channel_send_after_end)
     emulateRouteChannelEnd(cl_id, server_pipe_mock, tag, OptError{});
     //
     EXPECT_THAT(maybe_channel->send(msg), Optional(Error{Error::Code::Shutdown}));
-    EXPECT_THAT(maybe_channel->complete(), Optional(Error{Error::Code::Shutdown}));
+    EXPECT_THAT(maybe_channel->complete(), OptError{});
 
     // Emulate that the whole client has been disconnected.
     //

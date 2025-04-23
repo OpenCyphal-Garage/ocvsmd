@@ -11,6 +11,7 @@
 #include "file_server.hpp"
 #include "node_command_client.hpp"
 #include "node_pub_sub.hpp"
+#include "node_rpc_client.hpp"
 #include "node_registry_client.hpp"
 
 #include <cetl/cetl.hpp>
@@ -125,6 +126,32 @@ public:
     ///
     virtual SenderOf<MakeSubscriber::Result>::Ptr makeSubscriber(const CyphalPortId subject_id,
                                                                  const std::size_t  extent_bytes) = 0;
+
+    /// Defines the result type of the RPC client creation.
+    ///
+    /// On success, the result is a smart pointer to an RPC client with the required parameters.
+    /// On failure, the result is an SDK error.
+    ///
+    struct MakeRpcClient final
+    {
+        using Success = NodeRpcClient::Ptr;
+        using Failure = Error;
+        using Result  = cetl::variant<Success, Failure>;
+    };
+    /// Makes a new RPC client for the specified remote service and node ids.
+    ///
+    /// The server-side (the daemon) of SDK will create the corresponding Cyphal network service client,
+    /// use it to send requests, and forward replies to the client-side of SDK.
+    /// See also `RpcClient` docs for how to issue RPC calls.
+    ///
+    /// @param service_id The service ID to send requests to.
+    /// @param server_node_id The ID of the target server node.
+    /// @param extent_bytes The "extent" size of responses (see Cyphal spec).
+    /// @return An execution sender which emits the async result of the operation.
+    ///
+    virtual SenderOf<MakeRpcClient::Result>::Ptr makeRpcClient(const CyphalPortId service_id,
+                                                               const CyphalNodeId server_node_id,
+                                                               const std::size_t  extent_bytes) = 0;
 
 protected:
     Daemon() = default;

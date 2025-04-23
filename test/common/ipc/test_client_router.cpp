@@ -281,7 +281,7 @@ TEST_F(TestClientRouter, channel_send_after_end)
     emulateRouteChannelEnd(client_pipe_mock, tag, OptError{}, false);
 
     EXPECT_THAT(channel.send(msg), Optional(Error{Error::Code::Shutdown}));
-    EXPECT_THAT(channel.complete(), Optional(Error{Error::Code::Shutdown}));
+    EXPECT_THAT(channel.complete(), OptError{});
 }
 
 TEST_F(TestClientRouter, channel_receive_events)

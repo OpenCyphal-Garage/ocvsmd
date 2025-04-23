@@ -77,7 +77,7 @@ public:
     template <typename Message>
     SenderOf<OptError>::Ptr publish(const Message& message, const std::chrono::microseconds timeout)
     {
-        return tryPerformOnSerialized(message, [this, timeout](auto raw_payload) {
+        return detail::tryPerformOnSerialized<OptError>(message, [this, timeout](auto raw_payload) {
             //
             return rawPublish(std::move(raw_payload), timeout);
         });
@@ -85,39 +85,6 @@ public:
 
 protected:
     Publisher() = default;
-
-private:
-    template <typename Message, typename Action>
-    CETL_NODISCARD static SenderOf<OptError>::Ptr tryPerformOnSerialized(const Message& msg, Action&& action)
-    {
-#if defined(__cpp_exceptions)
-        try
-        {
-#endif
-            // Try to serialize the message to raw payload buffer.
-            //
-            constexpr std::size_t BufferSize = Message::_traits_::SerializationBufferSizeBytes;
-            // NOLINTNEXTLINE(*-avoid-c-arrays)
-            OwnedMutablePayload payload{BufferSize, std::make_unique<cetl::byte[]>(BufferSize)};
-            //
-            // No lint b/c of integration with Nunavut.
-            // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-            auto* const payload_data = reinterpret_cast<std::uint8_t*>(payload.data.get());
-            const auto  result_size  = serialize(msg, {payload_data, payload.size});
-            if (result_size)
-            {
-                payload.size = result_size.value();
-                return std::forward<Action>(action)(std::move(payload));
-            }
-            return just<OptError>(Error{Error::Code::InvalidArgument});
-
-#if defined(__cpp_exceptions)
-        } catch (const std::bad_alloc&)
-        {
-            return just<OptError>(Error{Error::Code::OutOfMemory});
-        }
-#endif
-    }
 
 };  // Publisher
 
@@ -203,6 +170,7 @@ public:
     /// Also, to not miss any new message, user should immediately initiate
     /// a new `receive` operation after getting the success result of the previous one.
     ///
+    /// @param memory The memory resource to use for the message deserialization.
     /// @return An execution sender which emits the async result of the operation.
     ///
     template <typename Message>
@@ -210,31 +178,33 @@ public:
     {
         using ResultMsg = Receive::Result<Message>;
 
-        return then<ResultMsg, RawReceive::Result>(rawReceive(), [&memory](auto raw_result) -> ResultMsg {
-            //
-            if (const auto* const failure = cetl::get_if<RawReceive::Failure>(&raw_result))
-            {
-                return *failure;
-            }
-            auto raw_msg = cetl::get<RawReceive::Success>(std::move(raw_result));
+        return then<ResultMsg, RawReceive::Result>(  //
+            rawReceive(),
+            [&memory](auto raw_result) -> ResultMsg {
+                //
+                if (const auto* const failure = cetl::get_if<RawReceive::Failure>(&raw_result))
+                {
+                    return *failure;
+                }
+                auto raw_msg = cetl::get<RawReceive::Success>(std::move(raw_result));
 
-            // No lint b/c of integration with Nunavut.
-            // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-            const auto* const raw_payload = reinterpret_cast<const std::uint8_t*>(raw_msg.payload.data.get());
-            Message           message{&memory};
-            const auto        deser_result = deserialize(message, {raw_payload, raw_msg.payload.size});
-            if (!deser_result)
-            {
-                // Invalid message payload.
-                return Error{Error::Code::InvalidArgument};
-            }
+                // No lint b/c of integration with Nunavut.
+                // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+                const auto* const raw_payload = reinterpret_cast<const std::uint8_t*>(raw_msg.payload.data.get());
+                Message           message{&memory};
+                const auto        deser_result = deserialize(message, {raw_payload, raw_msg.payload.size});
+                if (!deser_result)
+                {
+                    // Invalid message payload.
+                    return Error{Error::Code::InvalidArgument};
+                }
 
-            return Receive::Success<Message>{
-                std::move(message),
-                raw_msg.priority,
-                raw_msg.publisher_node_id,
-            };
-        });
+                return Receive::Success<Message>{
+                    std::move(message),
+                    raw_msg.priority,
+                    raw_msg.publisher_node_id,
+                };
+            });
     }
 
 protected:
