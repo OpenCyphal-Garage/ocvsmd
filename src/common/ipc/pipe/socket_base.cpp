@@ -68,7 +68,7 @@ sdk::OptError SocketBase::send(const IoState& io_state, io::SocketBuffer& sock_b
     {
         if (const int err = platform::posixSyscallError([payload, &io_state] {
                 //
-                return ::send(io_state.fd.get(), payload.data(), payload.size(), MSG_DONTWAIT);
+                return ::send(io_state.fd.get(), payload.data(), payload.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
             }))
         {
             logger_->error("SocketBase: Failed to send msg payload (fd={}): {}.",
